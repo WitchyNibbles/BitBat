@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from alpha.contracts import ensure_feature_contract
-from alpha.features.price import (
+from bitbat.contracts import ensure_feature_contract
+from bitbat.features.price import (
     atr,
     lagged_returns,
     macd,
@@ -17,10 +17,10 @@ from alpha.features.price import (
     rolling_std,
     rolling_z,
 )
-from alpha.features.sentiment import aggregate as aggregate_sentiment
-from alpha.labeling.returns import forward_return
-from alpha.labeling.targets import classify
-from alpha.timealign.calendar import ensure_utc
+from bitbat.features.sentiment import aggregate as aggregate_sentiment
+from bitbat.labeling.returns import forward_return
+from bitbat.labeling.targets import classify
+from bitbat.timealign.calendar import ensure_utc
 
 
 @dataclass

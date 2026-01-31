@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from alpha.dataset.build import build_xy
+from bitbat.dataset.build import build_xy
 
 
 def _make_prices(start: datetime, periods: int = 60) -> pd.DataFrame:

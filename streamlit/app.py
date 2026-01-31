@@ -19,24 +19,24 @@ SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from alpha import __version__
-from alpha.backtest.engine import run as backtest_run
-from alpha.backtest.metrics import summary as backtest_summary
-from alpha.cli import batch_realize as cli_batch_realize
-from alpha.cli import batch_run as cli_batch_run
-from alpha.cli import monitor_refresh as cli_monitor_refresh
-from alpha.config.loader import get_runtime_config_path, set_runtime_config
-from alpha.contracts import (
+from bitbat import __version__
+from bitbat.backtest.engine import run as backtest_run
+from bitbat.backtest.metrics import summary as backtest_summary
+from bitbat.cli import batch_realize as cli_batch_realize
+from bitbat.cli import batch_run as cli_batch_run
+from bitbat.cli import monitor_refresh as cli_monitor_refresh
+from bitbat.config.loader import get_runtime_config_path, set_runtime_config
+from bitbat.contracts import (
     ensure_feature_contract,
     ensure_predictions_contract,
     ensure_prices_contract,
 )
-from alpha.dataset.build import DatasetMeta, build_xy
-from alpha.dataset.splits import walk_forward
-from alpha.ingest import news_gdelt as news_module
-from alpha.ingest import prices as prices_module
-from alpha.model.evaluate import classification_metrics
-from alpha.model.train import fit_xgb
+from bitbat.dataset.build import DatasetMeta, build_xy
+from bitbat.dataset.splits import walk_forward
+from bitbat.ingest import news_gdelt as news_module
+from bitbat.ingest import prices as prices_module
+from bitbat.model.evaluate import classification_metrics
+from bitbat.model.train import fit_xgb
 
 
 @st.cache_data(show_spinner=False)

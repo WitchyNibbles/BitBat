@@ -10,7 +10,7 @@ import pytest
 if pytest.importorskip("matplotlib"):
     import matplotlib.pyplot as plt  # noqa: F401
 
-from alpha.model.evaluate import classification_metrics
+from bitbat.model.evaluate import classification_metrics
 
 
 def test_classification_metrics_outputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

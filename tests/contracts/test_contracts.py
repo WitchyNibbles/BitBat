@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from alpha.contracts import (
+from bitbat.contracts import (
     ContractError,
     ensure_feature_contract,
     ensure_predictions_contract,

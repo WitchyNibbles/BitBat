@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from alpha.dataset.splits import walk_forward
+from bitbat.dataset.splits import walk_forward
 
 
 def test_walk_forward_embargo_removes_overlap() -> None:

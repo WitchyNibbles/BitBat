@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xgboost as xgb
 
-from alpha.model.infer import predict_bar
+from bitbat.model.infer import predict_bar
 
 
 def _train_model() -> tuple[xgb.Booster, pd.DataFrame]:

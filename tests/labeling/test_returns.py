@@ -4,7 +4,7 @@ import pandas as pd
 import pandas.testing as pd_testing
 import pytest
 
-from alpha.labeling.returns import forward_return
+from bitbat.labeling.returns import forward_return
 
 
 def test_forward_return_hourly_alignment() -> None:

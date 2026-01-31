@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from alpha.backtest.engine import run
+from bitbat.backtest.engine import run
 
 
 def test_backtest_long_only() -> None:

@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-from alpha.contracts import ensure_prices_contract
-from alpha.io.fs import write_parquet
+from bitbat.contracts import ensure_prices_contract
+from bitbat.io.fs import write_parquet
 
 # Yahoo restricts intraday downloads to roughly two years per request.
 _DEFAULT_CHUNK_DAYS = 700

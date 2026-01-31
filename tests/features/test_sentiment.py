@@ -9,7 +9,7 @@ try:  # pragma: no cover - dependency guard
 except ImportError:  # pragma: no cover - optional dependency
     pytest.skip("vaderSentiment not installed", allow_module_level=True)
 
-from alpha.features.sentiment import score_vader
+from bitbat.features.sentiment import score_vader
 
 
 def test_score_vader_respects_sentiment_direction() -> None:

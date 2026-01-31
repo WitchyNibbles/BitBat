@@ -1,4 +1,4 @@
-"""Alpha command line interface."""
+"""BitBat command line interface."""
 
 from __future__ import annotations
 
@@ -13,23 +13,23 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-from alpha import __version__
-from alpha.backtest.engine import run as run_strategy
-from alpha.backtest.metrics import summary as summarize_backtest
-from alpha.config.loader import get_runtime_config, set_runtime_config
-from alpha.contracts import ensure_feature_contract, ensure_predictions_contract
-from alpha.dataset.build import _generate_price_features, build_xy
-from alpha.dataset.splits import walk_forward
-from alpha.features.sentiment import aggregate as aggregate_sentiment
-from alpha.ingest import news_gdelt as news_module
-from alpha.ingest import prices as prices_module
-from alpha.labeling.returns import forward_return
-from alpha.labeling.targets import classify
-from alpha.model.evaluate import classification_metrics
-from alpha.model.infer import predict_bar
-from alpha.model.persist import load as load_model
-from alpha.model.train import fit_xgb
-from alpha.timealign.calendar import ensure_utc
+from bitbat import __version__
+from bitbat.backtest.engine import run as run_strategy
+from bitbat.backtest.metrics import summary as summarize_backtest
+from bitbat.config.loader import get_runtime_config, set_runtime_config
+from bitbat.contracts import ensure_feature_contract, ensure_predictions_contract
+from bitbat.dataset.build import _generate_price_features, build_xy
+from bitbat.dataset.splits import walk_forward
+from bitbat.features.sentiment import aggregate as aggregate_sentiment
+from bitbat.ingest import news_gdelt as news_module
+from bitbat.ingest import prices as prices_module
+from bitbat.labeling.returns import forward_return
+from bitbat.labeling.targets import classify
+from bitbat.model.evaluate import classification_metrics
+from bitbat.model.infer import predict_bar
+from bitbat.model.persist import load as load_model
+from bitbat.model.train import fit_xgb
+from bitbat.timealign.calendar import ensure_utc
 
 
 def _config() -> dict[str, Any]:
@@ -105,12 +105,12 @@ def _model_path(freq: str, horizon: str) -> Path:
     return Path("models") / f"{freq}_{horizon}" / "xgb.json"
 
 
-@click.group(name="alpha", invoke_without_command=True)
+@click.group(name="bitbat", invoke_without_command=True)
 @click.option(
     "--config",
     type=click.Path(exists=False, dir_okay=False, file_okay=True, path_type=Path),
     default=None,
-    help="Path to configuration file (overrides ALPHA_CONFIG).",
+    help="Path to configuration file (overrides BITBAT_CONFIG).",
 )
 @click.option("--version", is_flag=True, help="Show version and exit.")
 @click.pass_context

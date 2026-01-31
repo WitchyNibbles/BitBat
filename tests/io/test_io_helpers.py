@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 import pandas.testing as pd_testing
 
-from alpha.io.duck import query
-from alpha.io.fs import read_parquet, write_parquet
+from bitbat.io.duck import query
+from bitbat.io.fs import read_parquet, write_parquet
 
 
 def test_parquet_roundtrip_preserves_schema(tmp_path: Path) -> None:

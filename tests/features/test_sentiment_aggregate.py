@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 
-from alpha.features.sentiment import aggregate
+from bitbat.features.sentiment import aggregate
 
 
 def _make_news(start: datetime) -> pd.DataFrame:

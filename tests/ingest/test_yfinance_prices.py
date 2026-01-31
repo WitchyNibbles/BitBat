@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from alpha.ingest.prices import fetch_yf
+from bitbat.ingest.prices import fetch_yf
 
 
 @pytest.mark.slow

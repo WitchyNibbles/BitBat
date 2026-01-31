@@ -12,15 +12,15 @@ import pandas as pd
 import pandas.testing as pd_testing
 import pytest
 
-from alpha.cli import main
-from alpha.io.fs import read_parquet, write_parquet
+from bitbat.cli import main
+from bitbat.io.fs import read_parquet, write_parquet
 
 
 @pytest.fixture()
 def cli_args(tmp_path: Path) -> tuple[list[str], Path]:
     output_root = tmp_path / "prices"
     argv = [
-        "alpha",
+        "bitbat",
         "prices",
         "pull",
         "--symbol",
@@ -65,7 +65,7 @@ def test_cli_prices_pull_idempotent(
         *,
         output_root: str | Path | None = None,
     ) -> pd.DataFrame:
-        from alpha.ingest import prices as prices_module
+        from bitbat.ingest import prices as prices_module
 
         calls.append(
             (
@@ -88,7 +88,7 @@ def test_cli_prices_pull_idempotent(
 
         return sample_frame.copy()
 
-    monkeypatch.setattr("alpha.ingest.prices.fetch_yf", fake_fetch_yf)
+    monkeypatch.setattr("bitbat.ingest.prices.fetch_yf", fake_fetch_yf)
 
     def dataset(path: Path) -> pd.DataFrame:
         frame = read_parquet(path)
@@ -118,7 +118,7 @@ def test_cli_prices_pull_idempotent(
 def news_cli_args(tmp_path: Path) -> tuple[list[str], Path]:
     output_root = tmp_path / "news"
     argv = [
-        "alpha",
+        "bitbat",
         "news",
         "pull",
         "--from",
@@ -143,7 +143,7 @@ def test_cli_news_pull_idempotent(
     monkeypatch: pytest.MonkeyPatch,
     news_cli_args: tuple[list[str], Path],
 ) -> None:
-    from alpha.ingest import news_gdelt as news_module
+    from bitbat.ingest import news_gdelt as news_module
 
     argv, output_root = news_cli_args
     sample_frame = pd.DataFrame(
@@ -198,7 +198,7 @@ def test_cli_news_pull_idempotent(
         write_parquet(partitions, target, partition_cols=["year", "month", "day", "hour"])
         return combined.reset_index(drop=True)
 
-    monkeypatch.setattr("alpha.ingest.news_gdelt.fetch", fake_fetch)
+    monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch)
 
     monkeypatch.setattr(sys, "argv", argv)
     main()
@@ -278,12 +278,12 @@ def test_cli_model_cv(
         (metrics_dir / "confusion_matrix.png").write_bytes(b"")
         return metrics
 
-    monkeypatch.setattr("alpha.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("alpha.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("alpha.cli.classification_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.classification_metrics", fake_metrics)
 
     argv = [
-        "alpha",
+        "bitbat",
         "model",
         "cv",
         "--freq",
@@ -372,15 +372,15 @@ def test_cli_batch_run(
         return {"timestamp": timestamp, "p_up": 0.55, "p_down": 0.25}
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("alpha.ingest.prices.fetch_yf", fake_fetch_prices)
-    monkeypatch.setattr("alpha.ingest.news_gdelt.fetch", fake_fetch_news)
-    monkeypatch.setattr("alpha.cli._generate_price_features", fake_price_features)
-    monkeypatch.setattr("alpha.cli.aggregate_sentiment", fake_sentiment)
-    monkeypatch.setattr("alpha.cli.load_model", lambda path: object())
-    monkeypatch.setattr("alpha.cli.predict_bar", fake_predict)
+    monkeypatch.setattr("bitbat.ingest.prices.fetch_yf", fake_fetch_prices)
+    monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch_news)
+    monkeypatch.setattr("bitbat.cli._generate_price_features", fake_price_features)
+    monkeypatch.setattr("bitbat.cli.aggregate_sentiment", fake_sentiment)
+    monkeypatch.setattr("bitbat.cli.load_model", lambda path: object())
+    monkeypatch.setattr("bitbat.cli.predict_bar", fake_predict)
 
     argv = [
-        "alpha",
+        "bitbat",
         "batch",
         "run",
         "--freq",
@@ -458,7 +458,7 @@ def test_cli_batch_realize(
     monkeypatch.chdir(tmp_path)
 
     argv = [
-        "alpha",
+        "bitbat",
         "batch",
         "realize",
         "--freq",
@@ -507,7 +507,7 @@ def test_cli_monitor_refresh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     monkeypatch.chdir(tmp_path)
 
     argv = [
-        "alpha",
+        "bitbat",
         "monitor",
         "refresh",
         "--freq",

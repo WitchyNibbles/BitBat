@@ -12,7 +12,7 @@ try:  # pragma: no cover - dependency guard
 except ImportError:  # pragma: no cover - optional dependency
     pytest.skip("matplotlib not installed", allow_module_level=True)
 
-from alpha.backtest.metrics import summary
+from bitbat.backtest.metrics import summary
 
 
 def test_summary_outputs_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

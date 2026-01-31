@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import xgboost as xgb
 
-from alpha.model.persist import load, save
+from bitbat.model.persist import load, save
 
 
 @pytest.mark.parametrize("seed", [0])

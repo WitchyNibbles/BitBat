@@ -13,9 +13,9 @@ try:  # pragma: no cover - dependency guard
 except ImportError:  # pragma: no cover - optional dependency
     pytest.skip("vaderSentiment not installed", allow_module_level=True)
 
-from alpha.features.sentiment import score_vader
-from alpha.ingest.news_gdelt import fetch
-from alpha.io.fs import read_parquet
+from bitbat.features.sentiment import score_vader
+from bitbat.ingest.news_gdelt import fetch
+from bitbat.io.fs import read_parquet
 
 
 class FakeResponse:

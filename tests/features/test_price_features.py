@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing as pd_testing
 
-from alpha.features.price import (
+from bitbat.features.price import (
     atr,
     lagged_returns,
     macd,

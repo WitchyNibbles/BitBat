@@ -17,8 +17,8 @@ try:
 except ImportError:  # pragma: no cover - defer import errors for optional dependency
     requests = None  # type: ignore[assignment]
 
-from alpha.contracts import ensure_news_contract
-from alpha.io.fs import read_parquet, write_parquet
+from bitbat.contracts import ensure_news_contract
+from bitbat.io.fs import read_parquet, write_parquet
 
 LOGGER = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ def _articles_to_frame(articles: list[dict[str, Any]]) -> pd.DataFrame:
     frame["title"] = frame["title"].fillna("")
     frame["source"] = frame["source"].fillna("unknown")
     frame["lang"] = frame["lang"].fillna("unknown")
-    from alpha.features.sentiment import score_vader
+    from bitbat.features.sentiment import score_vader
 
     frame["sentiment_score"] = score_vader(frame["title"])
     return frame

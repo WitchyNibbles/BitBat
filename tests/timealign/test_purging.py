@@ -4,7 +4,7 @@ import pandas as pd
 import pandas.testing as pd_testing
 import pytest
 
-from alpha.timealign.purging import mask_future
+from bitbat.timealign.purging import mask_future
 
 
 def test_mask_future_includes_boundary_and_excludes_late_news() -> None:

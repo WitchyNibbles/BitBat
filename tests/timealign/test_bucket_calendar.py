@@ -4,8 +4,8 @@ import pandas as pd
 import pandas.testing as pd_testing
 import pytest
 
-from alpha.timealign.bucket import to_bar
-from alpha.timealign.calendar import ensure_utc
+from bitbat.timealign.bucket import to_bar
+from bitbat.timealign.calendar import ensure_utc
 
 
 def test_to_bar_floors_expected_intervals() -> None:

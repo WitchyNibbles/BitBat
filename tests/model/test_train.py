@@ -11,7 +11,7 @@ try:  # pragma: no cover - dependency guard
 except ImportError:  # pragma: no cover - optional dependency
     pytest.skip("xgboost not installed", allow_module_level=True)
 
-from alpha.model.train import fit_xgb
+from bitbat.model.train import fit_xgb
 
 
 def test_fit_xgb_trains_and_saves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

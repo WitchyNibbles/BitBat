@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "BitBat - Bitcoin price direction prediction pipeline."
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-packages = [{ include = "alpha", from = "src" }]
+packages = [{ include = "bitbat", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -71,4 +71,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-bitbat = "src.alpha.cli:main"
+bitbat = "src.bitbat.cli:main"

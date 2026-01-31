@@ -4,7 +4,7 @@ import pandas as pd
 import pandas.testing as pd_testing
 import pytest
 
-from alpha.labeling.targets import classify
+from bitbat.labeling.targets import classify
 
 
 def test_classify_threshold_edges() -> None:

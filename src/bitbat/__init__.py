@@ -1,4 +1,4 @@
-"""Alpha package bootstrap."""
+"""BitBat package bootstrap."""
 
 __all__ = ["__version__"]
 
