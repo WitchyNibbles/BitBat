@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
-
 import pandas as pd
 import xgboost as xgb
 
@@ -16,7 +14,20 @@ def fit_xgb(
     class_weights: bool = True,
     seed: int = 42,
 ) -> tuple[xgb.Booster, dict[str, float]]:
-    """Train an XGBoost multi-class classifier."""
+    """Train an XGBoost multi-class classifier and persist it to disk.
+
+    Persists the trained booster to `models/{freq}_{horizon}/xgb.json` when
+    `X_train` includes the `freq` and `horizon` attributes on `.attrs`.
+
+    Args:
+        X_train: Feature matrix for training, using numeric columns.
+        y_train: Target labels aligned to `X_train`.
+        class_weights: Whether to apply inverse-frequency class weights.
+        seed: Random seed for model training.
+
+    Returns:
+        The trained booster and a gain-based importance mapping keyed by feature name.
+    """
     if not isinstance(X_train, pd.DataFrame):
         raise TypeError("X_train must be a pandas DataFrame.")
     if not isinstance(y_train, pd.Series):
@@ -67,8 +78,3 @@ def fit_xgb(
     booster.save_model(str(model_path))
 
     return booster, importance
-
-
-def train_model(training_data: Any) -> Any:  # pragma: no cover - legacy stub
-    """Train a model and return the trained artifact."""
-    raise NotImplementedError("train_model is not implemented yet.")

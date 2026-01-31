@@ -20,13 +20,23 @@ def _ensure_model(model: xgb.Booster | str | Path) -> xgb.Booster:
 
 
 def predict_bar(
-    model: xgb.Booster,
+    model: xgb.Booster | str | Path,
     features_row: pd.Series,
     timestamp: Any | None = None,
     *,
     class_order: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Predict probability of up/down move for a single bar."""
+    """Predict probability of up/down move for a single bar.
+
+    Args:
+        model: Trained XGBoost booster or a path to a saved booster.
+        features_row: Feature values for a single time step.
+        timestamp: Optional timestamp to attach to the output payload.
+        class_order: Optional explicit class ordering for probability alignment.
+
+    Returns:
+        Dictionary with timestamp and per-direction probabilities.
+    """
     booster = _ensure_model(model)
 
     required = REQUIRED_FEATURES or booster.feature_names
@@ -51,8 +61,3 @@ def predict_bar(
         "p_up": float(mapping.get("up", 0.0)),
         "p_down": float(mapping.get("down", 0.0)),
     }
-
-
-def run_inference(model: Any, features: Any) -> Any:  # pragma: no cover - stub
-    """Run inference using the provided model and features."""
-    raise NotImplementedError("run_inference is not implemented yet.")

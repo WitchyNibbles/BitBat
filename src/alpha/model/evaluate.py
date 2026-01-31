@@ -25,7 +25,21 @@ def classification_metrics(
     threshold: float = 0.6,
     class_labels: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Compute classification metrics from probabilities."""
+    """Compute classification metrics from class probabilities.
+
+    Writes `metrics/classification_metrics.json` and
+    `metrics/confusion_matrix.png` as side effects.
+
+    Args:
+        y_true: Ground-truth labels for each sample.
+        proba: Array of predicted class probabilities.
+        threshold: Minimum confidence required to accept a prediction.
+        class_labels: Optional explicit class ordering to align `proba`.
+
+    Returns:
+        Mapping of balanced accuracy, MCC, per-class metrics, PR curves, and
+        additional diagnostics.
+    """
     if proba.ndim != 2:
         raise ValueError(
             "Probability array must be 2-dimensional with shape (n_samples, n_classes)."
@@ -147,8 +161,3 @@ def classification_metrics(
     plt.close(fig)
 
     return metrics
-
-
-def evaluate_model(model: Any, validation_data: Any) -> dict[str, Any]:  # pragma: no cover - stub
-    """Evaluate a trained model and return a metrics mapping."""
-    raise NotImplementedError("evaluate_model is not implemented yet.")
