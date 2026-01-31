@@ -551,15 +551,38 @@ def batch_run(
     bar_df = prices.reset_index()[["timestamp_utc"]]
     sentiment_features = aggregate_sentiment(news_df=news, bar_df=bar_df, freq=freq_val)
     features = price_features.join(sentiment_features, how="left").dropna()
+    rename_mapping = {
+        column: column if column.startswith("feat_") else f"feat_{column}"
+        for column in features.columns
+    }
+    features = features.rename(columns=rename_mapping)
     if features.empty:
         raise click.ClickException("No features available for batch inference.")
-
-    latest_ts = features.index.max()
-    feature_row = features.loc[latest_ts]
 
     model_path = _model_path(freq_val, horizon_val)
     _ensure_path_exists(model_path, "Model artifact")
     booster = load_model(model_path)
+
+    features_with_ts = features.copy()
+    features_with_ts["timestamp_utc"] = features_with_ts.index
+    features_validated = ensure_feature_contract(
+        features_with_ts,
+        require_label=False,
+        require_forward_return=False,
+    )
+
+    expected_features = list(booster.feature_names or [])
+    if not expected_features:
+        raise click.ClickException(
+            "Model artifact missing feature names; cannot align batch features."
+        )
+    missing = sorted(set(expected_features) - set(features_validated.columns))
+    if missing:
+        raise click.ClickException(f"Batch features missing expected columns: {missing}")
+
+    aligned_features = features_validated[expected_features]
+    latest_ts = aligned_features.index.max()
+    feature_row = aligned_features.loc[latest_ts]
     prediction = predict_bar(booster, feature_row, timestamp=latest_ts)
 
     timestamp_value = prediction.get("timestamp", latest_ts)

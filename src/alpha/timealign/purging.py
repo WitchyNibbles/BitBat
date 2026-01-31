@@ -2,26 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Protocol
-
 import pandas as pd
 
 
-class LabeledRecord(Protocol):
-    """Protocol describing the minimum interface for purging."""
-
-    start: int
-    end: int
-
-
-def purge_overlaps(records: Iterable[LabeledRecord]) -> list[LabeledRecord]:
-    """Remove overlapping records to prevent leakage."""
-    raise NotImplementedError("purge_overlaps is not implemented yet.")
-
-
 def mask_future(news_ts: pd.Series, bar_end_ts: pd.Series) -> pd.Series:
-    """Return a boolean mask retaining rows with timestamps <= corresponding bar end."""
+    """Return a mask that excludes rows with timestamps after their bar end.
+
+    Leakage guarantee: only rows with news timestamps at or before the bar end
+    are retained, preventing future information from leaking into the bar.
+    """
     if not isinstance(news_ts, pd.Series) or not isinstance(bar_end_ts, pd.Series):
         raise TypeError("Both `news_ts` and `bar_end_ts` must be pandas Series.")
 

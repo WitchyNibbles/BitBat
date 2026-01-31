@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from datetime import date
-
 import pandas as pd
 
 
-def build_trading_days(
-    start: date,
-    end: date,
-    holidays: Iterable[date] | None = None,
-) -> Sequence[date]:
-    """Build a sequence of trading days between start and end."""
-    raise NotImplementedError("build_trading_days is not implemented yet.")
-
-
 def ensure_utc(df: pd.DataFrame, column: str) -> pd.DataFrame:
-    """Ensure a DataFrame column is UTC-normalised and tz-naive."""
+    """Return a copy with `column` coerced to UTC and tz-naive to avoid leakage.
+
+    Leakage guarantee: timestamps are normalised to a single UTC frame and made
+    tz-naive, so downstream alignment uses consistent absolute times and avoids
+    lookahead caused by mixed or ambiguous timezone assumptions.
+    """
     if column not in df.columns:
         raise KeyError(f"Column '{column}' not found in DataFrame.")
 
