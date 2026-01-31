@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("default.yaml")
-ENV_CONFIG = "ALPHA_CONFIG"
+ENV_CONFIG = "BITBAT_CONFIG"
 
 _ACTIVE_CONFIG: dict[str, Any] | None = None
 _ACTIVE_PATH: Path | None = None

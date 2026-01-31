@@ -58,7 +58,7 @@ data/         local data artifacts (generated)
 docs/         full project documentation
 models/       trained model checkpoints
 predictions/  validated prediction outputs
-src/alpha/    core pipeline code & CLI
+src/bitbat/    core pipeline code & CLI
 tests/        pytest guardrails against leakage & regression
 ```
 
@@ -71,7 +71,7 @@ Start with [docs/README.md](docs/README.md) for the complete system overview and
 
 ```ssh
 poetry install
-poetry run alpha --help
+poetry run bitbat --help
 ```
 
 From there, the documentation walks through:
@@ -98,7 +98,7 @@ make streamlit
 
 The UI mirrors the CLI workflows (ingest → features → model → predictions → monitor/backtest)
 and uses the same config values: `data_dir`, `freq`, `horizon`, and `tau`
-from `src/alpha/config/default.yaml` (or `ALPHA_CONFIG` overrides).
+from `src/bitbat/config/default.yaml` (or `BITBAT_CONFIG` overrides).
 
 Outputs land in the same locations as the CLI:
 - `${data_dir}/raw/` for ingested data

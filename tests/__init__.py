@@ -1,1 +1,1 @@
-"""Test suite for alpha."""
+"""Test suite for bitbat."""
