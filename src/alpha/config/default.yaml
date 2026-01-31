@@ -7,6 +7,7 @@ cost_bps: 4
 tau: 0.0015
 price_source: "yfinance"
 news_source: "gdelt"
-news_throttle_seconds: 6.0
-news_retry_limit: 20
+enable_sentiment: true
+news_throttle_seconds: 10.0
+news_retry_limit: 30
 seed: 42

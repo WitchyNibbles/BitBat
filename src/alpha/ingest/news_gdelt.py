@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 GDELT_ENDPOINT = "https://api.gdeltproject.org/api/v2/doc/doc"
 KEYWORDS = "(bitcoin OR btc OR crypto OR cryptocurrency)"
 RESULT_COLUMNS = ["published_utc", "title", "url", "source", "lang", "sentiment_score"]
-WINDOW = timedelta(hours=1)
+WINDOW = timedelta(days=1)
 
 
 class GdeltError(RuntimeError):
@@ -76,8 +76,9 @@ def _fetch_chunk(
     end: datetime,
     *,
     retries: int,
-    backoff_base: float,
+    throttle_seconds: float,
 ) -> list[dict[str, Any]]:
+    backoff_base = max(5.0, throttle_seconds)
     payload = {
         "query": KEYWORDS,
         "mode": "artlist",
@@ -194,6 +195,8 @@ def fetch(
 
     start = _ensure_utc(from_dt)
     end = _ensure_utc(to_dt)
+    if end - start > timedelta(days=30):
+        raise ValueError("Use incremental for realtime; max 30d historical")
 
     created_session = False
     if session is not None:
@@ -213,7 +216,7 @@ def fetch(
                 window_start,
                 window_end,
                 retries=retry_limit,
-                backoff_base=max(throttle_seconds, 1.0),
+                throttle_seconds=throttle_seconds,
             )
         except GdeltError as exc:
             LOGGER.warning("Chunk fetch failed for %s-%s: %s", window_start, window_end, exc)

@@ -18,6 +18,24 @@ This guide outlines typical workflows using the `alpha` CLI. All commands are im
 - Default config is `src/alpha/config/default.yaml` (`data_dir`, `freq`, `horizon`, `tau`, etc.).
 - Override via `--config path/to/config.yaml` or the `ALPHA_CONFIG` environment variable.
 
+## Streamlit UI
+
+The Streamlit app provides the same workflow coverage as the CLI (ingest → features → model → predictions → monitor/backtest) and reads the same configuration values: `data_dir`, `freq`, `horizon`, and `tau`.
+
+Run it with:
+```bash
+poetry run streamlit run streamlit/app.py
+# or
+make streamlit
+```
+
+Outputs are written to the same locations as the CLI:
+- `${data_dir}/raw/` for ingested data
+- `${data_dir}/features/{freq}_{horizon}/` for datasets + metadata
+- `models/{freq}_{horizon}/` for trained models
+- `${data_dir}/predictions/{freq}_{horizon}.parquet` for predictions
+- `metrics/live_{freq}_{horizon}.json` for monitoring snapshots
+
 ## Data Ingestion
 
 ### Prices
@@ -31,6 +49,11 @@ poetry run alpha prices pull --symbol BTC-USD --interval 1h --start 2017-01-01
 poetry run alpha news pull --from 2024-01-01T00:00:00 --to 2024-01-02T00:00:00
 ```
 - Writes GDELT-derived parquet under `${data_dir}/raw/news/gdelt_1h/`.
+
+#### GDELT limits & price-only workflow
+- GDELT ingestion is historical-only and capped at 30 days per pull (use incremental ranges). Default throttling/retry values are `news_throttle_seconds: 10.0` and `news_retry_limit: 30` from `src/alpha/config/default.yaml`.
+- Recommended realtime approach is price-only: disable sentiment **before** running `alpha features build`, `alpha model train`, and downstream steps by setting `enable_sentiment: false` in `src/alpha/config/default.yaml` or unchecking the Streamlit "Enable sentiment features" checkbox.
+- The CLI reads `enable_sentiment` from config for `alpha features build`, `alpha batch run`, and `alpha model infer` (feature contract expectations follow the same toggle). The Streamlit ingest page is for historical GDELT pulls only.
 
 ## Feature Engineering
 ```bash

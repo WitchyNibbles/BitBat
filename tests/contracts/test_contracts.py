@@ -34,8 +34,30 @@ def test_feature_contract_happy_path() -> None:
         }
     )
 
-    validated = ensure_feature_contract(frame, require_label=True, require_forward_return=True)
+    validated = ensure_feature_contract(
+        frame,
+        require_label=True,
+        require_forward_return=True,
+        require_features_full=False,
+    )
     assert list(validated.columns) == ["timestamp_utc", "feat_a", "label", "r_forward"]
+
+
+def test_feature_contract_full_requires_sentiment() -> None:
+    frame = pd.DataFrame(
+        {
+            "timestamp_utc": pd.date_range("2024-01-01", periods=1, freq="1h"),
+            "feat_price": [0.1],
+        }
+    )
+
+    with pytest.raises(ContractError):
+        ensure_feature_contract(
+            frame,
+            require_label=False,
+            require_forward_return=False,
+            require_features_full=True,
+        )
 
 
 def test_predictions_contract_normalises_types() -> None:

@@ -75,6 +75,41 @@ def _load_config() -> tuple[dict[str, Any], Path | None, str | None]:
         return {}, None, str(exc)
 
 
+def _init_global_overrides(config: dict[str, Any]) -> None:
+    freq_default = str(config.get("freq", "1h"))
+    horizon_default = str(config.get("horizon", "4h"))
+    tau_default = float(config.get("tau", 0.0015))
+    tau_default = min(max(tau_default, 0.0), 0.02)
+
+    if "override_freq" not in st.session_state:
+        st.session_state["override_freq"] = freq_default
+    if "override_horizon" not in st.session_state:
+        st.session_state["override_horizon"] = horizon_default
+    if "override_tau" not in st.session_state:
+        st.session_state["override_tau"] = tau_default
+
+
+def _apply_global_overrides(config: dict[str, Any]) -> dict[str, Any]:
+    overridden = dict(config)
+    freq_value = st.session_state.get("override_freq")
+    horizon_value = st.session_state.get("override_horizon")
+    tau_value = st.session_state.get("override_tau")
+
+    freq = str(freq_value).strip() if freq_value is not None else ""
+    horizon = str(horizon_value).strip() if horizon_value is not None else ""
+    if not freq:
+        freq = str(config.get("freq", "1h"))
+    if not horizon:
+        horizon = str(config.get("horizon", "4h"))
+    if tau_value is None:
+        tau_value = config.get("tau", 0.0015)
+
+    overridden["freq"] = freq
+    overridden["horizon"] = horizon
+    overridden["tau"] = float(tau_value)
+    return overridden
+
+
 def _resolve_date_range(
     start_date: date,
     end_date: date,
@@ -132,12 +167,22 @@ def _load_timestamp_bounds(path: str) -> tuple[datetime | None, datetime | None,
 
 
 @st.cache_data(show_spinner=False)
-def _load_feature_dataset(path: str, *, require_label: bool) -> pd.DataFrame:
+def _load_feature_dataset(
+    path: str,
+    *,
+    require_label: bool,
+    require_features_full: bool,
+) -> pd.DataFrame:
     dataset = pd.read_parquet(path)
+    if require_features_full and not any(
+        col.startswith("feat_sent_") for col in dataset.columns
+    ):
+        require_features_full = False
     dataset = ensure_feature_contract(
         dataset,
         require_label=require_label,
         require_forward_return=require_label,
+        require_features_full=require_features_full,
     )
     return dataset.sort_values("timestamp_utc").set_index("timestamp_utc")
 
@@ -229,12 +274,13 @@ def _render_confusion_matrix(confusion: pd.DataFrame) -> None:
 @st.cache_data(show_spinner=False)
 def _build_features_cached(
     prices_path: str,
-    news_path: str,
+    news_path: str | None,
     freq: str,
     horizon: str,
     tau: float,
     start: str,
     end: str,
+    enable_sentiment: bool,
     output_root: str,
     seed: int,
     version: str,
@@ -249,6 +295,7 @@ def _build_features_cached(
         tau=tau,
         start=start,
         end=end,
+        enable_sentiment=enable_sentiment,
         output_root=output_root,
         seed=seed,
         version=version,
@@ -303,10 +350,15 @@ def _run_cv_cached(
     seed: int,
     freq: str,
     horizon: str,
+    require_features_full: bool,
     cache_bust: str,
 ) -> dict[str, Any]:
     _ = cache_bust
-    dataset = _load_feature_dataset(dataset_path, require_label=True)
+    dataset = _load_feature_dataset(
+        dataset_path,
+        require_label=True,
+        require_features_full=require_features_full,
+    )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
     y = dataset["label"]
@@ -361,10 +413,15 @@ def _run_train_cached(
     seed: int,
     freq: str,
     horizon: str,
+    require_features_full: bool,
     cache_bust: str,
 ) -> tuple[dict[str, Any], dict[str, float]]:
     _ = cache_bust
-    dataset = _load_feature_dataset(dataset_path, require_label=True)
+    dataset = _load_feature_dataset(
+        dataset_path,
+        require_label=True,
+        require_features_full=require_features_full,
+    )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
     y = dataset["label"]
@@ -477,7 +534,7 @@ def _ingest_data(config: dict[str, Any]) -> None:
     data_dir = Path(config.get("data_dir", "data")).expanduser()
     freq = str(config.get("freq", "1h"))
 
-    st.caption(f"Data dir: {data_dir} | default freq: {freq}")
+    st.caption(f"Data dir: {data_dir} | using freq: {freq}")
 
     today = date.today()
     default_start = today - timedelta(days=30)
@@ -509,8 +566,8 @@ def _ingest_data(config: dict[str, Any]) -> None:
 
     prices_root = data_dir / "raw" / "prices"
     news_root = data_dir / "raw" / "news" / "gdelt_1h"
-    throttle_seconds = float(config.get("news_throttle_seconds", 0.0))
-    retry_limit = int(config.get("news_retry_limit", 3))
+    throttle_seconds = float(config.get("news_throttle_seconds", 10.0))
+    retry_limit = int(config.get("news_retry_limit", 30))
 
     if "prices_preview" not in st.session_state:
         st.session_state["prices_preview"] = None
@@ -566,6 +623,7 @@ def _ingest_data(config: dict[str, Any]) -> None:
 
     with news_col:
         st.subheader("News (GDELT)")
+        st.caption("Use for historical; realtime separate.")
         news_target = news_module._target_path(news_root)
         st.caption(f"Output: {news_target}")
         st.caption(f"Throttle: {throttle_seconds:.1f}s | Retries: {retry_limit}")
@@ -662,10 +720,18 @@ def _build_features_page(config: dict[str, Any]) -> None:
         format="%.4f",
     )
 
+    enable_sentiment_default = bool(config.get("enable_sentiment", True))
+    enable_sentiment = st.checkbox(
+        "Enable sentiment",
+        value=enable_sentiment_default,
+        key="features_enable_sentiment",
+        help="Disable for price-only.",
+    )
+
     errors: list[str] = []
     if not prices_path.exists():
         errors.append("Prices parquet not found; run ingest first.")
-    if not news_path.exists():
+    if enable_sentiment and not news_path.exists():
         errors.append("News parquet not found; run ingest first.")
     if end_date < start_date:
         errors.append("End date must be on or after the start date.")
@@ -679,6 +745,8 @@ def _build_features_page(config: dict[str, Any]) -> None:
 
     for message in errors:
         st.error(message)
+
+    news_arg = str(news_path) if enable_sentiment else None
 
     force_rebuild = st.checkbox("Force rebuild (ignore cache)", value=False)
     cache_bust = datetime.utcnow().isoformat() if force_rebuild else "stable"
@@ -702,12 +770,13 @@ def _build_features_page(config: dict[str, Any]) -> None:
             try:
                 X, y, meta = _build_features_cached(
                     str(prices_path),
-                    str(news_path),
+                    news_arg,
                     freq,
                     horizon,
                     tau,
                     start_dt.isoformat(),
                     end_dt.isoformat(),
+                    enable_sentiment,
                     str(data_dir),
                     seed,
                     __version__,
@@ -731,7 +800,11 @@ def _build_features_page(config: dict[str, Any]) -> None:
     if load_existing and dataset_path.exists():
         with st.spinner("Loading feature dataset..."):
             try:
-                dataset = _load_feature_dataset(str(dataset_path), require_label=True)
+                dataset = _load_feature_dataset(
+                    str(dataset_path),
+                    require_label=True,
+                    require_features_full=enable_sentiment,
+                )
             except Exception as exc:  # pragma: no cover - UI display
                 st.error(f"Failed to load dataset: {exc}")
             else:
@@ -818,6 +891,12 @@ def _train_model_page(config: dict[str, Any]) -> None:
     horizon = str(config.get("horizon", "4h"))
     seed = int(config.get("seed", 42))
     threshold_default = float(config.get("enter_threshold", 0.6))
+    enable_sentiment = bool(
+        st.session_state.get(
+            "features_enable_sentiment",
+            config.get("enable_sentiment", True),
+        )
+    )
 
     dataset_path = data_dir / "features" / f"{freq}_{horizon}" / "dataset.parquet"
     st.caption(f"Dataset: {dataset_path}")
@@ -826,7 +905,15 @@ def _train_model_page(config: dict[str, Any]) -> None:
         st.error("Feature dataset not found. Build features first.")
         return
 
-    dataset = _load_feature_dataset(str(dataset_path), require_label=True)
+    dataset = _load_feature_dataset(
+        str(dataset_path),
+        require_label=True,
+        require_features_full=enable_sentiment,
+    )
+    if enable_sentiment and not any(
+        col.startswith("feat_sent_") for col in dataset.columns
+    ):
+        enable_sentiment = False
     if dataset.empty:
         st.error("Feature dataset is empty. Rebuild features with a wider date range.")
         return
@@ -879,6 +966,7 @@ def _train_model_page(config: dict[str, Any]) -> None:
                     seed,
                     freq,
                     horizon,
+                    enable_sentiment,
                     cv_cache_bust,
                 )
             except Exception as exc:  # pragma: no cover - UI display
@@ -932,6 +1020,7 @@ def _train_model_page(config: dict[str, Any]) -> None:
                     seed,
                     freq,
                     horizon,
+                    enable_sentiment,
                     train_cache_bust,
                 )
             except Exception as exc:  # pragma: no cover - UI display
@@ -967,11 +1056,12 @@ def _predictions_page(config: dict[str, Any]) -> None:
     freq = str(config.get("freq", "1h"))
     horizon = str(config.get("horizon", "4h"))
     threshold = float(config.get("enter_threshold", 0.6))
+    tau = float(config.get("tau", 0.0015))
 
     predictions_path = data_dir / "predictions" / f"{freq}_{horizon}.parquet"
 
     st.caption(f"Predictions: {predictions_path}")
-    st.caption(f"Using confidence threshold: {threshold:.2f}")
+    st.caption(f"Using confidence threshold: {threshold:.2f} | tau: {tau:.4f}")
 
     if "predictions_cache_bust" not in st.session_state:
         st.session_state["predictions_cache_bust"] = "stable"
@@ -1004,7 +1094,7 @@ def _predictions_page(config: dict[str, Any]) -> None:
     if run_realize:
         with st.spinner("Realizing predictions..."):
             try:
-                cli_batch_realize.callback(freq=freq, horizon=horizon, tau=None)
+                cli_batch_realize.callback(freq=freq, horizon=horizon, tau=tau)
             except Exception as exc:  # pragma: no cover - UI display
                 st.error(f"Realize failed: {exc}")
             else:
@@ -1421,24 +1511,64 @@ def main() -> None:
         )
         if error:
             st.error(error)
+        else:
+            _init_global_overrides(config)
+            st.divider()
+            st.subheader("Global overrides")
+
+            freq_current = str(st.session_state["override_freq"])
+            freq_options = [freq_current]
+            for option in ["15m", "30m", "1h", "2h", "4h", "1d"]:
+                if option not in freq_options:
+                    freq_options.append(option)
+            st.selectbox(
+                "Frequency (freq)",
+                options=freq_options,
+                index=freq_options.index(freq_current),
+                key="override_freq",
+                help="Used for data paths and batch operations.",
+            )
+            st.text_input(
+                "Horizon",
+                value=str(st.session_state["override_horizon"]),
+                key="override_horizon",
+                help="Prediction horizon (for example: 4h, 1d).",
+            )
+            tau_current = float(st.session_state.get("override_tau", 0.0015))
+            tau_current = min(max(tau_current, 0.0), 0.02)
+            if tau_current != st.session_state.get("override_tau"):
+                st.session_state["override_tau"] = tau_current
+            st.slider(
+                "Label threshold (tau)",
+                min_value=0.0,
+                max_value=0.02,
+                value=tau_current,
+                step=0.0005,
+                format="%.4f",
+                key="override_tau",
+                help="Used for feature labels and realization.",
+            )
+            st.caption("Overrides replace config defaults across all pages.")
 
     if error:
         st.stop()
 
+    effective_config = _apply_global_overrides(config)
+
     if selection == "Dashboard":
-        _dashboard(config)
+        _dashboard(effective_config)
     elif selection == "Ingest Data":
-        _ingest_data(config)
+        _ingest_data(effective_config)
     elif selection == "Features":
-        _build_features_page(config)
+        _build_features_page(effective_config)
     elif selection == "Model":
-        _train_model_page(config)
+        _train_model_page(effective_config)
     elif selection == "Predictions":
-        _predictions_page(config)
+        _predictions_page(effective_config)
     elif selection == "Monitor":
-        _monitor_page(config)
+        _monitor_page(effective_config)
     elif selection == "Backtest":
-        _backtest_page(config)
+        _backtest_page(effective_config)
 
 
 if __name__ == "__main__":

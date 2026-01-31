@@ -64,11 +64,24 @@ def ensure_news_contract(frame: pd.DataFrame) -> pd.DataFrame:
     return validated[expected]
 
 
+def _expected_sentiment_features(
+    windows: tuple[str, ...] = ("1h", "4h", "24h"),
+    suffixes: tuple[str, ...] = ("mean", "median", "pos", "neg", "neu", "count", "decay"),
+) -> set[str]:
+    expected: set[str] = set()
+    for window in windows:
+        prefix = f"feat_sent_{window}".replace("h", "h_")
+        for suffix in suffixes:
+            expected.add(f"{prefix}{suffix}")
+    return expected
+
+
 def ensure_feature_contract(
     frame: pd.DataFrame,
     *,
     require_label: bool,
     require_forward_return: bool,
+    require_features_full: bool = False,
 ) -> pd.DataFrame:
     """Validate and normalize the feature parquet contract."""
     if "timestamp_utc" not in frame.columns:
@@ -84,6 +97,15 @@ def ensure_feature_contract(
     for col in feature_cols:
         if not is_numeric_dtype(validated[col]):
             validated[col] = pd.to_numeric(validated[col], errors="raise")
+
+    if require_features_full:
+        expected_sentiment = _expected_sentiment_features()
+        missing_sentiment = sorted(expected_sentiment - set(feature_cols))
+        if missing_sentiment:
+            raise ContractError(
+                "Feature frame missing sentiment columns: "
+                + ", ".join(missing_sentiment)
+            )
 
     ordered = ["timestamp_utc", *feature_cols]
 

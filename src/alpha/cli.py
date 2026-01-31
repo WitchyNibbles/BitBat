@@ -36,6 +36,10 @@ def _config() -> dict[str, Any]:
     return get_runtime_config()
 
 
+def _sentiment_enabled() -> bool:
+    return bool(_config().get("enable_sentiment", True))
+
+
 def _data_path(*parts: str | Path) -> Path:
     base = Path(_config()["data_dir"]).expanduser()
     return base.joinpath(*parts)
@@ -72,6 +76,7 @@ def _load_feature_dataset(freq: str, horizon: str, *, require_label: bool) -> pd
         dataset,
         require_label=require_label,
         require_forward_return=require_label,
+        require_features_full=_sentiment_enabled(),
     )
     return dataset.sort_values("timestamp_utc").set_index("timestamp_utc")
 
@@ -195,8 +200,8 @@ def news_pull(from_dt: str, to_dt: str, output: Path | None) -> None:
     end = _parse_datetime(to_dt, "--to")
     out_root = output.expanduser() if output else _data_path("raw", "news", "gdelt_1h")
 
-    throttle_seconds = float(_config().get("news_throttle_seconds", 0.0))
-    retry_limit = int(_config().get("news_retry_limit", 3))
+    throttle_seconds = float(_config().get("news_throttle_seconds", 10.0))
+    retry_limit = int(_config().get("news_retry_limit", 30))
     frame = news_module.fetch(
         start,
         end,
@@ -226,11 +231,14 @@ def features_build(
     freq = _resolve_setting(None, "freq")
     horizon = _resolve_setting(None, "horizon")
     tau_val = tau if tau is not None else float(_config()["tau"])
+    enable_sentiment = _sentiment_enabled()
 
     prices_path = _data_path("raw", "prices", f"btcusd_yf_{freq}.parquet")
-    news_path = _data_path("raw", "news", "gdelt_1h", "gdelt_crypto_1h.parquet")
     _ensure_path_exists(prices_path, "Prices parquet")
-    _ensure_path_exists(news_path, "News parquet")
+    news_path = None
+    if enable_sentiment:
+        news_path = _data_path("raw", "news", "gdelt_1h", "gdelt_crypto_1h.parquet")
+        _ensure_path_exists(news_path, "News parquet")
 
     if start is None or end is None:
         sample = pd.read_parquet(prices_path, columns=["timestamp_utc"])
@@ -249,6 +257,7 @@ def features_build(
         tau=tau_val,
         start=default_start,
         end=default_end,
+        enable_sentiment=enable_sentiment,
         output_root=Path(_config()["data_dir"]).expanduser(),
         seed=int(_config().get("seed", 0)),
         version=__version__,
@@ -415,6 +424,7 @@ def model_infer(
         feature_frame,
         require_label=False,
         require_forward_return=False,
+        require_features_full=_sentiment_enabled(),
     ).sort_values("timestamp_utc").set_index("timestamp_utc")
     feature_cols = [col for col in feature_frame.columns if col.startswith("feat_")]
 
@@ -546,12 +556,21 @@ def batch_run(
     horizon_val = _resolve_setting(horizon, "horizon")
 
     prices = _load_prices_indexed(freq_val)
-    news = _load_news()
+    enable_sentiment = _sentiment_enabled()
 
     price_features = _generate_price_features(prices)
-    bar_df = prices.reset_index()[["timestamp_utc"]]
-    sentiment_features = aggregate_sentiment(news_df=news, bar_df=bar_df, freq=freq_val)
-    features = price_features.join(sentiment_features, how="left").dropna()
+    if enable_sentiment:
+        news = _load_news()
+        bar_df = prices.reset_index()[["timestamp_utc"]]
+        sentiment_features = aggregate_sentiment(
+            news_df=news,
+            bar_df=bar_df,
+            freq=freq_val,
+        )
+        features = price_features.join(sentiment_features, how="left")
+    else:
+        features = price_features.copy()
+    features = features.dropna()
     rename_mapping = {
         column: column if column.startswith("feat_") else f"feat_{column}"
         for column in features.columns
@@ -570,6 +589,7 @@ def batch_run(
         features_with_ts,
         require_label=False,
         require_forward_return=False,
+        require_features_full=enable_sentiment,
     )
 
     expected_features = list(booster.feature_names or [])

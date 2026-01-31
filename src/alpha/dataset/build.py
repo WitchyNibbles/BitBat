@@ -57,38 +57,43 @@ def _generate_price_features(prices: pd.DataFrame) -> pd.DataFrame:
 
 def build_xy(
     prices_parquet: str | Path,
-    news_parquet: str | Path,
+    news_parquet: str | Path | None,
     freq: str,
     horizon: str,
     tau: float,
     start: str,
     end: str,
     *,
+    enable_sentiment: bool = True,
     output_root: str | Path | None = None,
     seed: int | None = None,
     version: str | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, DatasetMeta]:
     """Build the primary dataset (features + labels) used for model training.
 
-    This is the main dataset builder in the pipeline. It assembles price and
-    sentiment features, aligns labels, enforces the feature contract, and
-    writes the resulting dataset + metadata to disk.
+    This is the main dataset builder in the pipeline. It assembles price
+    features (and optional sentiment features), aligns labels, enforces the
+    feature contract, and writes the resulting dataset + metadata to disk.
     """
     prices = _load_parquet(prices_parquet)
-    news = _load_parquet(news_parquet)
 
     prices = ensure_utc(prices, "timestamp_utc").set_index("timestamp_utc").sort_index()
-    news = ensure_utc(news, "published_utc").sort_values("published_utc")
 
     price_features = _generate_price_features(prices)
 
-    sentiment_features = aggregate_sentiment(
-        news_df=news,
-        bar_df=prices.reset_index()[["timestamp_utc"]],
-        freq=freq,
-    )
-
-    features = price_features.join(sentiment_features, how="left")
+    if enable_sentiment:
+        if news_parquet is None:
+            raise ValueError("news_parquet is required when enable_sentiment=True")
+        news = _load_parquet(news_parquet)
+        news = ensure_utc(news, "published_utc").sort_values("published_utc")
+        sentiment_features = aggregate_sentiment(
+            news_df=news,
+            bar_df=prices.reset_index()[["timestamp_utc"]],
+            freq=freq,
+        )
+        features = price_features.join(sentiment_features, how="left")
+    else:
+        features = price_features.copy()
     features = features.dropna()
 
     rename_mapping = {
@@ -118,7 +123,12 @@ def build_xy(
     dataset["label"] = labels.astype("string")
     dataset["r_forward"] = y_returns.astype("float64")
     dataset = dataset.reset_index(drop=True)
-    dataset = ensure_feature_contract(dataset, require_label=True, require_forward_return=True)
+    dataset = ensure_feature_contract(
+        dataset,
+        require_label=True,
+        require_forward_return=True,
+        require_features_full=enable_sentiment,
+    )
     dataset = dataset.sort_values("timestamp_utc")
 
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]

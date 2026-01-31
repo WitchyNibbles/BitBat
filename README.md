@@ -85,6 +85,30 @@ Step by step. No guesswork.
 
 ---
 
+## 🧭 Streamlit UI
+
+**Prerequisites:** `poetry install` (Streamlit ships with the core dependencies).
+
+Run the web UI:
+```bash
+poetry run streamlit run streamlit/app.py
+# or
+make streamlit
+```
+
+The UI mirrors the CLI workflows (ingest → features → model → predictions → monitor/backtest)
+and uses the same config values: `data_dir`, `freq`, `horizon`, and `tau`
+from `src/alpha/config/default.yaml` (or `ALPHA_CONFIG` overrides).
+
+Outputs land in the same locations as the CLI:
+- `${data_dir}/raw/` for ingested data
+- `${data_dir}/features/{freq}_{horizon}/` for datasets + metadata
+- `models/{freq}_{horizon}/` for trained models
+- `${data_dir}/predictions/{freq}_{horizon}.parquet` for predictions
+- `metrics/live_{freq}_{horizon}.json` for monitoring snapshots
+
+---
+
 ## 🕯️ design principles
 
 - contracts over vibes
