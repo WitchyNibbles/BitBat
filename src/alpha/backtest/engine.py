@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import pandas as pd
 
@@ -17,7 +15,26 @@ def run(
     allow_short: bool = False,
     cost_bps: float = 4.0,
 ) -> tuple[pd.DataFrame, pd.Series]:
-    """Run a simple probability threshold strategy."""
+    """Run a probability-threshold backtest and return trades plus equity.
+
+    The strategy enters long when ``proba_up`` exceeds ``enter`` and, if
+    ``allow_short`` is enabled, enters short when ``proba_down`` exceeds the
+    same threshold. Otherwise it holds the previous position. Transaction costs
+    are applied on position changes in basis points (round-trip).
+
+    Args:
+        prices: Close prices indexed by timestamp.
+        proba_up: Probability of an upward move, aligned to ``prices``.
+        proba_down: Probability of a downward move, aligned to ``prices``.
+        enter: Entry threshold for probabilities.
+        allow_short: Whether short positions are allowed.
+        cost_bps: Round-trip transaction cost in basis points.
+
+    Returns:
+        A tuple of ``(trades, equity_curve)`` where ``trades`` contains the
+        close price, position, returns, and PnL series, and ``equity_curve`` is
+        the cumulative equity starting at 1.0.
+    """
     close = pd.Series(prices, dtype="float64")
     up = pd.Series(proba_up, index=close.index, dtype="float64")
     down = pd.Series(proba_down, index=close.index, dtype="float64")
@@ -52,8 +69,3 @@ def run(
     equity_curve.name = "equity"
 
     return trades, equity_curve
-
-
-def run_backtest(strategy: Any, data: Any) -> Any:  # pragma: no cover - legacy stub
-    """Execute a backtest for the provided strategy."""
-    raise NotImplementedError("run_backtest is not implemented yet.")

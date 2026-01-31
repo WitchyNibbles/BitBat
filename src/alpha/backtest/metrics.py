@@ -4,15 +4,27 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 
 def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict[str, float]:
-    """Compute summary metrics and persist artifacts."""
+    """Compute backtest metrics and persist summary artifacts.
+
+    This function writes JSON metrics, an equity curve plot, and (optionally)
+    trade details into a ``metrics/`` directory under the current working
+    directory.
+
+    Args:
+        equity_curve: Equity curve indexed by timestamp.
+        trades: Optional trades DataFrame with a ``position`` column for
+            turnover calculation and CSV export.
+
+    Returns:
+        Dictionary containing sharpe ratio, max drawdown, hit rate, average
+        return, and turnover.
+    """
     returns = equity_curve.pct_change().fillna(0.0)
     sharpe = np.sqrt(252) * returns.mean() / returns.std() if returns.std() != 0 else 0.0
     drawdown = equity_curve / equity_curve.cummax() - 1
@@ -53,8 +65,3 @@ def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict
         trades.to_csv(metrics_dir / "trades.csv", index=True)
 
     return metrics
-
-
-def compute_metrics(results: Any) -> dict[str, float]:  # pragma: no cover - stub
-    """Compute evaluation metrics from backtest results."""
-    raise NotImplementedError("compute_metrics is not implemented yet.")
