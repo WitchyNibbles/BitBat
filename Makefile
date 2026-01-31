@@ -1,4 +1,4 @@
-.PHONY: fmt lint test
+.PHONY: fmt lint test streamlit
 
 fmt:
 	poetry run ruff format src tests
@@ -10,3 +10,6 @@ lint:
 
 test:
 	poetry run pytest
+
+streamlit:
+	poetry run streamlit run streamlit/app.py

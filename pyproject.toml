@@ -23,6 +23,7 @@ matplotlib = "^3.10.7"
 black = "^24.4.0"
 mypy = "^1.11.0"
 ruff = "^0.5.0"
+streamlit = "^1.38.0"
 pytest = "^8.2.0"
 types-pyyaml = "^6.0.12.20240808"
 types-requests = "^2.32.0.20240914"
@@ -71,4 +72,3 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 alpha = "src.alpha.cli:main"
-
