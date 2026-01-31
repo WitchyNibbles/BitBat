@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 
@@ -68,7 +67,12 @@ def build_xy(
     seed: int | None = None,
     version: str | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, DatasetMeta]:
-    """Build features and labels for training."""
+    """Build the primary dataset (features + labels) used for model training.
+
+    This is the main dataset builder in the pipeline. It assembles price and
+    sentiment features, aligns labels, enforces the feature contract, and
+    writes the resulting dataset + metadata to disk.
+    """
     prices = _load_parquet(prices_parquet)
     news = _load_parquet(news_parquet)
 
@@ -142,13 +146,3 @@ def build_xy(
     (output_dir / "meta.json").write_text(json.dumps(meta.__dict__), encoding="utf-8")
 
     return X, y, meta
-
-
-def build_training_set() -> Any:
-    """Construct the training dataset."""
-    raise NotImplementedError("build_training_set is not implemented yet.")
-
-
-def build_inference_set() -> Any:
-    """Construct the inference dataset."""
-    raise NotImplementedError("build_inference_set is not implemented yet.")
