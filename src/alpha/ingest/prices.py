@@ -5,7 +5,6 @@ from __future__ import annotations
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import yfinance as yf
@@ -90,15 +89,6 @@ def _download_chunk(
         progress=False,
         threads=False,
     )
-
-
-def fetch_prices(
-    symbols: Any,
-    start: datetime,
-    end: datetime,
-) -> Any:  # pragma: no cover - legacy stub
-    """Fetch raw price data for the given symbols."""
-    raise NotImplementedError("fetch_prices is not implemented yet.")
 
 
 def fetch_yf(

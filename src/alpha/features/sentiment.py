@@ -108,7 +108,3 @@ def aggregate(
 
     return feature_df
 
-
-def build_sentiment_features(data: Any) -> Any:
-    """Generate sentiment-based features."""
-    raise NotImplementedError("build_sentiment_features is not implemented yet.")

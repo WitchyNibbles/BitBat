@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
 
 import pandas as pd
 
@@ -110,8 +109,3 @@ def obv(close: pd.Series, volume: pd.Series) -> pd.Series:
     obv_series = obv_contrib.cumsum()
     obv_series.name = "obv"
     return obv_series
-
-
-def build_price_features(data: Any) -> Any:
-    """Generate price-derived features."""
-    raise NotImplementedError("build_price_features is not implemented yet.")
