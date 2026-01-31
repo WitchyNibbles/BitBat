@@ -1,6 +1,6 @@
 # Data Contracts
 
-Contract enforcement lives in `alpha.contracts`. Each validator normalizes and checks schemas before data is persisted or consumed.
+Contract enforcement lives in `bitbat.contracts`. Each validator normalizes and checks schemas before data is persisted or consumed.
 
 ## Prices Parquet
 

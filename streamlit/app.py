@@ -1,4 +1,4 @@
-"""Streamlit app for the Alpha BTC prediction pipeline."""
+"""Streamlit app for the BitBat prediction pipeline."""
 
 from __future__ import annotations
 
@@ -1499,7 +1499,7 @@ PAGES = [
 
 
 def main() -> None:
-    st.set_page_config(page_title="Alpha BTC Predictor", layout="wide")
+    st.set_page_config(page_title="BitBat", layout="wide")
 
     config, config_path, error = _load_config()
 

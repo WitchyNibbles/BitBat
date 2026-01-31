@@ -16,43 +16,43 @@ The repository is organized into the following key directories and modules:
 └── poetry.lock             # Locked dependency versions
 ```
 
-## Source Packages (`src/alpha`)
+## Source Packages (`src/bitbat`)
 
-- `alpha/cli.py`
+- `bitbat/cli.py`
   - Click-based CLI exposing command groups: `prices`, `news`, `features`, `model`, `backtest`, `batch`, `monitor`.
   - Normalizes configuration, loads contract-compliant datasets, and orchestrates operations.
 
-- `alpha/contracts.py`
+- `bitbat/contracts.py`
   - Schema validators for prices, news, features, and predictions.
   - Used across ingestion, dataset builds, and prediction flows.
 
-- `alpha/ingest/`
+- `bitbat/ingest/`
   - `prices.py`: yfinance ingestion with partitioned parquet output, applying price contract.
   - `news_gdelt.py`: GDELT ingestion, deduping by URL and enforcing news contract.
 
-- `alpha/features/`
+- `bitbat/features/`
   - `price.py`: Lagged returns, volatility, ATR, MACD, RSI, OBV features.
   - `sentiment.py`: VADER-based scoring and aggregation with future-leak prevention.
 
-- `alpha/dataset/`
+- `bitbat/dataset/`
   - `build.py`: Constructs feature+label datasets, persists `dataset.parquet`, records metadata (freq/horizon/tau/seed/version).
   - `splits.py`: Walk-forward splitter with embargo bars.
 
-- `alpha/model/`
+- `bitbat/model/`
   - `train.py`: XGBoost training with class weighting, persists models per freq/horizon.
   - `infer.py`: Single-bar inference helper.
   - `evaluate.py`: Classification metrics with leakage warning guardrail.
   - `persist.py`: Model save/load wrappers.
 
-- `alpha/backtest/`
+- `bitbat/backtest/`
   - `engine.py`: Simple strategy simulator turning probabilities into positions, factoring costs.
   - `metrics.py`: Summaries & plots (Sharpe, drawdown, hit rate).
 
-- `alpha/io/`: File-system utilities for reading/writing parquet with consistent settings.
+- `bitbat/io/`: File-system utilities for reading/writing parquet with consistent settings.
 
-- `alpha/timealign/`: Calendar/bucketing/purging helpers enforcing temporal alignment.
+- `bitbat/timealign/`: Calendar/bucketing/purging helpers enforcing temporal alignment.
 
-- `alpha/labeling/`: Forward return computation and threshold-based classification.
+- `bitbat/labeling/`: Forward return computation and threshold-based classification.
 
 ## Tests
 

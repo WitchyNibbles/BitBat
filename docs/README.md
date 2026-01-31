@@ -1,6 +1,6 @@
-# Alpha BTC Predictor Documentation
+# BitBat Documentation
 
-Welcome to the documentation hub for the Alpha BTC Predictor project. This folder contains markdown guides that explain:
+Welcome to the documentation hub for the BitBat project. This folder contains markdown guides that explain:
 
 - The high-level system overview and architecture.
 - The source code structure and contracts between modules.
