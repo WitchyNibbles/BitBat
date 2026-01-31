@@ -1,0 +1,12 @@
+data_dir: "data"
+freq: "1h"
+horizon: "4h"
+enter_threshold: 0.6
+allow_short: false
+cost_bps: 4
+tau: 0.0015
+price_source: "yfinance"
+news_source: "gdelt"
+news_throttle_seconds: 6.0
+news_retry_limit: 20
+seed: 42

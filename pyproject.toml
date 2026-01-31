@@ -1,0 +1,74 @@
+[tool.poetry]
+name = "ai-btc-predictor"
+version = "0.1.0"
+description = "Alpha BTC prediction pipeline."
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{ include = "alpha", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pandas = "^2.2.2"
+duckdb = "^1.1.2"
+pyarrow = "^17.0.0"
+pyyaml = "^6.0.0"
+yfinance = "^0.2.40"
+requests = "^2.32.3"
+vaderSentiment = "^3.3.2"
+xgboost = "^2.1.0"
+scikit-learn = "^1.4.0"
+matplotlib = "^3.10.7"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.0"
+mypy = "^1.11.0"
+ruff = "^0.5.0"
+pytest = "^8.2.0"
+types-pyyaml = "^6.0.12.20240808"
+types-requests = "^2.32.0.20240914"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+preview = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP", "S", "C4", "RET", "SIM"]
+ignore = ["E203", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.mypy]
+python_version = "3.11"
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_configs = true
+strict_optional = true
+mypy_path = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["slow: marks tests as slow and may require network access"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+alpha = "src.alpha.cli:main"
+
