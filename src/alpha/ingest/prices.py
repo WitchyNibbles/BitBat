@@ -95,14 +95,18 @@ def fetch_yf(
     symbol: str,
     interval: str,
     start: datetime,
+    end: datetime | None = None,
     *,
     output_root: Path | str | None = None,
 ) -> pd.DataFrame:
     """Fetch OHLCV bars from yfinance and persist them to partitioned parquet."""
     start_utc = _ensure_utc_start(start)
-    end_utc = datetime.now(UTC)
+    now_utc = datetime.now(UTC)
+    end_utc = _ensure_utc_start(end) if end is not None else now_utc
+    if end_utc > now_utc:
+        end_utc = now_utc
     if start_utc >= end_utc:
-        raise ValueError("Start time must be earlier than now.")
+        raise ValueError("Start time must be earlier than end time.")
 
     step = _resolve_interval_step(interval)
     chunk_span = timedelta(days=_DEFAULT_CHUNK_DAYS)
