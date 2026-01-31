@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 
 
 def classify(r: pd.Series, tau: float) -> pd.Series:
-    """Classify returns into up/down/flat labels based on threshold tau."""
+    """Primary labeling method: classify returns into up/down/flat labels.
+
+    Labels are assigned as:
+    - "up" when r > tau
+    - "down" when r < -tau
+    - "flat" when |r| <= tau
+    """
     if tau < 0:
         raise ValueError("Threshold `tau` must be non-negative.")
 
@@ -18,8 +22,3 @@ def classify(r: pd.Series, tau: float) -> pd.Series:
     labels[(r.abs() <= tau)] = "flat"
     labels.name = "target"
     return labels
-
-
-def triple_barrier_method(*, horizons: int, upper: float, lower: float) -> Any:
-    """Compute classification targets using the triple-barrier method."""
-    raise NotImplementedError("triple_barrier_method is not implemented yet.")

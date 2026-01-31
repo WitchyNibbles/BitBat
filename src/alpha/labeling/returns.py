@@ -1,15 +1,16 @@
-"""Return calculation helpers."""
+"""Return calculation helpers used for labeling."""
 
 from __future__ import annotations
-
-from collections.abc import Sequence
-from typing import Protocol
 
 import pandas as pd
 
 
 def forward_return(prices_df: pd.DataFrame, horizon: str) -> pd.Series:
-    """Compute forward simple returns at horizon H using close prices."""
+    """Primary labeling method: forward simple returns over a horizon.
+
+    The returned series aligns each timestamp with the close price at
+    `timestamp + horizon` and computes (future - current) / current.
+    """
     if "close" not in prices_df.columns:
         raise KeyError("`prices_df` must contain a 'close' column.")
 
@@ -39,14 +40,3 @@ def forward_return(prices_df: pd.DataFrame, horizon: str) -> pd.Series:
     # Reindex back to original index type if necessary.
     returns.index = prices_df.index
     return returns
-
-
-class PricePoint(Protocol):
-    """Minimal protocol describing price access."""
-
-    close: float
-
-
-def compute_log_returns(points: Sequence[PricePoint]) -> list[float]:
-    """Compute log returns for a sequence of price points."""
-    raise NotImplementedError("compute_log_returns is not implemented yet.")
