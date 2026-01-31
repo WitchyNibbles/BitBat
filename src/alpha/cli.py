@@ -249,6 +249,7 @@ def features_build(
         tau=tau_val,
         start=default_start,
         end=default_end,
+        output_root=Path(_config()["data_dir"]).expanduser(),
         seed=int(_config().get("seed", 0)),
         version=__version__,
     )

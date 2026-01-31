@@ -64,6 +64,7 @@ def build_xy(
     start: str,
     end: str,
     *,
+    output_root: str | Path | None = None,
     seed: int | None = None,
     version: str | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, DatasetMeta]:
@@ -140,7 +141,8 @@ def build_xy(
         version=version or "unknown",
     )
 
-    output_dir = Path("data/features") / f"{freq}_{horizon}"
+    output_base = Path(output_root) if output_root is not None else Path("data")
+    output_dir = output_base / "features" / f"{freq}_{horizon}"
     output_dir.mkdir(parents=True, exist_ok=True)
     dataset.to_parquet(output_dir / "dataset.parquet", index=False)
     (output_dir / "meta.json").write_text(json.dumps(meta.__dict__), encoding="utf-8")
