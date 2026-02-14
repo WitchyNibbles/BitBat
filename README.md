@@ -57,7 +57,7 @@ As it should.
 data/         local data artifacts (generated)
 docs/         full project documentation
 models/       trained model checkpoints
-predictions/  validated prediction outputs
+data/predictions/ validated prediction outputs (default)
 src/bitbat/    core pipeline code & CLI
 tests/        pytest guardrails against leakage & regression
 ```

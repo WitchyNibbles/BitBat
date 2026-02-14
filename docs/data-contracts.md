@@ -1,6 +1,7 @@
 # Data Contracts
 
 Contract enforcement lives in `bitbat.contracts`. Each validator normalizes and checks schemas before data is persisted or consumed.
+Validators also return a canonical column set/order (extra columns are dropped).
 
 ## Prices Parquet
 
@@ -35,10 +36,14 @@ Produced by `build_xy` and validated via `ensure_feature_contract`:
 
 - Columns:
   - `timestamp_utc` (datetime, UTC, tz-naive)
-  - `feat_*` numeric feature columns (price & sentiment derived)
+  - `feat_*` numeric feature columns (price and optional sentiment derived)
   - `label` (`"up"`, `"down"`, `"flat"`) — present when `require_label=True`
   - `r_forward` (float) — forward return for training modes
 - Contract enforces `feat_` prefix and numeric dtype.
+- `require_features_full=True` enforces the full sentiment feature set:
+  - windows: `1h`, `4h`, `24h`
+  - suffixes per window: `mean`, `median`, `pos`, `neg`, `neu`, `count`, `decay`
+  - expected columns: `feat_sent_1h_*`, `feat_sent_4h_*`, `feat_sent_24h_*` (21 columns total)
 - Persisted metadata (`meta.json`) captures `freq`, `horizon`, `tau`, `seed`, `version`, and class counts.
 
 ## Predictions Parquet
@@ -56,12 +61,28 @@ Validated by `ensure_predictions_contract`:
 | `realized_r`      | `float64`         | Realized return (NaN until realized)       |
 | `realized_label`  | `string`          | Realized directional label (nullable)      |
 
-Helpers ensure timestamps are tz-naive UTC, probabilities numeric, metadata string-typed, and duplicates removed via natural key (`timestamp_utc`, `horizon`, `model_version`).
+Helpers ensure timestamps are tz-naive UTC, probabilities numeric, and metadata string-typed.
+`realized_r` is parsed with numeric coercion (`errors="coerce"`), so invalid values become `NaN`.
+Deduplication is not performed by `ensure_predictions_contract`; it is done in pipeline steps such as `bitbat batch run`.
 
 ## Enforcement Points
 
-- Ingestion modules call contracts before writing parquet (prices, news).
-- `build_xy` ensures features obey contract prior to persistence and downstream consumption.
-- CLI flows (`model infer`, `batch run/realize`, `backtest`, `monitor`) validate predictions after read/write cycles.
+- **Prices contract (`ensure_prices_contract`)**
+  - `bitbat.ingest.prices.fetch_yf` validates prices before parquet write.
+
+- **News contract (`ensure_news_contract`)**
+  - `bitbat.ingest.news_gdelt.fetch` validates merged news before parquet write.
+
+- **Feature contract (`ensure_feature_contract`)**
+  - `bitbat.dataset.build.build_xy` validates the assembled dataset before persistence.
+  - CLI dataset loader (`_load_feature_dataset`) validates training/CV datasets for `bitbat model train` and `bitbat model cv`.
+  - `bitbat model infer` validates input feature parquet.
+  - `bitbat batch run` validates generated feature rows before inference.
+
+- **Predictions contract (`ensure_predictions_contract`)**
+  - `bitbat model infer` validates generated predictions before output.
+  - `bitbat batch run` validates new, existing, and merged prediction frames before persistence.
+  - `bitbat batch realize` validates predictions before and after realization updates.
+  - `bitbat backtest run` and `bitbat monitor refresh` validate prediction inputs before metric computation.
 
 Violations raise `ContractError`, causing pipelines to stop rather than propagate invalid data. Use the validators when introducing new pipelines or data sources.

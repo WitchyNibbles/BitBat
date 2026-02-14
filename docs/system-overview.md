@@ -5,7 +5,7 @@ BitBat is an end-to-end pipeline for generating directional forecasts on Bitcoin
 ## Core Flow
 
 1. **Ingestion**
-   - `bitbat.ingest.prices.fetch_yf` downloads hourly OHLCV bars from Yahoo Finance (yfinance), enforcing a schema contract.
+   - `bitbat.ingest.prices.fetch_yf` downloads OHLCV bars from Yahoo Finance (yfinance) at the requested interval, enforcing a schema contract.
    - `bitbat.ingest.news_gdelt.fetch` queries the GDELT API to obtain crypto-related news headlines and sentiment scores.
 
 2. **Feature Engineering**
@@ -25,7 +25,7 @@ BitBat is an end-to-end pipeline for generating directional forecasts on Bitcoin
 6. **Batch & Monitoring**
    - `bitbat.cli.batch_run` generates new predictions, persists them with schema validation, and avoids duplicates via natural keys.
    - `bitbat.cli.batch_realize` fills in realized returns/labels once horizon data arrives.
-   - `bitbat.cli.monitor_refresh` summarizes recent live performance metrics.
+   - `bitbat.cli.monitor_refresh` computes a live performance snapshot from the predictions store.
 
 ## Guardrails & Contracts
 

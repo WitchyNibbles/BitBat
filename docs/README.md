@@ -8,6 +8,7 @@ Welcome to the documentation hub for the BitBat project. This folder contains ma
 
 Navigate using the links below:
 
+- [Documentation Hub (this page)](./README.md)
 - [System Overview](./system-overview.md)
 - [Project Structure](./project-structure.md)
 - [Usage Guide](./usage-guide.md)
