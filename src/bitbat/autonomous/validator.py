@@ -106,9 +106,9 @@ class PredictionValidator:
             logger.error("Prices directory not found: %s", prices_root)
             return {}
 
-        datasets = sorted(prices_root.glob(f"*_{self.freq}.parquet"))
+        datasets = sorted(prices_root.glob(f"**/*_{self.freq}.parquet"))
         if not datasets:
-            datasets = sorted(prices_root.glob("*.parquet"))
+            datasets = sorted(prices_root.glob("**/*.parquet"))
         if not datasets:
             logger.warning("No price datasets found in %s", prices_root)
             return {}
@@ -306,8 +306,7 @@ class PredictionValidator:
 
         min_time = min(_normalize_timestamp(pred.timestamp_utc) for pred in predictions)
         max_time = max(
-            _normalize_timestamp(pred.timestamp_utc) + self.horizon_delta
-            for pred in predictions
+            _normalize_timestamp(pred.timestamp_utc) + self.horizon_delta for pred in predictions
         )
         window_start = min_time - timedelta(hours=1)
         window_end = max_time + timedelta(hours=1)

@@ -40,7 +40,9 @@ def _sentiment_enabled() -> bool:
 
 
 def _resolve_news_source(source: str | None = None) -> str:
-    configured = source if source not in (None, "") else _config().get("news_source", "cryptocompare")
+    configured = (
+        source if source not in (None, "") else _config().get("news_source", "cryptocompare")
+    )
     resolved = str(configured).strip().lower()
     if resolved not in {"gdelt", "cryptocompare"}:
         raise click.ClickException(
@@ -460,30 +462,32 @@ def model_infer(
     if feature_frame.empty:
         raise click.ClickException("No feature rows found.")
 
-    feature_frame = ensure_feature_contract(
-        feature_frame,
-        require_label=False,
-        require_forward_return=False,
-        require_features_full=_sentiment_enabled(),
-    ).sort_values("timestamp_utc").set_index("timestamp_utc")
+    feature_frame = (
+        ensure_feature_contract(
+            feature_frame,
+            require_label=False,
+            require_forward_return=False,
+            require_features_full=_sentiment_enabled(),
+        )
+        .sort_values("timestamp_utc")
+        .set_index("timestamp_utc")
+    )
     feature_cols = [col for col in feature_frame.columns if col.startswith("feat_")]
 
     booster = load_model(resolved_model_path)
     records: list[dict[str, Any]] = []
     for ts, row in feature_frame[feature_cols].iterrows():
         result = predict_bar(booster, row, timestamp=ts)
-        records.append(
-            {
-                "timestamp_utc": result.get("timestamp", ts),
-                "p_up": result.get("p_up"),
-                "p_down": result.get("p_down"),
-                "freq": freq_val,
-                "horizon": horizon_val,
-                "model_version": __version__,
-                "realized_r": float("nan"),
-                "realized_label": pd.NA,
-            }
-        )
+        records.append({
+            "timestamp_utc": result.get("timestamp", ts),
+            "p_up": result.get("p_up"),
+            "p_down": result.get("p_down"),
+            "freq": freq_val,
+            "horizon": horizon_val,
+            "model_version": __version__,
+            "realized_r": float("nan"),
+            "realized_label": pd.NA,
+        })
 
     predictions = ensure_predictions_contract(pd.DataFrame(records))
     if output is None:
@@ -673,9 +677,7 @@ def batch_run(
         combined = (
             pd.concat([existing, new_df], axis=0, ignore_index=True)
             .sort_values("timestamp_utc")
-            .drop_duplicates(
-                subset=["timestamp_utc", "horizon", "model_version"], keep="last"
-            )
+            .drop_duplicates(subset=["timestamp_utc", "horizon", "model_version"], keep="last")
         )
     else:
         combined = new_df
@@ -683,6 +685,41 @@ def batch_run(
     combined.to_parquet(predictions_path, index=False)
     latest_record = combined.iloc[-1]
     click.echo(f"Stored prediction for {latest_record['timestamp_utc']} at {predictions_path}")
+
+    # Also store in autonomous.db so the dashboard and validation loop can see it.
+    try:
+        from bitbat.autonomous.db import AutonomousDB
+        from bitbat.autonomous.models import init_database
+
+        autonomous_cfg = _config().get("autonomous", {})
+        db_url = str(autonomous_cfg.get("database_url", "sqlite:///data/autonomous.db"))
+        init_database(db_url)
+        db = AutonomousDB(db_url)
+
+        p_up = float(prediction["p_up"])
+        p_down = float(prediction["p_down"])
+        p_flat = max(0.0, 1.0 - p_up - p_down)
+        if p_flat > p_up and p_flat > p_down:
+            direction = "flat"
+        elif p_up >= p_down:
+            direction = "up"
+        else:
+            direction = "down"
+
+        with db.session() as session:
+            db.store_prediction(
+                session=session,
+                timestamp_utc=timestamp_py,
+                predicted_direction=direction,
+                p_up=p_up,
+                p_down=p_down,
+                model_version=model_version or __version__,
+                freq=freq_val,
+                horizon=horizon_val,
+            )
+        click.echo(f"Also stored in autonomous DB ({db_url})")
+    except Exception as exc:
+        click.echo(f"Warning: could not store in autonomous DB: {exc}", err=True)
 
 
 @batch.command("realize")
@@ -757,9 +794,7 @@ def monitor_refresh(
     if preds.empty:
         raise click.ClickException("No live predictions to monitor.")
 
-    preds["timestamp_utc"] = pd.to_datetime(
-        preds["timestamp_utc"], utc=True, errors="coerce"
-    )
+    preds["timestamp_utc"] = pd.to_datetime(preds["timestamp_utc"], utc=True, errors="coerce")
     preds = preds.dropna(subset=["timestamp_utc"]).sort_values("timestamp_utc")
 
     realised = preds["realized_r"].astype(float)

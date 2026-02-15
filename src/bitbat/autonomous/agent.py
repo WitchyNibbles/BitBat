@@ -10,6 +10,7 @@ from bitbat.autonomous.alerting import send_alert
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.drift import DriftDetector
 from bitbat.autonomous.metrics import PerformanceMetrics
+from bitbat.autonomous.predictor import LivePredictor
 from bitbat.autonomous.retrainer import AutoRetrainer
 from bitbat.autonomous.validator import PredictionValidator
 
@@ -24,6 +25,7 @@ class MonitoringAgent:
         self.freq = freq
         self.horizon = horizon
 
+        self.predictor = LivePredictor(db, freq=freq, horizon=horizon)
         self.validator = PredictionValidator(db, freq=freq, horizon=horizon)
         self.drift_detector = DriftDetector(db, freq=freq, horizon=horizon)
         self.retrainer = AutoRetrainer(db, freq=freq, horizon=horizon)
@@ -55,10 +57,22 @@ class MonitoringAgent:
             )
 
     def run_once(self) -> dict[str, Any]:
-        """Run one monitoring cycle."""
+        """Run one monitoring cycle: predict, validate, assess drift, retrain."""
         logger.info("Monitoring cycle started (%s/%s)", self.freq, self.horizon)
 
+        # Step 1: Validate old predictions whose horizon has elapsed.
         validation_summary = self.validator.validate_all()
+
+        # Step 2: Generate a new prediction for the latest bar.
+        prediction_result = None
+        try:
+            prediction_result = self.predictor.predict_latest()
+            if prediction_result is not None:
+                logger.info("New prediction: %s", prediction_result)
+            else:
+                logger.info("No new prediction generated this cycle")
+        except Exception:
+            logger.exception("Prediction generation failed")
 
         with self.db.session() as session:
             recent_predictions = self.db.get_recent_predictions(
@@ -107,6 +121,7 @@ class MonitoringAgent:
                     send_alert("ERROR", "Auto-retraining failed", retraining_result)
 
         result = {
+            "prediction": prediction_result,
             "validations": int(validation_summary.get("validated_count", 0)),
             "correct": int(validation_summary.get("correct_count", 0)),
             "hit_rate": float(validation_summary.get("hit_rate", 0.0)),
