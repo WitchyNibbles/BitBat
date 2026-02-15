@@ -21,7 +21,6 @@ from bitbat.contracts import ensure_feature_contract, ensure_predictions_contrac
 from bitbat.dataset.build import _generate_price_features, build_xy
 from bitbat.dataset.splits import walk_forward
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
-from bitbat.ingest import news_gdelt as news_module
 from bitbat.ingest import prices as prices_module
 from bitbat.labeling.returns import forward_return
 from bitbat.labeling.targets import classify
@@ -38,6 +37,24 @@ def _config() -> dict[str, Any]:
 
 def _sentiment_enabled() -> bool:
     return bool(_config().get("enable_sentiment", True))
+
+
+def _resolve_news_source(source: str | None = None) -> str:
+    configured = source if source not in (None, "") else _config().get("news_source", "cryptocompare")
+    resolved = str(configured).strip().lower()
+    if resolved not in {"gdelt", "cryptocompare"}:
+        raise click.ClickException(
+            f"Unsupported news_source '{resolved}'. Expected one of: gdelt, cryptocompare."
+        )
+    return resolved
+
+
+def _news_backend(source: str) -> Any:
+    if source == "gdelt":
+        from bitbat.ingest import news_gdelt as backend
+    else:
+        from bitbat.ingest import news_cryptocompare as backend
+    return backend
 
 
 def _data_path(*parts: str | Path) -> Path:
@@ -92,7 +109,10 @@ def _load_prices_indexed(freq: str) -> pd.DataFrame:
 
 
 def _load_news() -> pd.DataFrame:
-    news_path = _data_path("raw", "news", "gdelt_1h", "gdelt_crypto_1h.parquet")
+    source = _resolve_news_source()
+    backend = _news_backend(source)
+    news_root = _data_path("raw", "news", f"{source}_1h")
+    news_path = backend._target_path(news_root)
     _ensure_path_exists(news_path, "News parquet")
     return ensure_utc(pd.read_parquet(news_path), "published_utc").sort_values("published_utc")
 
@@ -199,28 +219,36 @@ def prices_pull(
 @click.option("--from", "from_dt", required=True, help="Start datetime (ISO8601).")
 @click.option("--to", "to_dt", required=True, help="End datetime (ISO8601).")
 @click.option(
+    "--source",
+    type=click.Choice(["cryptocompare", "gdelt"], case_sensitive=False),
+    default=None,
+    help="News source override (defaults to config news_source).",
+)
+@click.option(
     "--output",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
     default=None,
     help="Output directory for news parquet.",
 )
-def news_pull(from_dt: str, to_dt: str, output: Path | None) -> None:
-    """Fetch news from GDELT."""
+def news_pull(from_dt: str, to_dt: str, source: str | None, output: Path | None) -> None:
+    """Fetch historical news for feature training."""
     start = _parse_datetime(from_dt, "--from")
     end = _parse_datetime(to_dt, "--to")
-    out_root = output.expanduser() if output else _data_path("raw", "news", "gdelt_1h")
+    source_name = _resolve_news_source(source)
+    backend = _news_backend(source_name)
+    out_root = output.expanduser() if output else _data_path("raw", "news", f"{source_name}_1h")
 
     throttle_seconds = float(_config().get("news_throttle_seconds", 10.0))
     retry_limit = int(_config().get("news_retry_limit", 30))
-    frame = news_module.fetch(
+    frame = backend.fetch(
         start,
         end,
         output_root=out_root,
         throttle_seconds=throttle_seconds,
         retry_limit=retry_limit,
     )
-    target_path = news_module._target_path(out_root)
-    click.echo(f"Pulled {len(frame)} news rows into {target_path}")
+    target_path = backend._target_path(out_root)
+    click.echo(f"Pulled {len(frame)} {source_name} news rows into {target_path}")
 
 
 @features.command("build")
@@ -247,7 +275,9 @@ def features_build(
     _ensure_path_exists(prices_path, "Prices parquet")
     news_path = None
     if enable_sentiment:
-        news_path = _data_path("raw", "news", "gdelt_1h", "gdelt_crypto_1h.parquet")
+        source = _resolve_news_source()
+        backend = _news_backend(source)
+        news_path = backend._target_path(_data_path("raw", "news", f"{source}_1h"))
         _ensure_path_exists(news_path, "News parquet")
 
     if start is None or end is None:

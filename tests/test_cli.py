@@ -20,6 +20,7 @@ def _write_test_config(
     path: Path,
     *,
     enable_sentiment: bool,
+    news_source: str = "gdelt",
     database_url: str | None = None,
 ) -> Path:
     lines = [
@@ -31,7 +32,7 @@ def _write_test_config(
         "cost_bps: 4",
         "tau: 0.0015",
         'price_source: "yfinance"',
-        'news_source: "gdelt"',
+        f'news_source: "{news_source}"',
         f"enable_sentiment: {'true' if enable_sentiment else 'false'}",
         "news_throttle_seconds: 10.0",
         "news_retry_limit: 30",
@@ -156,6 +157,8 @@ def news_cli_args(tmp_path: Path) -> tuple[list[str], Path]:
         "bitbat",
         "news",
         "pull",
+        "--source",
+        "gdelt",
         "--from",
         "2024-01-01",
         "--to",
@@ -249,6 +252,73 @@ def test_cli_news_pull_idempotent(
     pd_testing.assert_frame_equal(stored_repeat, sample_frame)
 
     assert len(calls) == 2
+
+
+def test_cli_news_pull_cryptocompare_source(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from bitbat.ingest import news_cryptocompare as cc_module
+
+    output_root = tmp_path / "news_cc"
+    argv = [
+        "bitbat",
+        "news",
+        "pull",
+        "--source",
+        "cryptocompare",
+        "--from",
+        "2024-01-01",
+        "--to",
+        "2024-01-03",
+        "--output",
+        str(output_root),
+    ]
+    sample_frame = pd.DataFrame(
+        {
+            "published_utc": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-02 00:00:00"],
+                utc=False,
+            ),
+            "title": ["Bitcoin rally", "Regulation insights"],
+            "url": ["http://example.com/a", "https://example.com/b"],
+            "source": ["ExampleNews", "CryptoDaily"],
+            "lang": ["en", "en"],
+        }
+    )
+
+    def fake_fetch(
+        from_dt: datetime,
+        to_dt: datetime,
+        *,
+        output_root: str | Path | None = None,
+        throttle_seconds: float = 0.0,
+        retry_limit: int = 3,
+    ) -> pd.DataFrame:
+        del from_dt, to_dt, throttle_seconds, retry_limit
+        target = cc_module._target_path(output_root)
+        partitions = sample_frame.copy()
+        partitions["year"] = partitions["published_utc"].dt.year
+        partitions["month"] = partitions["published_utc"].dt.month
+        partitions["day"] = partitions["published_utc"].dt.day
+        partitions["hour"] = partitions["published_utc"].dt.hour
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+        write_parquet(partitions, target, partition_cols=["year", "month", "day", "hour"])
+        return sample_frame.copy()
+
+    monkeypatch.setattr("bitbat.ingest.news_cryptocompare.fetch", fake_fetch)
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    target = output_root / "cryptocompare_btc_1h.parquet"
+    assert target.exists()
+    stored = _news_dataset(target)
+    pd_testing.assert_frame_equal(stored, sample_frame)
 
 
 def test_cli_model_cv(

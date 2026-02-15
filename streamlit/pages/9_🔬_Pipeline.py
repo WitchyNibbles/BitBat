@@ -35,7 +35,8 @@ from bitbat.contracts import (
 )
 from bitbat.dataset.build import DatasetMeta, build_xy
 from bitbat.dataset.splits import walk_forward
-from bitbat.ingest import news_gdelt as news_module
+from bitbat.ingest import news_cryptocompare as news_cc_module
+from bitbat.ingest import news_gdelt as news_gdelt_module
 from bitbat.ingest import prices as prices_module
 from bitbat.model.evaluate import classification_metrics
 from bitbat.model.train import fit_xgb
@@ -110,6 +111,19 @@ def _apply_global_overrides(config: dict[str, Any]) -> dict[str, Any]:
     overridden["horizon"] = horizon
     overridden["tau"] = float(tau_value)
     return overridden
+
+
+def _news_backend(config: dict[str, Any]) -> tuple[Any, str]:
+    source = str(config.get("news_source", "cryptocompare")).strip().lower()
+    if source == "gdelt":
+        return news_gdelt_module, source
+    return news_cc_module, "cryptocompare"
+
+
+def _news_target_path(config: dict[str, Any], data_dir: Path) -> tuple[Path, str]:
+    news_module, source = _news_backend(config)
+    news_root = data_dir / "raw" / "news" / f"{source}_1h"
+    return news_module._target_path(news_root), source
 
 
 def _resolve_date_range(
@@ -496,6 +510,7 @@ def _dashboard(config: dict[str, Any]) -> None:
     freq = str(config.get("freq", "1h"))
     horizon = str(config.get("horizon", "4h"))
     data_dir = Path(config.get("data_dir", "data")).expanduser()
+    news_path, _ = _news_target_path(config, data_dir)
 
     st.caption(f"Data dir: {data_dir} | freq: {freq} | horizon: {horizon}")
 
@@ -507,7 +522,7 @@ def _dashboard(config: dict[str, Any]) -> None:
         ),
         _status_row(
             "News (raw)",
-            data_dir / "raw" / "news" / "gdelt_1h" / "gdelt_crypto_1h.parquet",
+            news_path,
             "parquet",
         ),
         _status_row(
@@ -580,7 +595,8 @@ def _ingest_data(config: dict[str, Any]) -> None:
     )
 
     prices_root = data_dir / "raw" / "prices"
-    news_root = data_dir / "raw" / "news" / "gdelt_1h"
+    news_module, news_source = _news_backend(config)
+    news_root = data_dir / "raw" / "news" / f"{news_source}_1h"
     throttle_seconds = float(config.get("news_throttle_seconds", 10.0))
     retry_limit = int(config.get("news_retry_limit", 30))
 
@@ -637,8 +653,8 @@ def _ingest_data(config: dict[str, Any]) -> None:
                     )
 
     with news_col:
-        st.subheader("News (GDELT)")
-        st.caption("Use for historical; realtime separate.")
+        st.subheader(f"News ({news_source})")
+        st.caption("Historical training backfill source.")
         news_target = news_module._target_path(news_root)
         st.caption(f"Output: {news_target}")
         st.caption(f"Throttle: {throttle_seconds:.1f}s | Retries: {retry_limit}")
@@ -649,7 +665,7 @@ def _ingest_data(config: dict[str, Any]) -> None:
         )
         if pull_news:
             progress = st.progress(0)
-            with st.spinner("Fetching GDELT news data..."):
+            with st.spinner(f"Fetching {news_source} news data..."):
                 try:
                     progress.progress(10)
                     frame = news_module.fetch(
@@ -696,13 +712,13 @@ def _build_features_page(config: dict[str, Any]) -> None:
     default_tau = float(config.get("tau", 0.0015))
 
     prices_path = data_dir / "raw" / "prices" / f"btcusd_yf_{freq}.parquet"
-    news_path = data_dir / "raw" / "news" / "gdelt_1h" / "gdelt_crypto_1h.parquet"
+    news_path, news_source = _news_target_path(config, data_dir)
     dataset_path = data_dir / "features" / f"{freq}_{horizon}" / "dataset.parquet"
     meta_path = data_dir / "features" / f"{freq}_{horizon}" / "meta.json"
 
     st.caption(f"Data dir: {data_dir} | freq: {freq} | horizon: {horizon}")
     st.caption(f"Prices: {prices_path}")
-    st.caption(f"News: {news_path}")
+    st.caption(f"News ({news_source}): {news_path}")
 
     start_bound, end_bound, bound_error = _load_timestamp_bounds(str(prices_path))
     if bound_error:

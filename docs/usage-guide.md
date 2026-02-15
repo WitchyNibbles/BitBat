@@ -57,16 +57,19 @@ poetry run bitbat prices pull --symbol BTC-USD --interval 1h --start 2017-01-01
 ```bash
 poetry run bitbat news pull --from 2024-01-01T00:00:00 --to 2024-01-02T00:00:00
 ```
-- Writes GDELT-derived parquet under `${data_dir}/raw/news/gdelt_1h/`.
+- Uses config `news_source` (default: `cryptocompare`) and writes source-specific parquet under `${data_dir}/raw/news/{source}_1h/`.
 - Options:
   - `--from` (required, ISO8601 datetime)
   - `--to` (required, ISO8601 datetime)
+  - `--source` (`cryptocompare` or `gdelt`; optional override)
   - `--output` (optional output directory override)
 
-#### GDELT limits & price-only workflow
-- GDELT ingestion is historical-only and capped at 30 days per pull (use incremental ranges). Default throttling/retry values are `news_throttle_seconds: 10.0` and `news_retry_limit: 30` from `src/bitbat/config/default.yaml`.
+#### Historical Backfill Notes
+- `cryptocompare` is the primary historical source for base-training backfills.
+- `gdelt` remains available as a fallback source (historical and often more brittle at scale).
+- Default throttling/retry values are `news_throttle_seconds: 10.0` and `news_retry_limit: 30` from `src/bitbat/config/default.yaml`.
 - Recommended realtime approach is price-only: disable sentiment **before** running `bitbat features build`, `bitbat model train`, and downstream steps by setting `enable_sentiment: false` in `src/bitbat/config/default.yaml` or unchecking the Streamlit "Enable sentiment" checkbox.
-- The CLI reads `enable_sentiment` from config for `bitbat features build`, `bitbat model cv`, `bitbat model train`, `bitbat model infer`, and `bitbat batch run` (feature contract expectations follow the same toggle). The Streamlit ingest page is for historical GDELT pulls only.
+- The CLI reads `enable_sentiment` from config for `bitbat features build`, `bitbat model cv`, `bitbat model train`, `bitbat model infer`, and `bitbat batch run` (feature contract expectations follow the same toggle). The Streamlit ingest page also follows `news_source`.
 
 ## Feature Engineering
 ```bash
