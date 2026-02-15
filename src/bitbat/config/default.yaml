@@ -8,6 +8,10 @@ tau: 0.0015
 price_source: "yfinance"
 news_source: "cryptocompare"
 enable_sentiment: true
+enable_garch: false
+enable_macro: false
+enable_onchain: false
+fred_api_key: ""
 news_throttle_seconds: 10.0
 news_retry_limit: 30
 seed: 42

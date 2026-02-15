@@ -464,7 +464,7 @@ def test_cli_batch_run(
     def fake_fetch_news(*args: Any, **kwargs: Any) -> None:
         return None
 
-    def fake_price_features(prices_df: pd.DataFrame) -> pd.DataFrame:
+    def fake_price_features(prices_df: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
         return pd.DataFrame({"feat_price": np.arange(len(prices_df))}, index=prices_df.index)
 
     def fake_sentiment(news_df: pd.DataFrame, bar_df: pd.DataFrame, freq: str) -> pd.DataFrame:

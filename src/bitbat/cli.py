@@ -291,6 +291,22 @@ def features_build(
         default_start = start
         default_end = end
 
+    enable_garch = bool(_config().get("enable_garch", False))
+    enable_macro = bool(_config().get("enable_macro", False))
+    enable_onchain = bool(_config().get("enable_onchain", False))
+
+    macro_path = None
+    if enable_macro:
+        macro_candidate = _data_path("raw", "macro", "fred.parquet")
+        if macro_candidate.exists():
+            macro_path = macro_candidate
+
+    onchain_path = None
+    if enable_onchain:
+        onchain_candidate = _data_path("raw", "onchain", "blockchain_info.parquet")
+        if onchain_candidate.exists():
+            onchain_path = onchain_candidate
+
     X, y, _meta = build_xy(
         prices_path,
         news_path,
@@ -300,6 +316,9 @@ def features_build(
         start=default_start,
         end=default_end,
         enable_sentiment=enable_sentiment,
+        enable_garch=enable_garch,
+        macro_parquet=macro_path,
+        onchain_parquet=onchain_path,
         output_root=Path(_config()["data_dir"]).expanduser(),
         seed=int(_config().get("seed", 0)),
         version=__version__,
@@ -602,7 +621,8 @@ def batch_run(
     prices = _load_prices_indexed(freq_val)
     enable_sentiment = _sentiment_enabled()
 
-    price_features = _generate_price_features(prices)
+    enable_garch = bool(_config().get("enable_garch", False))
+    price_features = _generate_price_features(prices, enable_garch=enable_garch)
     if enable_sentiment:
         news = _load_news()
         bar_df = prices.reset_index()[["timestamp_utc"]]
@@ -1042,6 +1062,28 @@ def ingest_news_once() -> None:
     service = NewsIngestionService()
     count = service.fetch_all_sources()
     click.echo(f"Ingested {count} news articles")
+
+
+@ingest.command("macro-once")
+def ingest_macro_once() -> None:
+    """Fetch the latest FRED macro data once and store it."""
+    from bitbat.autonomous.macro_ingestion import MacroIngestionService
+
+    data_dir = Path(_config()["data_dir"]).expanduser()
+    service = MacroIngestionService(data_dir=data_dir)
+    count = service.fetch_with_retry()
+    click.echo(f"Ingested {count} macro rows")
+
+
+@ingest.command("onchain-once")
+def ingest_onchain_once() -> None:
+    """Fetch the latest on-chain data once and store it."""
+    from bitbat.autonomous.onchain_ingestion import OnchainIngestionService
+
+    data_dir = Path(_config()["data_dir"]).expanduser()
+    service = OnchainIngestionService(data_dir=data_dir)
+    count = service.fetch_with_retry()
+    click.echo(f"Ingested {count} on-chain rows")
 
 
 @ingest.command("status")

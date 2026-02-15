@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,8 @@ from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.labeling.returns import forward_return
 from bitbat.labeling.targets import classify
 from bitbat.timealign.calendar import ensure_utc
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -44,7 +47,11 @@ def _load_parquet(path: str | Path) -> pd.DataFrame:
     return pd.read_parquet(target)
 
 
-def _generate_price_features(prices: pd.DataFrame) -> pd.DataFrame:
+def _generate_price_features(
+    prices: pd.DataFrame,
+    *,
+    enable_garch: bool = False,
+) -> pd.DataFrame:
     close = prices["close"]
     features = lagged_returns(close)
     features["rolling_std_24"] = rolling_std(close)
@@ -52,6 +59,51 @@ def _generate_price_features(prices: pd.DataFrame) -> pd.DataFrame:
     features = features.join(atr(prices, 14), how="left")
     features = features.join(macd(close), how="left")
     features["obv"] = obv(close, prices["volume"])
+
+    if enable_garch:
+        try:
+            from bitbat.features.volatility import garch_features
+
+            vol_feats = garch_features(close)
+            features = features.join(vol_feats, how="left")
+        except ImportError:
+            logger.warning("arch library not installed; skipping GARCH features")
+        except Exception:
+            logger.warning("GARCH feature generation failed; skipping", exc_info=True)
+
+    return features
+
+
+def _join_auxiliary_features(
+    features: pd.DataFrame,
+    *,
+    macro_parquet: str | Path | None = None,
+    onchain_parquet: str | Path | None = None,
+    freq: str = "1h",
+) -> pd.DataFrame:
+    """Join macro and on-chain features into the main feature frame."""
+    if macro_parquet is not None:
+        try:
+            from bitbat.features.macro import generate_macro_features
+
+            macro_raw = _load_parquet(macro_parquet)
+            macro_feats = generate_macro_features(macro_raw, freq=freq)
+            features = features.join(macro_feats, how="left")
+            logger.info("Joined %d macro feature columns", len(macro_feats.columns))
+        except Exception:
+            logger.warning("Macro feature generation failed; skipping", exc_info=True)
+
+    if onchain_parquet is not None:
+        try:
+            from bitbat.features.onchain import generate_onchain_features
+
+            onchain_raw = _load_parquet(onchain_parquet)
+            onchain_feats = generate_onchain_features(onchain_raw, freq=freq)
+            features = features.join(onchain_feats, how="left")
+            logger.info("Joined %d on-chain feature columns", len(onchain_feats.columns))
+        except Exception:
+            logger.warning("On-chain feature generation failed; skipping", exc_info=True)
+
     return features
 
 
@@ -65,6 +117,9 @@ def build_xy(
     end: str,
     *,
     enable_sentiment: bool = True,
+    enable_garch: bool = False,
+    macro_parquet: str | Path | None = None,
+    onchain_parquet: str | Path | None = None,
     output_root: str | Path | None = None,
     seed: int | None = None,
     version: str | None = None,
@@ -72,14 +127,15 @@ def build_xy(
     """Build the primary dataset (features + labels) used for model training.
 
     This is the main dataset builder in the pipeline. It assembles price
-    features (and optional sentiment features), aligns labels, enforces the
-    feature contract, and writes the resulting dataset + metadata to disk.
+    features (and optional sentiment, GARCH, macro, and on-chain features),
+    aligns labels, enforces the feature contract, and writes the resulting
+    dataset + metadata to disk.
     """
     prices = _load_parquet(prices_parquet)
 
     prices = ensure_utc(prices, "timestamp_utc").set_index("timestamp_utc").sort_index()
 
-    price_features = _generate_price_features(prices)
+    price_features = _generate_price_features(prices, enable_garch=enable_garch)
 
     if enable_sentiment:
         if news_parquet is None:
@@ -94,6 +150,15 @@ def build_xy(
         features = price_features.join(sentiment_features, how="left")
     else:
         features = price_features.copy()
+
+    # Join auxiliary feature sources (macro, on-chain)
+    features = _join_auxiliary_features(
+        features,
+        macro_parquet=macro_parquet,
+        onchain_parquet=onchain_parquet,
+        freq=freq,
+    )
+
     features = features.dropna()
 
     rename_mapping = {

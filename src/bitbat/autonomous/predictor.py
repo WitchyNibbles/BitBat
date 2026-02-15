@@ -137,7 +137,27 @@ class LivePredictor:
 
         # Generate features
         try:
-            features = _generate_price_features(prices)
+            config = get_runtime_config() or load_config()
+            enable_garch = bool(config.get("enable_garch", False))
+            features = _generate_price_features(prices, enable_garch=enable_garch)
+
+            # Join auxiliary features if enabled and data exists
+            enable_macro = bool(config.get("enable_macro", False))
+            enable_onchain = bool(config.get("enable_onchain", False))
+            if enable_macro or enable_onchain:
+                from bitbat.dataset.build import _join_auxiliary_features
+
+                macro_path = self.data_dir / "raw" / "macro" / "fred.parquet"
+                onchain_path = self.data_dir / "raw" / "onchain" / "blockchain_info.parquet"
+                features = _join_auxiliary_features(
+                    features,
+                    macro_parquet=macro_path if enable_macro and macro_path.exists() else None,
+                    onchain_parquet=(
+                        onchain_path if enable_onchain and onchain_path.exists() else None
+                    ),
+                    freq=self.freq,
+                )
+
             features = features.dropna()
             rename_mapping = {
                 col: col if col.startswith("feat_") else f"feat_{col}" for col in features.columns

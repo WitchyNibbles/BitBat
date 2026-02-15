@@ -56,9 +56,43 @@ class MonitoringAgent:
                 },
             )
 
+    def _ingest_auxiliary_data(self) -> None:
+        """Refresh macro and on-chain data if enabled in config."""
+        try:
+            from bitbat.config.loader import get_runtime_config
+
+            config = get_runtime_config()
+        except Exception:
+            return
+
+        if config.get("enable_macro"):
+            try:
+                from pathlib import Path
+
+                from bitbat.autonomous.macro_ingestion import MacroIngestionService
+
+                data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
+                MacroIngestionService(data_dir=data_dir).fetch_with_retry()
+            except Exception:
+                logger.warning("Macro data ingestion failed", exc_info=True)
+
+        if config.get("enable_onchain"):
+            try:
+                from pathlib import Path
+
+                from bitbat.autonomous.onchain_ingestion import OnchainIngestionService
+
+                data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
+                OnchainIngestionService(data_dir=data_dir).fetch_with_retry()
+            except Exception:
+                logger.warning("On-chain data ingestion failed", exc_info=True)
+
     def run_once(self) -> dict[str, Any]:
         """Run one monitoring cycle: predict, validate, assess drift, retrain."""
         logger.info("Monitoring cycle started (%s/%s)", self.freq, self.horizon)
+
+        # Step 0: Refresh auxiliary data sources (macro, on-chain).
+        self._ingest_auxiliary_data()
 
         # Step 1: Validate old predictions whose horizon has elapsed.
         validation_summary = self.validator.validate_all()
