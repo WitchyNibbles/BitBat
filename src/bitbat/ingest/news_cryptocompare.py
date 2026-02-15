@@ -363,8 +363,6 @@ def fetch(
     partitions = merged.copy()
     partitions["year"] = partitions["published_utc"].dt.year
     partitions["month"] = partitions["published_utc"].dt.month
-    partitions["day"] = partitions["published_utc"].dt.day
-    partitions["hour"] = partitions["published_utc"].dt.hour
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
     if target_path.exists():
@@ -373,5 +371,5 @@ def fetch(
         else:
             target_path.unlink()
 
-    write_parquet(partitions, target_path, partition_cols=["year", "month", "day", "hour"])
+    write_parquet(partitions, target_path, partition_cols=["year", "month"])
     return merged.reset_index(drop=True)
