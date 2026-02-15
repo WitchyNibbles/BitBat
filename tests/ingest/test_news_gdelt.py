@@ -22,6 +22,8 @@ class FakeResponse:
     def __init__(self, payload: dict[str, Any], status_code: int = 200) -> None:
         self._payload = payload
         self.status_code = status_code
+        self.text = ""
+        self.headers: dict[str, str] = {"Content-Type": "application/json"}
 
     def json(self) -> dict[str, Any]:
         return self._payload
@@ -43,6 +45,39 @@ class FakeSession:
         self.calls.append(key)
         payload = self.responses.get(key, {"articles": []})
         return FakeResponse(payload)
+
+    def close(self) -> None:
+        return None
+
+
+class FakeNonJsonResponse:
+    def __init__(
+        self,
+        text: str,
+        *,
+        status_code: int = 200,
+        content_type: str = "text/html; charset=utf-8",
+    ) -> None:
+        self.status_code = status_code
+        self.text = text
+        self.headers: dict[str, str] = {"Content-Type": content_type}
+
+    def json(self) -> dict[str, Any]:
+        raise ValueError("not valid json")
+
+
+class SequenceSession:
+    def __init__(self, responses: list[Any]) -> None:
+        self.responses = list(responses)
+        self.calls: list[tuple[str, str]] = []
+
+    def get(self, url: str, **kwargs: Any) -> Any:
+        params = kwargs.get("params", {})
+        key = (params["startdatetime"], params["enddatetime"])
+        self.calls.append(key)
+        if self.responses:
+            return self.responses.pop(0)
+        return FakeResponse({"articles": []})
 
     def close(self) -> None:
         return None
@@ -136,3 +171,62 @@ def test_fetch_gdelt_range_and_writes(tmp_path: Path) -> None:
     pd_testing.assert_frame_equal(frame_repeat, frame)
     stored_repeat = _dataset(target_path)
     pd_testing.assert_frame_equal(stored_repeat, frame)
+
+
+def test_fetch_retries_non_json_then_recovers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = datetime(2024, 1, 1, 0, 0, 0)
+    end = datetime(2024, 1, 1, 1, 0, 0)
+    output_root = tmp_path / "gdelt"
+
+    bad_payload = (
+        "{Content-type: text/html; charset=utf-8 Server: GDELT API Server 2.0 "
+        "An unknown error occurred}"
+    )
+    good_payload = {
+        "articles": [
+            {
+                "seendate": "20240101001500",
+                "title": "Bitcoin rebounds",
+                "url": "https://example.com/recover",
+                "sourceCommonName": "RecoveryWire",
+                "language": "en",
+            }
+        ]
+    }
+    session = SequenceSession(
+        [
+            FakeNonJsonResponse(bad_payload),
+            FakeResponse(good_payload),
+        ]
+    )
+
+    monkeypatch.setattr("bitbat.ingest.news_gdelt.time.sleep", lambda _: None)
+    frame = fetch(start, end, session=session, output_root=output_root, retry_limit=1)
+
+    assert len(session.calls) == 2
+    assert len(frame) == 1
+    assert frame["url"].iloc[0] == "https://example.com/recover"
+
+
+def test_fetch_skips_chunk_after_non_json_retries_exhausted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = datetime(2024, 1, 1, 0, 0, 0)
+    end = datetime(2024, 1, 1, 1, 0, 0)
+    output_root = tmp_path / "gdelt"
+    session = SequenceSession(
+        [
+            FakeNonJsonResponse("{html error body}"),
+            FakeNonJsonResponse("{html error body retry}"),
+        ]
+    )
+
+    monkeypatch.setattr("bitbat.ingest.news_gdelt.time.sleep", lambda _: None)
+    frame = fetch(start, end, session=session, output_root=output_root, retry_limit=1)
+
+    assert len(session.calls) == 2
+    assert frame.empty

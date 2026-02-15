@@ -70,6 +70,28 @@ class SessionProtocol(Protocol):
         """Close the session."""
 
 
+def _response_content_type(response: Any) -> str:
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return "unknown"
+    getter = getattr(headers, "get", None)
+    if not callable(getter):
+        return "unknown"
+    value = getter("Content-Type") or getter("content-type")
+    return str(value) if value else "unknown"
+
+
+def _response_preview(response: Any, limit: int = 200) -> str | None:
+    try:
+        text = str(getattr(response, "text", "") or "")
+    except Exception:  # pragma: no cover - best effort only
+        return None
+    compact = " ".join(text.split())
+    if not compact:
+        return None
+    return compact[:limit]
+
+
 def _fetch_chunk(
     session: SessionProtocol,
     start: datetime,
@@ -91,7 +113,12 @@ def _fetch_chunk(
     attempt = 0
     delay = max(backoff_base, 0.0)
     while True:
-        response = session.get(GDELT_ENDPOINT, params=payload, timeout=30)
+        response = session.get(
+            GDELT_ENDPOINT,
+            params=payload,
+            timeout=30,
+            headers={"Accept": "application/json"},
+        )
         if response.status_code == 429:
             if attempt >= retries:
                 raise GdeltError("GDELT request failed with status 429 after retries")
@@ -108,21 +135,57 @@ def _fetch_chunk(
             delay = max(delay * 2, backoff_base)
             continue
 
+        if response.status_code >= 500:
+            if attempt >= retries:
+                raise GdeltError(
+                    f"GDELT request failed with status {response.status_code} after retries"
+                )
+            jitter = random.uniform(0, max(delay, backoff_base))  # noqa: S311
+            sleep_for = max(delay + jitter, backoff_base)
+            LOGGER.warning(
+                "Transient GDELT server error (%s) for %s-%s; sleeping %.2fs before retry",
+                response.status_code,
+                start,
+                end,
+                sleep_for,
+            )
+            time.sleep(sleep_for)
+            attempt += 1
+            delay = max(delay * 2, backoff_base)
+            continue
+
         if response.status_code >= 400:
             raise GdeltError(f"GDELT request failed with status {response.status_code}")
 
         try:
             data = response.json()
         except ValueError as exc:  # pragma: no cover - defensive
-            snippet: str | None = None
-            try:
-                snippet = response.text[:200]
-            except Exception:  # pragma: no cover - best effort only
-                snippet = None
-            message = "Failed to decode GDELT JSON response"
-            if snippet:
-                message += f"; payload preview: {snippet!r}"
-            raise GdeltError(message) from exc
+            content_type = _response_content_type(response)
+            snippet = _response_preview(response)
+            if attempt >= retries:
+                message = (
+                    "Failed to decode GDELT JSON response after retries "
+                    f"(status={response.status_code}, content-type={content_type})"
+                )
+                if snippet:
+                    message += f"; payload preview: {snippet!r}"
+                raise GdeltError(message) from exc
+
+            jitter = random.uniform(0, max(delay, backoff_base))  # noqa: S311
+            sleep_for = max(delay + jitter, backoff_base)
+            LOGGER.warning(
+                "Non-JSON GDELT response for %s-%s "
+                "(status=%s, content-type=%s); sleeping %.2fs before retry",
+                start,
+                end,
+                response.status_code,
+                content_type,
+                sleep_for,
+            )
+            time.sleep(sleep_for)
+            attempt += 1
+            delay = max(delay * 2, backoff_base)
+            continue
         break
 
     articles = data.get("articles") or data.get("docs") or []
