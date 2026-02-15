@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -11,13 +10,9 @@ from bitbat.ingest.prices import fetch_yf
 
 
 @pytest.mark.slow
-def test_fetch_yf_btcusd_hourly() -> None:
-    output_dir = Path("data/raw/prices/btcusd_yf_1h.parquet")
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-
+def test_fetch_yf_btcusd_hourly(tmp_path: Path) -> None:
     start = datetime(2017, 1, 1)
-    frame = fetch_yf("BTC-USD", "1h", start)
+    frame = fetch_yf("BTC-USD", "1h", start, output_root=tmp_path)
 
     expected_columns = ["timestamp_utc", "open", "high", "low", "close", "volume", "source"]
     assert list(frame.columns) == expected_columns
@@ -27,6 +22,7 @@ def test_fetch_yf_btcusd_hourly() -> None:
     assert str(frame["timestamp_utc"].dtype) == "datetime64[ns]"
     assert (frame["source"] == "yfinance").all()
 
+    output_dir = tmp_path / "btcusd_yf_1h.parquet"
     assert output_dir.exists()
     partition_dirs = sorted(path for path in output_dir.iterdir() if path.is_dir())
     assert partition_dirs, "Expected partitioned parquet output by year."
