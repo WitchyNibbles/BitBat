@@ -10,18 +10,16 @@ from bitbat.io.fs import read_parquet, write_parquet
 
 
 def test_parquet_roundtrip_preserves_schema(tmp_path: Path) -> None:
-    frame = pd.DataFrame(
-        {
-            "id": pd.Series([1, 2, 3], dtype="int64"),
-            "price": pd.Series([1.5, 2.5, 3.5], dtype="float64"),
-            "flag": pd.Series([True, False, True], dtype="bool"),
-            "name": pd.Series(["alpha", "beta", "gamma"], dtype="object"),
-            "event_at": pd.to_datetime(
-                ["2024-01-01 00:00", "2024-01-01 01:00", "2024-01-01 02:00"],
-                utc=False,
-            ),
-        }
-    )
+    frame = pd.DataFrame({
+        "id": pd.Series([1, 2, 3], dtype="int64"),
+        "price": pd.Series([1.5, 2.5, 3.5], dtype="float64"),
+        "flag": pd.Series([True, False, True], dtype="bool"),
+        "name": pd.Series(["alpha", "beta", "gamma"], dtype="object"),
+        "event_at": pd.to_datetime(
+            ["2024-01-01 00:00", "2024-01-01 01:00", "2024-01-01 02:00"],
+            utc=False,
+        ),
+    })
 
     target = tmp_path / "roundtrip.parquet"
     write_parquet(frame, target)
@@ -31,13 +29,11 @@ def test_parquet_roundtrip_preserves_schema(tmp_path: Path) -> None:
 
 
 def test_partitioned_roundtrip_with_filters(tmp_path: Path) -> None:
-    frame = pd.DataFrame(
-        {
-            "id": pd.Series([1, 2, 3, 4], dtype="int64"),
-            "value": pd.Series([10.0, 20.0, 30.5, 40.0], dtype="float64"),
-            "year": pd.Series([2022, 2023, 2023, 2024], dtype="int32"),
-        }
-    )
+    frame = pd.DataFrame({
+        "id": pd.Series([1, 2, 3, 4], dtype="int64"),
+        "value": pd.Series([10.0, 20.0, 30.5, 40.0], dtype="float64"),
+        "year": pd.Series([2022, 2023, 2023, 2024], dtype="int32"),
+    })
     target = tmp_path / "partitioned"
 
     write_parquet(frame, target, partition_cols=["year"])

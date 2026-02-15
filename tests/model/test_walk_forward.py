@@ -71,7 +71,9 @@ class TestWalkForwardValidator:
     def test_custom_xgb_params(self, synthetic_data: tuple) -> None:
         X, y, folds = synthetic_data
         v = WalkForwardValidator(
-            X, y, folds,
+            X,
+            y,
+            folds,
             xgb_params={"max_depth": 3, "eta": 0.05},
             num_boost_round=5,
         )

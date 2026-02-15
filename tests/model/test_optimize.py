@@ -9,7 +9,6 @@ import pytest
 from bitbat.dataset.splits import Fold
 from bitbat.model.optimize import HyperparamOptimizer, OptimizationResult
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -63,7 +63,7 @@ def full_env(tmp_path_factory: pytest.TempPathFactory) -> Path:
         for i in range(20):
             direction = "up" if rng.random() > 0.4 else "down"
             p_up = float(rng.uniform(0.3, 0.8))
-            pred = db.store_prediction(
+            db.store_prediction(
                 session,
                 timestamp_utc=datetime(2024, 6, 1 + i, tzinfo=UTC).replace(tzinfo=None),
                 predicted_direction=direction,

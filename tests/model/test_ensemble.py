@@ -25,7 +25,12 @@ def model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
         y = rng.choice([0, 1, 2], size=50)
         dtrain = xgb.DMatrix(X, label=y, feature_names=list(X.columns))
         booster = xgb.train(
-            {"objective": "multi:softprob", "num_class": 3, "max_depth": 2, "seed": int(hash(horizon) % 1000)},
+            {
+                "objective": "multi:softprob",
+                "num_class": 3,
+                "max_depth": 2,
+                "seed": int(hash(horizon) % 1000),
+            },
             dtrain,
             num_boost_round=5,
         )
@@ -95,9 +100,7 @@ class TestMultiHorizonEnsemble:
         # Weighted average should differ from equal-weight
         assert pred.p_up > 0 or pred.p_down > 0
 
-    def test_summary_dict(
-        self, ensemble: MultiHorizonEnsemble, features: pd.DataFrame
-    ) -> None:
+    def test_summary_dict(self, ensemble: MultiHorizonEnsemble, features: pd.DataFrame) -> None:
         pred = ensemble.predict(features)
         s = pred.summary()
         assert "predicted_direction" in s
@@ -105,9 +108,7 @@ class TestMultiHorizonEnsemble:
         assert "horizons_used" in s
         assert s["horizons_used"] == 3
 
-    def test_predict_batch(
-        self, ensemble: MultiHorizonEnsemble
-    ) -> None:
+    def test_predict_batch(self, ensemble: MultiHorizonEnsemble) -> None:
         rng = np.random.default_rng(1)
         features = pd.DataFrame({"feat_a": rng.normal(size=5), "feat_b": rng.normal(size=5)})
         preds = ensemble.predict_batch(features)

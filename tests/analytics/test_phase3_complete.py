@@ -19,7 +19,6 @@ from bitbat.analytics.explainer import PredictionExplainer
 from bitbat.analytics.feature_analysis import FeatureAnalyzer
 from bitbat.backtest.engine import run as backtest_run
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
@@ -119,9 +118,7 @@ class TestPhase3Integration:
         # Multi-class: (n, 3, n_features+1) or (n, n_features+1)
         assert contribs.shape[0] == 20
 
-    def test_explainer_feature_importance_nonempty(
-        self, explainer: PredictionExplainer
-    ) -> None:
+    def test_explainer_feature_importance_nonempty(self, explainer: PredictionExplainer) -> None:
         imp = explainer.feature_importance_from_model()
         assert isinstance(imp, pd.Series)
         assert len(imp) > 0
@@ -171,9 +168,7 @@ class TestPhase3Integration:
         assert isinstance(report.plain_summary(), str)
         assert report.rating() in ("Excellent", "Good", "Fair", "Poor")
 
-    def test_scenario_comparison_three_presets(
-        self, analyzer: FeatureAnalyzer
-    ) -> None:
+    def test_scenario_comparison_three_presets(self, analyzer: FeatureAnalyzer) -> None:
         df = analyzer.load()
         n = len(df)
         rng = np.random.default_rng(42)
@@ -185,7 +180,7 @@ class TestPhase3Integration:
         thresholds = [0.75, 0.65, 0.55]
         names = ["Conservative", "Balanced", "Aggressive"]
         reports = []
-        for thr, name in zip(thresholds, names):
+        for thr, name in zip(thresholds, names, strict=False):
             t, eq = backtest_run(close, pu, pd_, enter=thr)
             reports.append(BacktestReport(eq, t, preset_name=name, enter_threshold=thr))
 

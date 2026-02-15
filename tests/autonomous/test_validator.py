@@ -19,17 +19,15 @@ def _seed_prices(tmp_path: Path, freq: str = "1h") -> None:
     prices_dir = tmp_path / "data" / "raw" / "prices"
     prices_dir.mkdir(parents=True, exist_ok=True)
     index = pd.date_range("2024-01-01 00:00:00", periods=16, freq=freq)
-    frame = pd.DataFrame(
-        {
-            "timestamp_utc": index,
-            "open": [43000 + i for i in range(len(index))],
-            "high": [43010 + i for i in range(len(index))],
-            "low": [42990 + i for i in range(len(index))],
-            "close": [43000 + (i * 10) for i in range(len(index))],
-            "volume": [1000.0] * len(index),
-            "source": ["yfinance"] * len(index),
-        }
-    )
+    frame = pd.DataFrame({
+        "timestamp_utc": index,
+        "open": [43000 + i for i in range(len(index))],
+        "high": [43010 + i for i in range(len(index))],
+        "low": [42990 + i for i in range(len(index))],
+        "close": [43000 + (i * 10) for i in range(len(index))],
+        "volume": [1000.0] * len(index),
+        "source": ["yfinance"] * len(index),
+    })
     frame.to_parquet(prices_dir / f"btcusd_yf_{freq}.parquet", index=False)
 
 

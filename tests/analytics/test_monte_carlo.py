@@ -8,7 +8,6 @@ import pytest
 
 from bitbat.analytics.monte_carlo import MonteCarloResult, MonteCarloSimulator
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

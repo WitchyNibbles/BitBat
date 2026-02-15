@@ -103,8 +103,7 @@ def ensure_feature_contract(
         missing_sentiment = sorted(expected_sentiment - set(feature_cols))
         if missing_sentiment:
             raise ContractError(
-                "Feature frame missing sentiment columns: "
-                + ", ".join(missing_sentiment)
+                "Feature frame missing sentiment columns: " + ", ".join(missing_sentiment)
             )
 
     ordered = ["timestamp_utc", *feature_cols]

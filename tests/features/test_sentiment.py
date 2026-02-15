@@ -13,14 +13,12 @@ from bitbat.features.sentiment import score_vader
 
 
 def test_score_vader_respects_sentiment_direction() -> None:
-    texts = pd.Series(
-        [
-            "This is an excellent profit and a fantastic success",
-            "This is a terrible loss and an awful disaster",
-            "Neutral statement without strong sentiment",
-            "",
-        ]
-    )
+    texts = pd.Series([
+        "This is an excellent profit and a fantastic success",
+        "This is a terrible loss and an awful disaster",
+        "Neutral statement without strong sentiment",
+        "",
+    ])
     scores = score_vader(texts)
     assert scores.iloc[0] > 0.5
     assert scores.iloc[1] < 0

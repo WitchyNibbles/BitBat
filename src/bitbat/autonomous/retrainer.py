@@ -135,39 +135,41 @@ class AutoRetrainer:
             start_iso = start_dt.strftime("%Y-%m-%d %H:%M:%S")
             end_iso = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-            self._run_command(
-                ["poetry", "run", "bitbat", "features", "build", "--tau", str(self.tau)]
-            )
-            self._run_command(
-                [
-                    "poetry",
-                    "run",
-                    "bitbat",
-                    "model",
-                    "cv",
-                    "--freq",
-                    self.freq,
-                    "--horizon",
-                    self.horizon,
-                    "--start",
-                    start_iso,
-                    "--end",
-                    end_iso,
-                ]
-            )
-            self._run_command(
-                [
-                    "poetry",
-                    "run",
-                    "bitbat",
-                    "model",
-                    "train",
-                    "--freq",
-                    self.freq,
-                    "--horizon",
-                    self.horizon,
-                ]
-            )
+            self._run_command([
+                "poetry",
+                "run",
+                "bitbat",
+                "features",
+                "build",
+                "--tau",
+                str(self.tau),
+            ])
+            self._run_command([
+                "poetry",
+                "run",
+                "bitbat",
+                "model",
+                "cv",
+                "--freq",
+                self.freq,
+                "--horizon",
+                self.horizon,
+                "--start",
+                start_iso,
+                "--end",
+                end_iso,
+            ])
+            self._run_command([
+                "poetry",
+                "run",
+                "bitbat",
+                "model",
+                "train",
+                "--freq",
+                self.freq,
+                "--horizon",
+                self.horizon,
+            ])
 
             new_cv_score = self._read_cv_score()
             new_version = self._next_model_version()

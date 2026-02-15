@@ -33,9 +33,7 @@ def feature_importance(
 
     raw = booster.get_score(importance_type="gain")
     # Normalise: flatten any list values
-    importance = {
-        k: float(v[0] if isinstance(v, list) else v) for k, v in raw.items()
-    }
+    importance = {k: float(v[0] if isinstance(v, list) else v) for k, v in raw.items()}
     sorted_items = sorted(importance.items(), key=lambda x: x[1], reverse=True)[:top_n]
 
     return FeatureImportanceResponse(

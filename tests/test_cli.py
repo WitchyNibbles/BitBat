@@ -39,15 +39,13 @@ def _write_test_config(
         "seed: 42",
     ]
     if database_url is not None:
-        lines.extend(
-            [
-                "autonomous:",
-                f'  database_url: "{database_url}"',
-                "  validation_interval: 3600",
-                "  retraining:",
-                "    cooldown_hours: 24",
-            ]
-        )
+        lines.extend([
+            "autonomous:",
+            f'  database_url: "{database_url}"',
+            "  validation_interval: 3600",
+            "  retraining:",
+            "    cooldown_hours: 24",
+        ])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -77,20 +75,18 @@ def test_cli_prices_pull_idempotent(
 ) -> None:
     argv, output_root = cli_args
 
-    sample_frame = pd.DataFrame(
-        {
-            "timestamp_utc": pd.to_datetime(
-                ["2024-01-01 00:00:00", "2024-01-01 01:00:00"],
-                utc=False,
-            ),
-            "open": [100.0, 110.0],
-            "high": [105.0, 115.0],
-            "low": [95.0, 108.0],
-            "close": [104.0, 112.0],
-            "volume": [1_000.0, 2_000.0],
-            "source": ["yfinance", "yfinance"],
-        }
-    )
+    sample_frame = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(
+            ["2024-01-01 00:00:00", "2024-01-01 01:00:00"],
+            utc=False,
+        ),
+        "open": [100.0, 110.0],
+        "high": [105.0, 115.0],
+        "low": [95.0, 108.0],
+        "close": [104.0, 112.0],
+        "volume": [1_000.0, 2_000.0],
+        "source": ["yfinance", "yfinance"],
+    })
 
     calls: list[tuple[str, str, datetime, str | None]] = []
 
@@ -103,14 +99,12 @@ def test_cli_prices_pull_idempotent(
     ) -> pd.DataFrame:
         from bitbat.ingest import prices as prices_module
 
-        calls.append(
-            (
-                symbol,
-                interval,
-                start,
-                output_root if output_root is None else str(output_root),
-            )
-        )
+        calls.append((
+            symbol,
+            interval,
+            start,
+            output_root if output_root is None else str(output_root),
+        ))
 
         target = prices_module._target_path(symbol, interval, output_root)
         if target.exists():
@@ -184,18 +178,16 @@ def test_cli_news_pull_idempotent(
     from bitbat.ingest import news_gdelt as news_module
 
     argv, output_root = news_cli_args
-    sample_frame = pd.DataFrame(
-        {
-            "published_utc": pd.to_datetime(
-                ["2024-01-01 00:00:00", "2024-01-02 00:00:00"],
-                utc=False,
-            ),
-            "title": ["Bitcoin rally", "Regulation insights"],
-            "url": ["http://example.com/a", "https://example.com/b"],
-            "source": ["ExampleNews", "CryptoDaily"],
-            "lang": ["en", "en"],
-        }
-    )
+    sample_frame = pd.DataFrame({
+        "published_utc": pd.to_datetime(
+            ["2024-01-01 00:00:00", "2024-01-02 00:00:00"],
+            utc=False,
+        ),
+        "title": ["Bitcoin rally", "Regulation insights"],
+        "url": ["http://example.com/a", "https://example.com/b"],
+        "source": ["ExampleNews", "CryptoDaily"],
+        "lang": ["en", "en"],
+    })
 
     calls: list[tuple[datetime, datetime, str | None]] = []
 
@@ -274,18 +266,16 @@ def test_cli_news_pull_cryptocompare_source(
         "--output",
         str(output_root),
     ]
-    sample_frame = pd.DataFrame(
-        {
-            "published_utc": pd.to_datetime(
-                ["2024-01-01 00:00:00", "2024-01-02 00:00:00"],
-                utc=False,
-            ),
-            "title": ["Bitcoin rally", "Regulation insights"],
-            "url": ["http://example.com/a", "https://example.com/b"],
-            "source": ["ExampleNews", "CryptoDaily"],
-            "lang": ["en", "en"],
-        }
-    )
+    sample_frame = pd.DataFrame({
+        "published_utc": pd.to_datetime(
+            ["2024-01-01 00:00:00", "2024-01-02 00:00:00"],
+            utc=False,
+        ),
+        "title": ["Bitcoin rally", "Regulation insights"],
+        "url": ["http://example.com/a", "https://example.com/b"],
+        "source": ["ExampleNews", "CryptoDaily"],
+        "lang": ["en", "en"],
+    })
 
     def fake_fetch(
         from_dt: datetime,
@@ -337,19 +327,22 @@ def test_cli_model_cv(
     feature_dir.mkdir(parents=True, exist_ok=True)
 
     idx = pd.date_range("2024-01-01 00:00:00", periods=48, freq="1h")
-    dataset = pd.DataFrame(
-        {
-            "timestamp_utc": idx,
-            "feat_f1": np.linspace(0.0, 1.0, len(idx)),
-            "label": pd.Series(([
-                "down",
-                "flat",
-                "up",
-            ]
-                * 16)[: len(idx)], dtype="string"),
-            "r_forward": np.linspace(0.0, 0.01, len(idx)),
-        }
-    )
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "label": pd.Series(
+            (
+                [
+                    "down",
+                    "flat",
+                    "up",
+                ]
+                * 16
+            )[: len(idx)],
+            dtype="string",
+        ),
+        "r_forward": np.linspace(0.0, 0.01, len(idx)),
+    })
     dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
 
     monkeypatch.chdir(tmp_path)
@@ -445,28 +438,24 @@ def test_cli_batch_run(
     (model_dir / "xgb.json").write_text("{}", encoding="utf-8")
 
     idx = pd.date_range("2024-01-01", periods=10, freq=freq)
-    prices = pd.DataFrame(
-        {
-            "timestamp_utc": idx,
-            "open": np.linspace(100, 110, len(idx)),
-            "high": np.linspace(101, 111, len(idx)),
-            "low": np.linspace(99, 109, len(idx)),
-            "close": np.linspace(100.5, 110.5, len(idx)),
-            "volume": np.full(len(idx), 1000),
-        }
-    )
+    prices = pd.DataFrame({
+        "timestamp_utc": idx,
+        "open": np.linspace(100, 110, len(idx)),
+        "high": np.linspace(101, 111, len(idx)),
+        "low": np.linspace(99, 109, len(idx)),
+        "close": np.linspace(100.5, 110.5, len(idx)),
+        "volume": np.full(len(idx), 1000),
+    })
     prices.to_parquet(prices_dir / "btcusd_yf_1h.parquet")
 
-    news = pd.DataFrame(
-        {
-            "published_utc": idx,
-            "sentiment_score": np.linspace(-1, 1, len(idx)),
-            "title": ["headline"] * len(idx),
-            "url": [f"http://example.com/{i}" for i in range(len(idx))],
-            "source": "UnitTest",
-            "lang": "en",
-        }
-    )
+    news = pd.DataFrame({
+        "published_utc": idx,
+        "sentiment_score": np.linspace(-1, 1, len(idx)),
+        "title": ["headline"] * len(idx),
+        "url": [f"http://example.com/{i}" for i in range(len(idx))],
+        "source": "UnitTest",
+        "lang": "en",
+    })
     news.to_parquet(news_dir / "gdelt_crypto_1h.parquet")
 
     def fake_fetch_prices(*args: Any, **kwargs: Any) -> None:
@@ -546,33 +535,29 @@ def test_cli_batch_realize(
 
     idx = pd.date_range("2024-01-01", periods=10, freq=freq)
     close = np.linspace(100, 110, len(idx))
-    prices = pd.DataFrame(
-        {
-            "timestamp_utc": idx,
-            "open": close,
-            "high": close + 1,
-            "low": close - 1,
-            "close": close,
-            "volume": np.full(len(idx), 1000),
-        }
-    )
+    prices = pd.DataFrame({
+        "timestamp_utc": idx,
+        "open": close,
+        "high": close + 1,
+        "low": close - 1,
+        "close": close,
+        "volume": np.full(len(idx), 1000),
+    })
     prices.to_parquet(prices_dir / "btcusd_yf_1h.parquet")
 
     preds_dir = tmp_path / "data" / "predictions"
     preds_dir.mkdir(parents=True, exist_ok=True)
     prediction_ts = idx[4]
-    preds = pd.DataFrame(
-        {
-            "timestamp_utc": [prediction_ts],
-            "p_up": [0.6],
-            "p_down": [0.3],
-            "freq": [freq],
-            "horizon": [horizon],
-            "model_version": ["test"],
-            "realized_r": [np.nan],
-            "realized_label": [pd.NA],
-        }
-    )
+    preds = pd.DataFrame({
+        "timestamp_utc": [prediction_ts],
+        "p_up": [0.6],
+        "p_down": [0.3],
+        "freq": [freq],
+        "horizon": [horizon],
+        "model_version": ["test"],
+        "realized_r": [np.nan],
+        "realized_label": [pd.NA],
+    })
     preds.to_parquet(preds_dir / "1h_4h.parquet", index=False)
 
     monkeypatch.chdir(tmp_path)
@@ -610,18 +595,16 @@ def test_cli_monitor_refresh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     predictions_dir.mkdir(parents=True, exist_ok=True)
     now = datetime.now().replace(microsecond=0)
     idx = pd.date_range(now - pd.Timedelta(hours=9), periods=10, freq=freq)
-    preds = pd.DataFrame(
-        {
-            "timestamp_utc": idx,
-            "p_up": np.linspace(0.5, 0.7, len(idx)),
-            "p_down": np.linspace(0.3, 0.1, len(idx)),
-            "freq": [freq] * len(idx),
-            "horizon": [horizon] * len(idx),
-            "model_version": ["test"] * len(idx),
-            "realized_r": np.linspace(-0.01, 0.02, len(idx)),
-            "realized_label": ["flat"] * len(idx),
-        }
-    )
+    preds = pd.DataFrame({
+        "timestamp_utc": idx,
+        "p_up": np.linspace(0.5, 0.7, len(idx)),
+        "p_down": np.linspace(0.3, 0.1, len(idx)),
+        "freq": [freq] * len(idx),
+        "horizon": [horizon] * len(idx),
+        "model_version": ["test"] * len(idx),
+        "realized_r": np.linspace(-0.01, 0.02, len(idx)),
+        "realized_label": ["flat"] * len(idx),
+    })
     preds.to_parquet(predictions_dir / "1h_4h.parquet", index=False)
 
     monkeypatch.chdir(tmp_path)

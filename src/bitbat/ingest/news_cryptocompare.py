@@ -38,11 +38,7 @@ def _ensure_utc(dt: datetime) -> datetime:
 
 
 def _target_path(root: Path | str | None = None) -> Path:
-    base = (
-        Path(root)
-        if root is not None
-        else Path("data") / "raw" / "news" / "cryptocompare_1h"
-    )
+    base = Path(root) if root is not None else Path("data") / "raw" / "news" / "cryptocompare_1h"
     return base / "cryptocompare_btc_1h.parquet"
 
 
@@ -199,7 +195,9 @@ def _fetch_page(
 
         records = payload_json.get("Data") or []
         if not isinstance(records, list):
-            raise CryptoCompareError("Unexpected CryptoCompare response payload: Data is not a list")
+            raise CryptoCompareError(
+                "Unexpected CryptoCompare response payload: Data is not a list"
+            )
         return records
 
 
@@ -216,15 +214,13 @@ def _articles_to_frame(articles: list[dict[str, Any]]) -> pd.DataFrame:
         if source is None:
             source = article.get("source")
         lang = article.get("lang") or article.get("language") or "en"
-        records.append(
-            {
-                "published_utc": published,
-                "title": title,
-                "url": url,
-                "source": source,
-                "lang": lang,
-            }
-        )
+        records.append({
+            "published_utc": published,
+            "title": title,
+            "url": url,
+            "source": source,
+            "lang": lang,
+        })
 
     frame = pd.DataFrame.from_records(records, columns=RESULT_COLUMNS)
     if frame.empty:
@@ -318,8 +314,7 @@ def fetch(
         frame = _articles_to_frame(articles)
         if not frame.empty:
             frame = frame[
-                (frame["published_utc"] >= start_naive)
-                & (frame["published_utc"] <= end_naive)
+                (frame["published_utc"] >= start_naive) & (frame["published_utc"] <= end_naive)
             ]
             if not frame.empty:
                 all_frames.append(frame)

@@ -15,7 +15,6 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import requests
@@ -40,7 +39,7 @@ class NewsIngestionService:
         data_dir: Root data directory.  Defaults to ``data/``.
     """
 
-    def __init__(self, data_dir: Optional[Path] = None) -> None:
+    def __init__(self, data_dir: Path | None = None) -> None:
         if data_dir is None:
             data_dir = Path("data")
 
@@ -48,9 +47,9 @@ class NewsIngestionService:
         self.news_dir.mkdir(parents=True, exist_ok=True)
 
         # Optional API keys from environment.
-        self.newsapi_key: Optional[str] = os.environ.get("NEWSAPI_KEY")
-        self.reddit_client_id: Optional[str] = os.environ.get("REDDIT_CLIENT_ID")
-        self.reddit_client_secret: Optional[str] = os.environ.get("REDDIT_CLIENT_SECRET")
+        self.newsapi_key: str | None = os.environ.get("NEWSAPI_KEY")
+        self.reddit_client_id: str | None = os.environ.get("REDDIT_CLIENT_ID")
+        self.reddit_client_secret: str | None = os.environ.get("REDDIT_CLIENT_SECRET")
 
         # Rate limiter for NewsAPI (100 requests/day on free tier).
         self.newsapi_limiter = RateLimiter(
@@ -126,16 +125,14 @@ class NewsIngestionService:
         for item in data.get("Data", [])[:max_results]:
             try:
                 published = pd.to_datetime(item["published_on"], unit="s").to_pydatetime()
-                articles.append(
-                    {
-                        "published_utc": published,
-                        "title": str(item.get("title", "")),
-                        "url": str(item.get("url", "")),
-                        "source": str(item.get("source", "cryptocompare")),
-                        "lang": "en",
-                        "sentiment_score": self._sentiment_score(str(item.get("title", ""))),
-                    }
-                )
+                articles.append({
+                    "published_utc": published,
+                    "title": str(item.get("title", "")),
+                    "url": str(item.get("url", "")),
+                    "source": str(item.get("source", "cryptocompare")),
+                    "lang": "en",
+                    "sentiment_score": self._sentiment_score(str(item.get("title", ""))),
+                })
             except Exception as exc:
                 logger.debug("Skipping malformed CryptoCompare item: %s", exc)
 
@@ -159,9 +156,7 @@ class NewsIngestionService:
             return []
 
         if not self.newsapi_limiter.can_make_request():
-            logger.warning(
-                "NewsAPI rate limit reached: %s", self.newsapi_limiter.get_status()
-            )
+            logger.warning("NewsAPI rate limit reached: %s", self.newsapi_limiter.get_status())
             return []
 
         url = "https://newsapi.org/v2/everything"
@@ -188,16 +183,14 @@ class NewsIngestionService:
             try:
                 raw_ts = pd.to_datetime(item["publishedAt"], utc=True)
                 published = raw_ts.tz_localize(None).to_pydatetime()
-                articles.append(
-                    {
-                        "published_utc": published,
-                        "title": str(item.get("title", "")),
-                        "url": str(item.get("url", "")),
-                        "source": str((item.get("source") or {}).get("name", "newsapi")),
-                        "lang": "en",
-                        "sentiment_score": self._sentiment_score(str(item.get("title", ""))),
-                    }
-                )
+                articles.append({
+                    "published_utc": published,
+                    "title": str(item.get("title", "")),
+                    "url": str(item.get("url", "")),
+                    "source": str((item.get("source") or {}).get("name", "newsapi")),
+                    "lang": "en",
+                    "sentiment_score": self._sentiment_score(str(item.get("title", ""))),
+                })
             except Exception as exc:
                 logger.debug("Skipping malformed NewsAPI item: %s", exc)
 
@@ -236,16 +229,14 @@ class NewsIngestionService:
                 sub = reddit.subreddit(subreddit_name)
                 for post in sub.hot(limit=15):
                     published = pd.to_datetime(post.created_utc, unit="s").to_pydatetime()
-                    articles.append(
-                        {
-                            "published_utc": published,
-                            "title": str(post.title),
-                            "url": f"https://reddit.com{post.permalink}",
-                            "source": f"reddit_{subreddit_name}",
-                            "lang": "en",
-                            "sentiment_score": self._sentiment_score(str(post.title)),
-                        }
-                    )
+                    articles.append({
+                        "published_utc": published,
+                        "title": str(post.title),
+                        "url": f"https://reddit.com{post.permalink}",
+                        "source": f"reddit_{subreddit_name}",
+                        "lang": "en",
+                        "sentiment_score": self._sentiment_score(str(post.title)),
+                    })
 
             logger.info("Fetched %d posts from Reddit", len(articles))
             return articles

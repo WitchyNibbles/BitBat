@@ -107,4 +107,3 @@ def aggregate(
     feature_df.index = feature_df.index.tz_localize(None)
 
     return feature_df
-

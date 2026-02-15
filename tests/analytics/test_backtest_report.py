@@ -9,7 +9,6 @@ import pytest
 from bitbat.analytics.backtest_report import BacktestReport, compare_scenarios
 from bitbat.backtest.engine import run as backtest_run
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -20,8 +19,7 @@ def _make_equity(n: int = 100, seed: int = 42) -> pd.Series:
     rng = np.random.default_rng(seed)
     idx = pd.date_range("2024-01-01", periods=n, freq="1h")
     returns = rng.normal(0.0001, 0.005, n)
-    equity = pd.Series((1 + returns).cumprod(), index=idx, name="equity")
-    return equity
+    return pd.Series((1 + returns).cumprod(), index=idx, name="equity")
 
 
 def _make_trades(n: int = 100, seed: int = 42) -> pd.DataFrame:
@@ -76,7 +74,15 @@ class TestMetrics:
 
     def test_required_keys(self, report: BacktestReport) -> None:
         m = report.metrics()
-        for key in ("sharpe", "max_drawdown", "hit_rate", "avg_return", "total_return", "n_trades", "turnover"):
+        for key in (
+            "sharpe",
+            "max_drawdown",
+            "hit_rate",
+            "avg_return",
+            "total_return",
+            "n_trades",
+            "turnover",
+        ):
             assert key in m, f"Missing key: {key}"
 
     def test_max_drawdown_nonpositive(self, report: BacktestReport) -> None:
@@ -201,7 +207,17 @@ class TestToDataframe:
 
     def test_required_columns(self, report: BacktestReport) -> None:
         df = report.to_dataframe()
-        for col in ("Scenario", "Threshold", "Allow Short", "Total Return", "Sharpe", "Max Drawdown", "Win Rate", "Trades", "Rating"):
+        for col in (
+            "Scenario",
+            "Threshold",
+            "Allow Short",
+            "Total Return",
+            "Sharpe",
+            "Max Drawdown",
+            "Win Rate",
+            "Trades",
+            "Rating",
+        ):
             assert col in df.columns, f"Missing column: {col}"
 
     def test_scenario_name_matches(self, report: BacktestReport) -> None:
@@ -229,9 +245,15 @@ class TestCompareScenarios:
         assert len(df) == 1
 
     def test_multiple_reports(self) -> None:
-        r1 = BacktestReport(_make_equity(seed=1), _make_trades(seed=1), preset_name="A", enter_threshold=0.60)
-        r2 = BacktestReport(_make_equity(seed=2), _make_trades(seed=2), preset_name="B", enter_threshold=0.70)
-        r3 = BacktestReport(_make_equity(seed=3), _make_trades(seed=3), preset_name="C", enter_threshold=0.80)
+        r1 = BacktestReport(
+            _make_equity(seed=1), _make_trades(seed=1), preset_name="A", enter_threshold=0.60
+        )
+        r2 = BacktestReport(
+            _make_equity(seed=2), _make_trades(seed=2), preset_name="B", enter_threshold=0.70
+        )
+        r3 = BacktestReport(
+            _make_equity(seed=3), _make_trades(seed=3), preset_name="C", enter_threshold=0.80
+        )
         df = compare_scenarios([r1, r2, r3])
         assert len(df) == 3
         assert list(df["Scenario"]) == ["A", "B", "C"]

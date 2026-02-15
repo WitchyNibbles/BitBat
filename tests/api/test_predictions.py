@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 
 from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
-from bitbat.autonomous.models import create_database_engine
 
 
 @pytest.fixture()
@@ -83,7 +82,9 @@ def model_on_disk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 class TestLatestPrediction:
-    def test_404_when_no_db(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_404_when_no_db(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/predictions/latest")
         assert resp.status_code == 503
@@ -142,7 +143,9 @@ class TestPerformance:
 
 
 class TestFeatureImportance:
-    def test_404_no_model(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_404_no_model(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/analytics/feature-importance")
         assert resp.status_code == 404
@@ -161,7 +164,9 @@ class TestFeatureImportance:
 
 
 class TestSystemStatus:
-    def test_returns_status(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_status(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/analytics/status")
         assert resp.status_code == 200

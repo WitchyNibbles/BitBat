@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import xgboost as xgb
 
@@ -102,7 +101,9 @@ class MultiHorizonEnsemble:
 
     def available_horizons(self) -> list[str]:
         """Return the subset of requested horizons that have trained models."""
-        return [h for h in self.horizons if (self.model_dir / f"{self.freq}_{h}" / "xgb.json").exists()]
+        return [
+            h for h in self.horizons if (self.model_dir / f"{self.freq}_{h}" / "xgb.json").exists()
+        ]
 
     def predict(self, features: pd.DataFrame) -> EnsemblePrediction:
         """Generate a weighted-average ensemble prediction for a single bar.

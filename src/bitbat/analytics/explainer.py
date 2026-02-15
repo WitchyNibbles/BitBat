@@ -42,9 +42,7 @@ class PredictionExplainer:
     # SHAP contribution matrix
     # ------------------------------------------------------------------
 
-    def shap_values(
-        self, X: pd.DataFrame
-    ) -> np.ndarray:
+    def shap_values(self, X: pd.DataFrame) -> np.ndarray:
         """Return raw SHAP contribution array for *X*.
 
         Parameters
@@ -60,10 +58,9 @@ class PredictionExplainer:
         """
         booster = self._load_model()
         dmatrix = xgb.DMatrix(X.astype(float), feature_names=list(X.columns))
-        contribs = booster.predict(dmatrix, pred_contribs=True)
+        return booster.predict(dmatrix, pred_contribs=True)
         # contribs shape: (n_samples, n_features+1) for binary or
         # (n_samples, n_classes, n_features+1) for multi-class
-        return contribs
 
     def explain_row(
         self,
@@ -84,10 +81,7 @@ class PredictionExplainer:
         Dict with keys: ``contributions``, ``top_positive``, ``top_negative``,
         ``plain_english``.
         """
-        if isinstance(row, pd.Series):
-            X = row.to_frame().T
-        else:
-            X = row.head(1)
+        X = row.to_frame().T if isinstance(row, pd.Series) else row.head(1)
 
         contribs = self.shap_values(X)
 
@@ -114,7 +108,11 @@ class PredictionExplainer:
         top_positive = contrib_series[contrib_series > 0].head(5)
         top_negative = contrib_series[contrib_series < 0].head(5)
 
-        direction = label_map.get(predicted_class, str(predicted_class)) if label_map else str(predicted_class)
+        direction = (
+            label_map.get(predicted_class, str(predicted_class))
+            if label_map
+            else str(predicted_class)
+        )
 
         plain = _build_plain_explanation(top_positive, top_negative, direction)
 
@@ -133,10 +131,7 @@ class PredictionExplainer:
         scores = booster.get_score(importance_type="gain")
         if not scores:
             return pd.Series(dtype=float)
-        return (
-            pd.Series(scores)
-            .sort_values(ascending=False)
-        )
+        return pd.Series(scores).sort_values(ascending=False)
 
     def batch_mean_shap(self, X: pd.DataFrame) -> pd.DataFrame:
         """Compute mean absolute SHAP contribution per feature over *X*.

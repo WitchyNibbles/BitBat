@@ -90,9 +90,7 @@ class HyperparamOptimizer:
             # Manual mlogloss
             eps = 1e-15
             preds = np.clip(preds, eps, 1 - eps)
-            logloss = -np.mean(
-                np.log(preds[np.arange(len(y_te)), y_te])
-            )
+            logloss = -np.mean(np.log(preds[np.arange(len(y_te)), y_te]))
             fold_scores.append(float(logloss))
 
         return float(np.mean(fold_scores)) if fold_scores else 999.0

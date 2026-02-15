@@ -8,22 +8,18 @@ from bitbat.timealign.purging import mask_future
 
 
 def test_mask_future_includes_boundary_and_excludes_late_news() -> None:
-    news = pd.Series(
-        [
-            "2024-01-01T00:00:00Z",
-            "2024-01-01T00:59:59Z",
-            "2024-01-01T01:00:00Z",
-            "2024-01-01T01:00:01Z",
-        ]
-    )
-    bar_end = pd.Series(
-        [
-            "2024-01-01T00:30:00Z",
-            "2024-01-01T01:00:00Z",
-            "2024-01-01T01:00:00Z",
-            "2024-01-01T01:00:00Z",
-        ]
-    )
+    news = pd.Series([
+        "2024-01-01T00:00:00Z",
+        "2024-01-01T00:59:59Z",
+        "2024-01-01T01:00:00Z",
+        "2024-01-01T01:00:01Z",
+    ])
+    bar_end = pd.Series([
+        "2024-01-01T00:30:00Z",
+        "2024-01-01T01:00:00Z",
+        "2024-01-01T01:00:00Z",
+        "2024-01-01T01:00:00Z",
+    ])
 
     mask = mask_future(news, bar_end)
     expected = pd.Series([True, True, True, False])

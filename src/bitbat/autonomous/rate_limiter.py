@@ -10,7 +10,6 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ class RateLimiter:
         service_name: str,
         limit: int,
         period: str = "day",
-        state_file: Optional[Path] = None,
+        state_file: Path | None = None,
     ) -> None:
         self.service_name = service_name
         self.limit = limit
@@ -65,9 +64,7 @@ class RateLimiter:
         try:
             with self.state_file.open() as fh:
                 data = json.load(fh)
-            self.requests = [
-                datetime.fromisoformat(ts) for ts in data.get("requests", [])
-            ]
+            self.requests = [datetime.fromisoformat(ts) for ts in data.get("requests", [])]
         except Exception as exc:
             logger.error("Error loading rate-limit state for %s: %s", self.service_name, exc)
             self.requests = []
@@ -111,7 +108,7 @@ class RateLimiter:
         self._clean_old_requests()
         return len(self.requests) < self.limit
 
-    def record_request(self, timestamp: Optional[datetime] = None) -> None:
+    def record_request(self, timestamp: datetime | None = None) -> None:
         """Record that one request was made.
 
         Args:
@@ -127,7 +124,7 @@ class RateLimiter:
         self._clean_old_requests()
         return max(0, self.limit - len(self.requests))
 
-    def time_until_reset(self) -> Optional[timedelta]:
+    def time_until_reset(self) -> timedelta | None:
         """Return the time until the oldest request expires from the window.
 
         Returns ``None`` if no requests have been made yet.

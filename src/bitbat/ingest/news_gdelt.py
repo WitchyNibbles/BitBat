@@ -202,15 +202,13 @@ def _articles_to_frame(articles: list[dict[str, Any]]) -> pd.DataFrame:
         url = article.get("url")
         source = article.get("sourceCommonName") or article.get("source")
         lang = article.get("language")
-        records.append(
-            {
-                "published_utc": published,
-                "title": title,
-                "url": url,
-                "source": source,
-                "lang": lang,
-            }
-        )
+        records.append({
+            "published_utc": published,
+            "title": title,
+            "url": url,
+            "source": source,
+            "lang": lang,
+        })
 
     frame = pd.DataFrame.from_records(records, columns=RESULT_COLUMNS)
     if frame.empty:

@@ -196,12 +196,10 @@ def test_fetch_retries_non_json_then_recovers(
             }
         ]
     }
-    session = SequenceSession(
-        [
-            FakeNonJsonResponse(bad_payload),
-            FakeResponse(good_payload),
-        ]
-    )
+    session = SequenceSession([
+        FakeNonJsonResponse(bad_payload),
+        FakeResponse(good_payload),
+    ])
 
     monkeypatch.setattr("bitbat.ingest.news_gdelt.time.sleep", lambda _: None)
     frame = fetch(start, end, session=session, output_root=output_root, retry_limit=1)
@@ -218,12 +216,10 @@ def test_fetch_skips_chunk_after_non_json_retries_exhausted(
     start = datetime(2024, 1, 1, 0, 0, 0)
     end = datetime(2024, 1, 1, 1, 0, 0)
     output_root = tmp_path / "gdelt"
-    session = SequenceSession(
-        [
-            FakeNonJsonResponse("{html error body}"),
-            FakeNonJsonResponse("{html error body retry}"),
-        ]
-    )
+    session = SequenceSession([
+        FakeNonJsonResponse("{html error body}"),
+        FakeNonJsonResponse("{html error body retry}"),
+    ])
 
     monkeypatch.setattr("bitbat.ingest.news_gdelt.time.sleep", lambda _: None)
     frame = fetch(start, end, session=session, output_root=output_root, retry_limit=1)

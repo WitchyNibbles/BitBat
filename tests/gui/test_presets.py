@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
-
 from bitbat.gui.presets import (
+    AGGRESSIVE,
     BALANCED,
     CONSERVATIVE,
     DEFAULT_PRESET,
-    AGGRESSIVE,
     PRESETS,
     Preset,
     get_preset,
@@ -67,28 +65,52 @@ class TestPresetDataclass:
 
     def test_freq_formats(self) -> None:
         p = Preset(
-            name="test", description="", freq="4h", horizon="4h",
-            tau=0.01, enter_threshold=0.65, color="#fff", icon="🧪"
+            name="test",
+            description="",
+            freq="4h",
+            horizon="4h",
+            tau=0.01,
+            enter_threshold=0.65,
+            color="#fff",
+            icon="🧪",
         )
         assert "4 hours" in p._format_freq()
 
     def test_freq_daily_format(self) -> None:
         p = Preset(
-            name="test", description="", freq="1d", horizon="4h",
-            tau=0.01, enter_threshold=0.65, color="#fff", icon="🧪"
+            name="test",
+            description="",
+            freq="1d",
+            horizon="4h",
+            tau=0.01,
+            enter_threshold=0.65,
+            color="#fff",
+            icon="🧪",
         )
         assert "Daily" in p._format_freq()
 
     def test_tau_sensitivity_labels(self) -> None:
         p_high = Preset(
-            name="h", description="", freq="1h", horizon="4h",
-            tau=0.025, enter_threshold=0.65, color="#fff", icon="x"
+            name="h",
+            description="",
+            freq="1h",
+            horizon="4h",
+            tau=0.025,
+            enter_threshold=0.65,
+            color="#fff",
+            icon="x",
         )
         assert "High" in p_high._format_tau()
 
         p_low = Preset(
-            name="l", description="", freq="1h", horizon="4h",
-            tau=0.003, enter_threshold=0.65, color="#fff", icon="x"
+            name="l",
+            description="",
+            freq="1h",
+            horizon="4h",
+            tau=0.003,
+            enter_threshold=0.65,
+            color="#fff",
+            icon="x",
         )
         assert "Low" in p_low._format_tau()
 

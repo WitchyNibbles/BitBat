@@ -47,7 +47,7 @@ def model_dir(tmp_path_factory: pytest.TempPathFactory, dataset: tuple) -> Path:
     """Train models for 3 horizons."""
     X, y, _ = dataset
     root = tmp_path_factory.mktemp("models")
-    rng = np.random.default_rng(42)
+    np.random.default_rng(42)
     labels = pd.Categorical(y).codes
 
     for horizon in ("1h", "4h", "24h"):
@@ -55,8 +55,12 @@ def model_dir(tmp_path_factory: pytest.TempPathFactory, dataset: tuple) -> Path:
         d.mkdir()
         dtrain = xgb.DMatrix(X, label=labels, feature_names=list(X.columns))
         booster = xgb.train(
-            {"objective": "multi:softprob", "num_class": 3, "max_depth": 2,
-             "seed": hash(horizon) % 10000},
+            {
+                "objective": "multi:softprob",
+                "num_class": 3,
+                "max_depth": 2,
+                "seed": hash(horizon) % 10000,
+            },
             dtrain,
             num_boost_round=10,
         )
@@ -78,7 +82,9 @@ class TestPhase5Integration:
         X, y, folds = dataset
         # Use simple params (avoid full Optuna for speed)
         v = WalkForwardValidator(
-            X, y, folds,
+            X,
+            y,
+            folds,
             xgb_params={"max_depth": 3, "eta": 0.1},
             num_boost_round=10,
         )
@@ -89,9 +95,7 @@ class TestPhase5Integration:
         assert "predicted" in preds.columns
         assert "p_up" in preds.columns
 
-    def test_ensemble_combines_horizons(
-        self, model_dir: Path, dataset: tuple
-    ) -> None:
+    def test_ensemble_combines_horizons(self, model_dir: Path, dataset: tuple) -> None:
         X, _, _ = dataset
         ens = MultiHorizonEnsemble(model_dir, freq="1h", horizons=["1h", "4h", "24h"])
         assert len(ens.available_horizons()) == 3
@@ -134,8 +138,8 @@ class TestPhase5Integration:
         assert pred.confidence > 0
 
         # 3. Backtest with ensemble-derived probabilities
-        rng = np.random.default_rng(42)
-        n = len(X)
+        np.random.default_rng(42)
+        len(X)
         idx = X.index
         close = pd.Series(np.cumprod(1 + X["feat_ret_1"].fillna(0)) * 100, index=idx)
         batch_preds = ens.predict_batch(X)
@@ -151,6 +155,7 @@ class TestPhase5Integration:
 
         # Verify everything is JSON-serialisable
         import json
+
         json.dumps(wf_result.summary())
         json.dumps(pred.summary())
         json.dumps(mc.summary())

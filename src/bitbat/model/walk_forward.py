@@ -133,7 +133,9 @@ class WalkForwardValidator:
                 **self.xgb_params,
             }
 
-            booster = xgb.train(params, dtrain, num_boost_round=self.num_boost_round, verbose_eval=False)
+            booster = xgb.train(
+                params, dtrain, num_boost_round=self.num_boost_round, verbose_eval=False
+            )
             probas = booster.predict(dtest)
 
             # Accuracy

@@ -10,7 +10,6 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import yfinance as yf
@@ -46,7 +45,7 @@ class PriceIngestionService:
         self,
         symbol: str = "BTC-USD",
         interval: str = "1h",
-        data_dir: Optional[Path] = None,
+        data_dir: Path | None = None,
     ) -> None:
         self.symbol = symbol
         self.interval = interval
@@ -63,13 +62,13 @@ class PriceIngestionService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_last_timestamp(self) -> Optional[datetime]:
+    def _get_last_timestamp(self) -> datetime | None:
         """Return the latest ``timestamp_utc`` found across all stored parquet files."""
         parquet_files = list(self.prices_dir.glob("**/*.parquet"))
         if not parquet_files:
             return None
 
-        max_ts: Optional[pd.Timestamp] = None
+        max_ts: pd.Timestamp | None = None
         for path in parquet_files:
             try:
                 df = pd.read_parquet(path, columns=["timestamp_utc"])
@@ -96,8 +95,7 @@ class PriceIngestionService:
         partition_dir = self.prices_dir / f"date={date}"
         partition_dir.mkdir(parents=True, exist_ok=True)
         output_file = (
-            partition_dir
-            / f"{self.symbol.replace('-', '').lower()}_{self.interval}.parquet"
+            partition_dir / f"{self.symbol.replace('-', '').lower()}_{self.interval}.parquet"
         )
 
         if output_file.exists():
@@ -191,7 +189,7 @@ class PriceIngestionService:
                 if attempt >= max_retries - 1:
                     logger.error("All %d fetch attempts failed: %s", max_retries, exc)
                     raise
-                wait = 2 ** attempt
+                wait = 2**attempt
                 logger.warning(
                     "Fetch attempt %d/%d failed: %s — retrying in %ds",
                     attempt + 1,

@@ -44,16 +44,14 @@ def test_to_bar_rejects_unknown_frequency() -> None:
 
 
 def test_ensure_utc_normalises_column() -> None:
-    frame = pd.DataFrame(
-        {
-            "timestamp": [
-                "2024-01-01T00:00:00Z",
-                pd.Timestamp("2024-01-01 01:15:00", tz="UTC"),
-                pd.Timestamp("2024-01-01 02:30:00"),
-            ],
-            "value": [1, 2, 3],
-        }
-    )
+    frame = pd.DataFrame({
+        "timestamp": [
+            "2024-01-01T00:00:00Z",
+            pd.Timestamp("2024-01-01 01:15:00", tz="UTC"),
+            pd.Timestamp("2024-01-01 02:30:00"),
+        ],
+        "value": [1, 2, 3],
+    })
 
     normalised = ensure_utc(frame, "timestamp")
     expected = pd.Series(

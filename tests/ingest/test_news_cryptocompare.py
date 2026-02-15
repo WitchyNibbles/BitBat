@@ -157,12 +157,10 @@ def test_fetch_retries_non_json_then_recovers(
             }
         ],
     }
-    session = SequenceSession(
-        [
-            FakeNonJsonResponse("{html payload}"),
-            FakeResponse(good_payload),
-        ]
-    )
+    session = SequenceSession([
+        FakeNonJsonResponse("{html payload}"),
+        FakeResponse(good_payload),
+    ])
 
     monkeypatch.setattr("bitbat.ingest.news_cryptocompare.time.sleep", lambda _: None)
     frame = fetch(start, end, session=session, output_root=output_root, retry_limit=1)

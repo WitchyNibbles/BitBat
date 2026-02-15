@@ -83,9 +83,7 @@ class BacktestReport:
 
         # Trade count and turnover
         pos = (
-            self.trades["position"]
-            if "position" in self.trades.columns
-            else pd.Series(dtype=float)
+            self.trades["position"] if "position" in self.trades.columns else pd.Series(dtype=float)
         )
         changes = pos.diff().fillna(0.0)
         n_trades = int(changes.abs().gt(0).sum())
@@ -158,17 +156,11 @@ class BacktestReport:
         ]
 
         if r == "Excellent":
-            lines.append(
-                "The strategy performed **excellently** — strong risk-adjusted returns."
-            )
+            lines.append("The strategy performed **excellently** — strong risk-adjusted returns.")
         elif r == "Good":
-            lines.append(
-                "The strategy performed **well** — positive risk-adjusted returns."
-            )
+            lines.append("The strategy performed **well** — positive risk-adjusted returns.")
         elif r == "Fair":
-            lines.append(
-                "The strategy showed **modest** results — some edge but room to improve."
-            )
+            lines.append("The strategy showed **modest** results — some edge but room to improve.")
         else:
             lines.append(
                 "The strategy **underperformed** — consider adjusting the entry threshold."
@@ -194,21 +186,19 @@ class BacktestReport:
     def to_dataframe(self) -> pd.DataFrame:
         """Return a one-row DataFrame for scenario comparison tables."""
         m = self.metrics()
-        return pd.DataFrame(
-            [
-                {
-                    "Scenario": self.preset_name,
-                    "Threshold": f"{self.enter_threshold:.0%}",
-                    "Allow Short": "Yes" if self.allow_short else "No",
-                    "Total Return": f"{m['total_return'] * 100:+.1f}%",
-                    "Sharpe": round(m["sharpe"], 2),
-                    "Max Drawdown": f"-{abs(m['max_drawdown']) * 100:.1f}%",
-                    "Win Rate": f"{m['hit_rate'] * 100:.1f}%",
-                    "Trades": int(m["n_trades"]),
-                    "Rating": self.rating(),
-                }
-            ]
-        )
+        return pd.DataFrame([
+            {
+                "Scenario": self.preset_name,
+                "Threshold": f"{self.enter_threshold:.0%}",
+                "Allow Short": "Yes" if self.allow_short else "No",
+                "Total Return": f"{m['total_return'] * 100:+.1f}%",
+                "Sharpe": round(m["sharpe"], 2),
+                "Max Drawdown": f"-{abs(m['max_drawdown']) * 100:.1f}%",
+                "Win Rate": f"{m['hit_rate'] * 100:.1f}%",
+                "Trades": int(m["n_trades"]),
+                "Rating": self.rating(),
+            }
+        ])
 
 
 # ---------------------------------------------------------------------------

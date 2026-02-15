@@ -31,7 +31,7 @@ def db_with_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     with db.session() as session:
         for i in range(10):
-            pred = db.store_prediction(
+            db.store_prediction(
                 session,
                 timestamp_utc=datetime(2024, 1, 1 + i, tzinfo=UTC).replace(tzinfo=None),
                 predicted_direction="up",
@@ -53,32 +53,44 @@ def db_with_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 class TestMetricsEndpoint:
-    def test_returns_200(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_200(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/metrics")
         assert resp.status_code == 200
 
-    def test_content_type_text(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_content_type_text(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/metrics")
         assert "text/plain" in resp.headers["content-type"]
 
-    def test_has_uptime_gauge(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_has_uptime_gauge(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         assert "bitbat_uptime_seconds" in text
 
-    def test_has_database_gauge(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_has_database_gauge(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         assert "bitbat_database_available" in text
 
-    def test_has_model_gauge(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_has_model_gauge(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         assert "bitbat_model_available" in text
 
-    def test_prometheus_format(self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_prometheus_format(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         # Prometheus format: lines starting with # HELP, # TYPE, and metric lines

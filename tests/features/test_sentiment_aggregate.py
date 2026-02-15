@@ -11,12 +11,10 @@ from bitbat.features.sentiment import aggregate
 def _make_news(start: datetime) -> pd.DataFrame:
     timestamps = [start + timedelta(minutes=30 * i) for i in range(6)]
     scores = np.linspace(-1, 1, len(timestamps))
-    return pd.DataFrame(
-        {
-            "published_utc": pd.to_datetime(timestamps, utc=True),
-            "sentiment_score": scores,
-        }
-    )
+    return pd.DataFrame({
+        "published_utc": pd.to_datetime(timestamps, utc=True),
+        "sentiment_score": scores,
+    })
 
 
 def test_aggregate_excludes_future_news() -> None:
@@ -24,21 +22,15 @@ def test_aggregate_excludes_future_news() -> None:
     news = _make_news(start)
 
     # Inject future news beyond bar end
-    future_row = pd.DataFrame(
-        {
-            "published_utc": [pd.Timestamp("2024-01-01T05:30:00Z")],
-            "sentiment_score": [0.9],
-        }
-    )
+    future_row = pd.DataFrame({
+        "published_utc": [pd.Timestamp("2024-01-01T05:30:00Z")],
+        "sentiment_score": [0.9],
+    })
     news = pd.concat([news, future_row], ignore_index=True)
 
-    bars = pd.DataFrame(
-        {
-            "timestamp_utc": pd.to_datetime(
-                [start + timedelta(hours=i) for i in range(6)], utc=True
-            ),
-        }
-    )
+    bars = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime([start + timedelta(hours=i) for i in range(6)], utc=True),
+    })
 
     features = aggregate(news, bars, freq="1h", windows=["1h"])
 
@@ -59,9 +51,9 @@ def test_aggregate_excludes_future_news() -> None:
 def test_aggregate_outputs_expected_columns() -> None:
     start = datetime(2024, 1, 1)
     news = _make_news(start)
-    bars = pd.DataFrame(
-        {"timestamp_utc": pd.to_datetime([start + timedelta(hours=i) for i in range(4)], utc=True)}
-    )
+    bars = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime([start + timedelta(hours=i) for i in range(4)], utc=True)
+    })
 
     features = aggregate(news, bars, freq="1h", windows=["1h", "4h"])
 

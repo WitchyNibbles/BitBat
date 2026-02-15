@@ -17,32 +17,28 @@ def _make_prices(start: datetime, periods: int = 60) -> pd.DataFrame:
     high = close + np.random.default_rng(1).normal(1, 0.5, periods)
     low = close - np.random.default_rng(2).normal(1, 0.5, periods)
     volume = np.random.default_rng(3).integers(100, 200, periods)
-    return pd.DataFrame(
-        {
-            "timestamp_utc": pd.to_datetime(timestamps),
-            "open": close,
-            "high": high,
-            "low": low,
-            "close": close,
-            "volume": volume,
-        }
-    )
+    return pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(timestamps),
+        "open": close,
+        "high": high,
+        "low": low,
+        "close": close,
+        "volume": volume,
+    })
 
 
 def _make_news(start: datetime, periods: int = 60) -> pd.DataFrame:
     timestamps = [start + timedelta(hours=i) for i in range(periods)]
     titles = [f"Headline {i}" for i in range(periods)]
     scores = np.sin(np.linspace(0, 4 * np.pi, periods))
-    return pd.DataFrame(
-        {
-            "published_utc": pd.to_datetime(timestamps),
-            "title": titles,
-            "url": [f"http://example.com/{i}" for i in range(periods)],
-            "source": "UnitTest",
-            "lang": "en",
-            "sentiment_score": scores,
-        }
-    )
+    return pd.DataFrame({
+        "published_utc": pd.to_datetime(timestamps),
+        "title": titles,
+        "url": [f"http://example.com/{i}" for i in range(periods)],
+        "source": "UnitTest",
+        "lang": "en",
+        "sentiment_score": scores,
+    })
 
 
 def test_build_xy_shapes_and_outputs(tmp_path: Path, monkeypatch: Any) -> None:

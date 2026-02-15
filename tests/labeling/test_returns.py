@@ -8,14 +8,12 @@ from bitbat.labeling.returns import forward_return
 
 
 def test_forward_return_hourly_alignment() -> None:
-    index = pd.to_datetime(
-        [
-            "2024-01-01 00:00:00",
-            "2024-01-01 01:00:00",
-            "2024-01-01 02:00:00",
-            "2024-01-01 03:00:00",
-        ]
-    )
+    index = pd.to_datetime([
+        "2024-01-01 00:00:00",
+        "2024-01-01 01:00:00",
+        "2024-01-01 02:00:00",
+        "2024-01-01 03:00:00",
+    ])
     prices = pd.DataFrame(
         {
             "close": [100.0, 110.0, 105.0, 120.0],
@@ -39,13 +37,11 @@ def test_forward_return_hourly_alignment() -> None:
 
 
 def test_forward_return_gap_results_nan() -> None:
-    index = pd.to_datetime(
-        [
-            "2024-01-01 00:00:00",
-            "2024-01-01 01:00:00",
-            "2024-01-01 03:00:00",
-        ]
-    )
+    index = pd.to_datetime([
+        "2024-01-01 00:00:00",
+        "2024-01-01 01:00:00",
+        "2024-01-01 03:00:00",
+    ])
     prices = pd.DataFrame({"close": [100.0, 110.0, 120.0]}, index=index)
 
     result = forward_return(prices, "1h")
