@@ -10,6 +10,13 @@ import numpy as np
 import pandas as pd
 
 
+def _sharpe(returns: pd.Series, annualization: float = 252.0) -> float:
+    """Annualised Sharpe ratio from a return series."""
+    if returns.std() == 0:
+        return 0.0
+    return float(np.sqrt(annualization) * returns.mean() / returns.std())
+
+
 def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict[str, float]:
     """Compute backtest metrics and persist summary artifacts.
 
@@ -19,15 +26,15 @@ def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict
 
     Args:
         equity_curve: Equity curve indexed by timestamp.
-        trades: Optional trades DataFrame with a ``position`` column for
-            turnover calculation and CSV export.
+        trades: Optional trades DataFrame with ``position``, ``costs``,
+            ``gross_pnl``, and ``pnl`` columns.
 
     Returns:
-        Dictionary containing sharpe ratio, max drawdown, hit rate, average
-        return, and turnover.
+        Dictionary containing net/gross sharpe, max drawdown, hit rate,
+        average return, turnover, and total costs.
     """
     returns = equity_curve.pct_change().fillna(0.0)
-    sharpe = np.sqrt(252) * returns.mean() / returns.std() if returns.std() != 0 else 0.0
+    net_sharpe = _sharpe(returns)
     drawdown = equity_curve / equity_curve.cummax() - 1
     max_dd = drawdown.min()
 
@@ -37,14 +44,27 @@ def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict
     avg_ret = returns.mean()
 
     turnover = 0.0
-    if trades is not None and "position" in trades.columns:
-        turnover = trades["position"].diff().abs().sum()
+    total_costs = 0.0
+    gross_sharpe = 0.0
+    net_return = float(equity_curve.iloc[-1] - 1) if len(equity_curve) > 0 else 0.0
+
+    if trades is not None:
+        if "position" in trades.columns:
+            turnover = trades["position"].diff().abs().sum()
+        if "costs" in trades.columns:
+            total_costs = float(trades["costs"].sum())
+        if "gross_pnl" in trades.columns:
+            gross_sharpe = _sharpe(trades["gross_pnl"])
 
     metrics = {
-        "sharpe": float(sharpe),
+        "sharpe": float(net_sharpe),
+        "net_sharpe": float(net_sharpe),
+        "gross_sharpe": float(gross_sharpe),
         "max_drawdown": float(max_dd),
         "hit_rate": float(hit_rate),
         "avg_return": float(avg_ret),
+        "net_return": float(net_return),
+        "total_costs": float(total_costs),
         "turnover": float(turnover),
     }
 

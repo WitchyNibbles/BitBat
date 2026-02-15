@@ -27,6 +27,10 @@ class FoldResult:
     accuracy: float
     logloss: float
     predictions: pd.DataFrame  # columns: predicted, actual, p_up, p_down, p_flat
+    net_sharpe: float = 0.0
+    gross_sharpe: float = 0.0
+    total_costs: float = 0.0
+    net_return: float = 0.0
 
 
 @dataclass
@@ -60,7 +64,7 @@ class WalkForwardResult:
 
     def summary(self) -> dict[str, Any]:
         """Return a JSON-serialisable summary."""
-        return {
+        result: dict[str, Any] = {
             "n_folds": self.n_folds,
             "mean_accuracy": round(self.mean_accuracy, 4),
             "mean_logloss": round(self.mean_logloss, 4),
@@ -68,6 +72,18 @@ class WalkForwardResult:
             "fold_sizes": [f.test_size for f in self.fold_results],
             "total_test_samples": sum(f.test_size for f in self.fold_results),
         }
+        if any(f.net_sharpe != 0.0 or f.total_costs != 0.0 for f in self.fold_results):
+            result["mean_net_sharpe"] = round(
+                float(np.mean([f.net_sharpe for f in self.fold_results])), 4
+            )
+            result["mean_gross_sharpe"] = round(
+                float(np.mean([f.gross_sharpe for f in self.fold_results])), 4
+            )
+            result["total_costs"] = round(sum(f.total_costs for f in self.fold_results), 6)
+            result["mean_net_return"] = round(
+                float(np.mean([f.net_return for f in self.fold_results])), 6
+            )
+        return result
 
 
 class WalkForwardValidator:
@@ -85,6 +101,12 @@ class WalkForwardValidator:
         XGBoost training parameters (without ``objective``/``num_class``).
     num_boost_round : int
         Boosting rounds per fold.
+    prices : pd.Series | None
+        Close prices aligned to *X* for cost-adjusted backtesting.
+    cost_bps : float
+        Round-trip transaction cost in basis points.
+    enter_threshold : float
+        Probability threshold for entering positions.
     """
 
     CLASS_ORDER = ["down", "flat", "up"]
@@ -97,6 +119,9 @@ class WalkForwardValidator:
         *,
         xgb_params: dict[str, Any] | None = None,
         num_boost_round: int = 50,
+        prices: pd.Series | None = None,
+        cost_bps: float = 4.0,
+        enter_threshold: float = 0.6,
     ) -> None:
         self.X = X.astype(float)
         self.y = pd.Series(y).astype("category")
@@ -106,6 +131,53 @@ class WalkForwardValidator:
         self.folds = folds
         self.xgb_params = xgb_params or {}
         self.num_boost_round = num_boost_round
+        self.prices = prices
+        self.cost_bps = cost_bps
+        self.enter_threshold = enter_threshold
+
+    def _cost_metrics(
+        self, test_index: pd.Index, probas: np.ndarray
+    ) -> tuple[float, float, float, float]:
+        """Run backtest on fold and return (net_sharpe, gross_sharpe, costs, net_return)."""
+        if self.prices is None:
+            return 0.0, 0.0, 0.0, 0.0
+
+        from bitbat.backtest.engine import run as bt_run
+
+        fold_prices = self.prices.loc[self.prices.index.isin(test_index)]
+        if len(fold_prices) < 2:
+            return 0.0, 0.0, 0.0, 0.0
+
+        up_idx = self.categories.index("up") if "up" in self.categories else -1
+        down_idx = self.categories.index("down") if "down" in self.categories else -1
+        if up_idx < 0 or down_idx < 0:
+            return 0.0, 0.0, 0.0, 0.0
+
+        p_up = pd.Series(probas[:, up_idx], index=test_index)
+        p_down = pd.Series(probas[:, down_idx], index=test_index)
+
+        common = fold_prices.index.intersection(p_up.index)
+        if len(common) < 2:
+            return 0.0, 0.0, 0.0, 0.0
+
+        trades, equity = bt_run(
+            fold_prices.loc[common],
+            p_up.loc[common],
+            p_down.loc[common],
+            enter=self.enter_threshold,
+            cost_bps=self.cost_bps,
+        )
+
+        net_pnl = trades["pnl"]
+        gross_pnl = trades["gross_pnl"]
+        std_net = net_pnl.std()
+        std_gross = gross_pnl.std()
+        net_sharpe = float(np.sqrt(252) * net_pnl.mean() / std_net) if std_net > 0 else 0.0
+        gross_sharpe = float(np.sqrt(252) * gross_pnl.mean() / std_gross) if std_gross > 0 else 0.0
+        total_costs = float(trades["costs"].sum())
+        net_return = float(equity.iloc[-1] - 1) if len(equity) > 0 else 0.0
+
+        return net_sharpe, gross_sharpe, total_costs, net_return
 
     def run(self) -> WalkForwardResult:
         """Execute the walk-forward backtest, retraining at each fold."""
@@ -158,6 +230,11 @@ class WalkForwardValidator:
             for ci, cat in enumerate(self.categories):
                 preds_df[f"p_{cat}"] = probas[:, ci]
 
+            # Cost-adjusted metrics
+            net_sharpe, gross_sharpe, total_costs, net_return = self._cost_metrics(
+                X_te.index, probas
+            )
+
             result.fold_results.append(
                 FoldResult(
                     fold_index=i,
@@ -166,6 +243,10 @@ class WalkForwardValidator:
                     accuracy=accuracy,
                     logloss=logloss,
                     predictions=preds_df,
+                    net_sharpe=net_sharpe,
+                    gross_sharpe=gross_sharpe,
+                    total_costs=total_costs,
+                    net_return=net_return,
                 )
             )
 

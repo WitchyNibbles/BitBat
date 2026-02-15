@@ -57,11 +57,15 @@ def run(
     pnl = position_series.shift(1).fillna(0.0) * returns - costs
     equity_curve = (1 + pnl).cumprod()
 
+    gross_pnl = position_series.shift(1).fillna(0.0) * returns
+
     trades = pd.DataFrame(
         {
             "close": close,
             "position": position_series,
             "returns": returns,
+            "costs": costs,
+            "gross_pnl": gross_pnl,
             "pnl": pnl,
         },
         index=close.index,
