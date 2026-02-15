@@ -53,12 +53,12 @@ def _parquet_row_count(path: str) -> tuple[int | None, str | None]:
 
 def _status_row(label: str, path: Path, kind: str) -> dict[str, Any]:
     exists = path.exists()
-    rows: int | str = "-"
+    rows = "—"
     error = ""
     if exists and kind == "parquet":
         count, err = _parquet_row_count(str(path))
         if count is not None:
-            rows = count
+            rows = str(count)
         if err:
             error = err
     return {
