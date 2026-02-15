@@ -159,6 +159,16 @@ def monitor() -> None:
     """Monitor command namespace."""
 
 
+@_cli.group(help="Prediction validation commands.")
+def validate() -> None:
+    """Validation command namespace."""
+
+
+@_cli.group(help="Data ingestion commands.")
+def ingest() -> None:
+    """Ingestion command namespace."""
+
+
 @prices.command("pull")
 @click.option("--symbol", required=True, help="Ticker symbol to download.")
 @click.option("--start", required=True, help="Start date (YYYY-MM-DD).")
@@ -741,6 +751,262 @@ def monitor_refresh(
     output_path = metrics_dir / f"live_{freq_val}_{horizon_val}.json"
     output_path.write_text(json.dumps(live_metrics, indent=2), encoding="utf-8")
     click.echo(f"Wrote monitoring snapshot to {output_path}")
+
+
+@monitor.command("run-once")
+@click.option("--freq", default=None, help="Bar frequency (defaults to config).")
+@click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
+def monitor_run_once(freq: str | None, horizon: str | None) -> None:
+    """Run one autonomous monitoring iteration."""
+    from bitbat.autonomous.agent import MonitoringAgent
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import init_database
+
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    db_url = str(
+        _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+    agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    result = agent.run_once()
+
+    click.echo("Monitoring run completed")
+    click.echo(f"  Validations: {result['validations']}")
+    click.echo(f"  Drift detected: {result['drift_detected']}")
+    click.echo(f"  Retraining triggered: {result['retraining_triggered']}")
+
+
+@monitor.command("start")
+@click.option("--freq", default=None, help="Bar frequency (defaults to config).")
+@click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
+@click.option("--interval", type=int, default=None, help="Seconds between monitoring cycles.")
+def monitor_start(freq: str | None, horizon: str | None, interval: int | None) -> None:
+    """Start continuous autonomous monitoring."""
+    from bitbat.autonomous.agent import MonitoringAgent
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import init_database
+
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    db_url = str(
+        _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
+    )
+    interval_seconds = (
+        interval
+        if interval is not None
+        else int(_config().get("autonomous", {}).get("validation_interval", 3600))
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+    agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    click.echo(
+        "Starting monitoring loop "
+        f"(freq={freq_val}, horizon={horizon_val}, interval={interval_seconds}s)"
+    )
+    agent.run_forever(interval_seconds=interval_seconds)
+
+
+@monitor.command("status")
+@click.option("--freq", default=None, help="Bar frequency (defaults to config).")
+@click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
+def monitor_status(freq: str | None, horizon: str | None) -> None:
+    """Show latest autonomous monitoring status."""
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import PerformanceSnapshot, RetrainingEvent, init_database
+
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    db_url = str(
+        _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+
+    with db.session() as session:
+        latest_snapshot = (
+            session.query(PerformanceSnapshot)
+            .filter(
+                PerformanceSnapshot.freq == freq_val,
+                PerformanceSnapshot.horizon == horizon_val,
+            )
+            .order_by(PerformanceSnapshot.snapshot_time.desc())
+            .first()
+        )
+        last_retraining = (
+            session.query(RetrainingEvent).order_by(RetrainingEvent.started_at.desc()).first()
+        )
+        pending_count = len(
+            db.get_unrealized_predictions(
+                session=session,
+                freq=freq_val,
+                horizon=horizon_val,
+            )
+        )
+
+    click.echo(f"Monitoring status for {freq_val}/{horizon_val}")
+    click.echo(f"  Pending validations: {pending_count}")
+    if latest_snapshot is None:
+        click.echo("  Latest snapshot: none")
+    else:
+        click.echo(f"  Latest snapshot: {latest_snapshot.snapshot_time}")
+        click.echo(f"  Hit rate: {latest_snapshot.hit_rate or 0.0:.2%}")
+        click.echo(f"  Sharpe: {latest_snapshot.sharpe_ratio or 0.0:.3f}")
+        click.echo(f"  Realized predictions: {latest_snapshot.realized_predictions}")
+
+    if last_retraining is None:
+        click.echo("  Last retraining: none")
+    else:
+        click.echo(
+            "  Last retraining: "
+            f"id={last_retraining.id}, status={last_retraining.status}, "
+            f"started_at={last_retraining.started_at}"
+        )
+
+
+@monitor.command("snapshots")
+@click.option("--freq", default=None, help="Bar frequency (defaults to config).")
+@click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
+@click.option("--last", "last_count", type=int, default=10, help="Number of snapshots to show.")
+def monitor_snapshots(freq: str | None, horizon: str | None, last_count: int) -> None:
+    """Print recent performance snapshots."""
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import PerformanceSnapshot, init_database
+
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    db_url = str(
+        _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+
+    with db.session() as session:
+        snapshots = (
+            session.query(PerformanceSnapshot)
+            .filter(
+                PerformanceSnapshot.freq == freq_val,
+                PerformanceSnapshot.horizon == horizon_val,
+            )
+            .order_by(PerformanceSnapshot.snapshot_time.desc())
+            .limit(max(last_count, 1))
+            .all()
+        )
+
+    if not snapshots:
+        click.echo("No snapshots found.")
+        return
+
+    click.echo(f"Recent snapshots ({len(snapshots)}):")
+    for snapshot in snapshots:
+        click.echo(
+            f"  {snapshot.snapshot_time} | "
+            f"hit_rate={(snapshot.hit_rate or 0.0):.2%} | "
+            f"sharpe={(snapshot.sharpe_ratio or 0.0):.3f} | "
+            f"realized={snapshot.realized_predictions}"
+        )
+
+
+@validate.command("run")
+@click.option("--freq", default=None, help="Bar frequency (defaults to config).")
+@click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
+@click.option("--tau", type=float, default=None, help="Classification threshold override.")
+def validate_run(freq: str | None, horizon: str | None, tau: float | None) -> None:
+    """Validate pending predictions against realized outcomes."""
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import init_database
+    from bitbat.autonomous.validator import PredictionValidator
+
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    tau_val = tau if tau is not None else float(_config().get("tau", 0.01))
+    db_url = str(
+        _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
+    )
+
+    click.echo(f"Starting validation: freq={freq_val}, horizon={horizon_val}, tau={tau_val}")
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+    validator = PredictionValidator(db=db, freq=freq_val, horizon=horizon_val, tau=tau_val)
+    results = validator.validate_all()
+
+    click.echo("")
+    click.echo("Validation complete")
+    click.echo(f"  Validated: {results['validated_count']} predictions")
+    click.echo(f"  Correct: {results['correct_count']}")
+    click.echo(f"  Hit rate: {results['hit_rate']:.2%}")
+
+    errors = list(results.get("errors", []))
+    if errors:
+        click.echo("")
+        click.echo(f"Errors ({len(errors)}):")
+        for error in errors[:5]:
+            click.echo(f"  {error}")
+        if len(errors) > 5:
+            click.echo(f"  ... and {len(errors) - 5} more")
+
+
+@ingest.command("prices-once")
+@click.option("--symbol", default="BTC-USD", show_default=True, help="Yahoo Finance ticker.")
+@click.option(
+    "--interval",
+    default="1h",
+    show_default=True,
+    help="Bar interval (e.g. '1h', '1d').",
+)
+def ingest_prices_once(symbol: str, interval: str) -> None:
+    """Fetch the latest prices once and store them."""
+    from bitbat.autonomous.price_ingestion import PriceIngestionService
+
+    service = PriceIngestionService(symbol=symbol, interval=interval)
+    count = service.fetch_with_retry()
+    click.echo(f"Ingested {count} price bars")
+
+
+@ingest.command("news-once")
+def ingest_news_once() -> None:
+    """Fetch the latest news from all sources once and store them."""
+    from bitbat.autonomous.news_ingestion import NewsIngestionService
+
+    service = NewsIngestionService()
+    count = service.fetch_all_sources()
+    click.echo(f"Ingested {count} news articles")
+
+
+@ingest.command("status")
+def ingest_status() -> None:
+    """Show ingestion data and rate-limit status."""
+    from bitbat.autonomous.news_ingestion import NewsIngestionService
+    from bitbat.autonomous.price_ingestion import PriceIngestionService
+
+    price_service = PriceIngestionService()
+    last_price_ts = price_service._get_last_timestamp()
+
+    click.echo("Ingestion Status\n")
+    click.echo("Prices:")
+    click.echo(f"  Last update : {last_price_ts or 'never'}")
+    click.echo(f"  Data dir    : {price_service.prices_dir}")
+
+    news_service = NewsIngestionService()
+    rate_status = news_service.newsapi_limiter.get_status()
+
+    click.echo("\nNews APIs:")
+    click.echo(f"  NewsAPI key  : {'set' if news_service.newsapi_key else 'not set'}")
+    click.echo(
+        f"  NewsAPI usage: "
+        f"{rate_status['requests_made']}/{rate_status['limit']} "
+        f"({rate_status['requests_remaining']} remaining)"
+    )
+    reset = rate_status.get("time_until_reset")
+    click.echo(f"  Reset in     : {reset or 'N/A'}")
+    click.echo(f"  Reddit keys  : {'set' if news_service.reddit_client_id else 'not set'}")
+    click.echo(f"  News dir     : {news_service.news_dir}")
 
 
 def main() -> None:

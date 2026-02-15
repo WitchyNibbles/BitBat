@@ -1,0 +1,54 @@
+# BitBat Alert Rules Configuration
+#
+# Edit this file to configure when alerts are sent and where they go.
+# Changes take effect the next time the monitoring agent runs.
+
+# ---------------------------------------------------------------------------
+# Notification channels
+# ---------------------------------------------------------------------------
+channels:
+  email:
+    enabled: false
+    address: ""           # e.g. you@gmail.com
+    # Set GMAIL_ADDRESS and GMAIL_APP_PASSWORD environment variables
+
+  discord:
+    enabled: false
+    webhook_url: ""       # e.g. https://discord.com/api/webhooks/...
+    # Set DISCORD_WEBHOOK_URL environment variable
+
+  telegram:
+    enabled: false
+    bot_token: ""         # Set TELEGRAM_BOT_TOKEN environment variable
+    chat_id: ""           # Set TELEGRAM_CHAT_ID environment variable
+
+# ---------------------------------------------------------------------------
+# Alert rules
+# ---------------------------------------------------------------------------
+rules:
+  # Send an alert when model accuracy drops below this threshold
+  accuracy_drop:
+    enabled: true
+    threshold: 0.50       # 50% — worse than random guessing
+
+  # Send an alert when model drift is detected
+  drift_detected:
+    enabled: true
+
+  # Send an alert when automatic retraining starts
+  retraining_started:
+    enabled: true
+
+  # Send an alert when retraining completes (success or failure)
+  retraining_completed:
+    enabled: true
+
+  # Send an alert on high-confidence predictions
+  high_confidence_prediction:
+    enabled: false
+    min_confidence: 0.80  # Only alert on predictions ≥ 80% confidence
+
+  # Send a daily summary
+  daily_summary:
+    enabled: false
+    time: "09:00"         # UTC time for the daily summary

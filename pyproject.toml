@@ -19,6 +19,11 @@ xgboost = "^2.1.0"
 scikit-learn = "^1.4.0"
 matplotlib = "^3.10.7"
 streamlit = "^1.38.0"
+sqlalchemy = "^2.0.37"
+fastapi = "^0.129.0"
+uvicorn = {extras = ["standard"], version = "^0.40.0"}
+httpx = "^0.28.1"
+optuna = "^4.7.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.0"

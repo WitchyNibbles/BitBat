@@ -11,3 +11,45 @@ enable_sentiment: true
 news_throttle_seconds: 10.0
 news_retry_limit: 30
 seed: 42
+
+# Autonomous System Configuration
+autonomous:
+  enabled: true
+  database_url: "sqlite:///data/autonomous.db"
+
+  # Monitoring intervals (seconds)
+  validation_interval: 3600
+  performance_snapshot_interval: 86400
+
+  # Drift detection thresholds
+  drift_detection:
+    min_predictions_required: 30
+    hit_rate_drop_threshold: 0.05
+    sharpe_threshold: -0.5
+    window_days: 30
+
+  # Retraining settings
+  retraining:
+    enabled: true
+    cv_improvement_threshold: 0.02
+    max_training_time_seconds: 3600
+    cooldown_hours: 24
+
+  # Alerting settings
+  alerts:
+    email_enabled: false
+    email_to: ""
+    smtp_server: ""
+    smtp_port: 587
+    smtp_username: ""
+    smtp_password: ""
+
+    slack_enabled: false
+    slack_webhook_url: ""
+
+    discord_enabled: false
+    discord_webhook_url: ""
+
+    telegram_enabled: false
+    telegram_bot_token: ""
+    telegram_chat_id: ""

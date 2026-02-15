@@ -1,0 +1,31 @@
+[Unit]
+Description=BitBat Data Ingestion Service
+Documentation=https://github.com/yourorg/ai-btc-predictor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bitbat
+Group=bitbat
+WorkingDirectory=/opt/bitbat
+
+# Use the virtual-environment Python directly so there is no dependency on
+# poetry being present at runtime.
+ExecStart=/opt/bitbat/.venv/bin/python scripts/run_ingestion_service.py
+
+# Restart on failure with a 60-second cool-off.
+Restart=on-failure
+RestartSec=60
+
+# Redirect logs to dedicated files (created automatically by systemd).
+StandardOutput=append:/var/log/bitbat/ingest.log
+StandardError=append:/var/log/bitbat/ingest.error.log
+
+# Pass API keys through the environment.  Set them in
+# /etc/systemd/system/bitbat-ingest.service.d/keys.conf  (or use a .env
+# loader in the script itself).
+EnvironmentFile=-/opt/bitbat/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "bitbat-api"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["bitbat-api:8000"]
+        labels:
+          service: "bitbat-api"

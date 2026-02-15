@@ -1,0 +1,16 @@
+[Unit]
+Description=BitBat Autonomous Monitoring Agent
+After=network.target
+
+[Service]
+Type=simple
+User=bitbat
+WorkingDirectory=/opt/bitbat
+ExecStart=/opt/bitbat/.venv/bin/python scripts/run_monitoring_agent.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/bitbat/monitor.log
+StandardError=append:/var/log/bitbat/monitor.error.log
+
+[Install]
+WantedBy=multi-user.target

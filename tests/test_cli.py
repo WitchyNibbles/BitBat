@@ -16,6 +16,41 @@ from bitbat.cli import main
 from bitbat.io.fs import read_parquet, write_parquet
 
 
+def _write_test_config(
+    path: Path,
+    *,
+    enable_sentiment: bool,
+    database_url: str | None = None,
+) -> Path:
+    lines = [
+        'data_dir: "data"',
+        'freq: "1h"',
+        'horizon: "4h"',
+        "enter_threshold: 0.6",
+        "allow_short: false",
+        "cost_bps: 4",
+        "tau: 0.0015",
+        'price_source: "yfinance"',
+        'news_source: "gdelt"',
+        f"enable_sentiment: {'true' if enable_sentiment else 'false'}",
+        "news_throttle_seconds: 10.0",
+        "news_retry_limit: 30",
+        "seed: 42",
+    ]
+    if database_url is not None:
+        lines.extend(
+            [
+                "autonomous:",
+                f'  database_url: "{database_url}"',
+                "  validation_interval: 3600",
+                "  retraining:",
+                "    cooldown_hours: 24",
+            ]
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 @pytest.fixture()
 def cli_args(tmp_path: Path) -> tuple[list[str], Path]:
     output_root = tmp_path / "prices"
@@ -223,6 +258,10 @@ def test_cli_model_cv(
 ) -> None:
     freq = "1h"
     horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
 
     feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
     feature_dir.mkdir(parents=True, exist_ok=True)
@@ -284,6 +323,8 @@ def test_cli_model_cv(
 
     argv = [
         "bitbat",
+        "--config",
+        str(config_path),
         "model",
         "cv",
         "--freq",
@@ -320,6 +361,10 @@ def test_cli_batch_run(
 ) -> None:
     freq = "1h"
     horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
 
     prices_dir = tmp_path / "data" / "raw" / "prices"
     prices_dir.mkdir(parents=True, exist_ok=True)
@@ -371,16 +416,21 @@ def test_cli_batch_run(
         timestamp = kwargs.get("timestamp")
         return {"timestamp": timestamp, "p_up": 0.55, "p_down": 0.25}
 
+    class FakeModel:
+        feature_names = ["feat_price"]
+
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("bitbat.ingest.prices.fetch_yf", fake_fetch_prices)
     monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch_news)
     monkeypatch.setattr("bitbat.cli._generate_price_features", fake_price_features)
     monkeypatch.setattr("bitbat.cli.aggregate_sentiment", fake_sentiment)
-    monkeypatch.setattr("bitbat.cli.load_model", lambda path: object())
+    monkeypatch.setattr("bitbat.cli.load_model", lambda path: FakeModel())
     monkeypatch.setattr("bitbat.cli.predict_bar", fake_predict)
 
     argv = [
         "bitbat",
+        "--config",
+        str(config_path),
         "batch",
         "run",
         "--freq",
@@ -522,3 +572,181 @@ def test_cli_monitor_refresh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
 
     metrics_path = Path("metrics") / f"live_{freq}_{horizon}.json"
     assert metrics_path.exists()
+
+
+def test_cli_validate_run(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_path = tmp_path / "data" / "autonomous.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    from bitbat.autonomous.models import init_database
+
+    init_database(f"sqlite:///{db_path}")
+
+    class FakeValidator:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def validate_all(self) -> dict[str, Any]:
+            return {
+                "validated_count": 0,
+                "correct_count": 0,
+                "hit_rate": 0.0,
+                "errors": [],
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.validator.PredictionValidator", FakeValidator)
+
+    argv = [
+        "bitbat",
+        "validate",
+        "run",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+        "--tau",
+        "0.01",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Starting validation" in out
+    assert "Validation complete" in out
+    assert "Validated: 0 predictions" in out
+
+
+def test_cli_monitor_run_once(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class FakeAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def run_once(self) -> dict[str, Any]:
+            return {
+                "validations": 2,
+                "correct": 1,
+                "hit_rate": 0.5,
+                "drift_detected": False,
+                "retraining_triggered": False,
+                "validation_errors": [],
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", FakeAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "run-once",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Monitoring run completed" in out
+    assert "Validations: 2" in out
+
+
+def test_cli_monitor_status_and_snapshots(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import init_database
+
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_status.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_status_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+
+    now = datetime.now().replace(microsecond=0)
+    with db.session() as session:
+        db.store_model_version(
+            session=session,
+            version="v1",
+            freq="1h",
+            horizon="4h",
+            training_start=now,
+            training_end=now,
+            training_samples=10,
+            cv_score=0.6,
+            features=[],
+            hyperparameters={},
+            training_metadata={},
+            is_active=True,
+        )
+        db.store_performance_snapshot(
+            session=session,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+            window_days=30,
+            metrics={
+                "total_predictions": 10,
+                "realized_predictions": 10,
+                "hit_rate": 0.6,
+                "sharpe_ratio": 0.5,
+                "avg_return": 0.01,
+                "max_drawdown": 0.1,
+                "win_streak": 3,
+                "lose_streak": 1,
+            },
+        )
+
+    monkeypatch.chdir(tmp_path)
+    argv_status = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "status",
+    ]
+    monkeypatch.setattr(sys, "argv", argv_status)
+    main()
+    status_out = capsys.readouterr().out
+    assert "Monitoring status" in status_out
+    assert "Latest snapshot" in status_out
+
+    argv_snapshots = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "snapshots",
+        "--last",
+        "1",
+    ]
+    monkeypatch.setattr(sys, "argv", argv_snapshots)
+    main()
+    snapshots_out = capsys.readouterr().out
+    assert "Recent snapshots" in snapshots_out

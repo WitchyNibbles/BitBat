@@ -1,0 +1,5 @@
+enter_threshold: 0.55
+freq: 1h
+horizon: 1h
+preset: aggressive
+tau: 0.005

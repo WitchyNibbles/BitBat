@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 GDELT_ENDPOINT = "https://api.gdeltproject.org/api/v2/doc/doc"
 KEYWORDS = "(bitcoin OR btc OR crypto OR cryptocurrency)"
 RESULT_COLUMNS = ["published_utc", "title", "url", "source", "lang", "sentiment_score"]
-WINDOW = timedelta(days=1)
+WINDOW = timedelta(hours=1)
 
 
 class GdeltError(RuntimeError):

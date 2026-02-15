@@ -92,3 +92,6 @@ tmp/
 tmp_*/
 tmp*/
 *.tmp
+
+# Agentic stuff to ignore
+agent_plans/
