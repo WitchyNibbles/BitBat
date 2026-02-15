@@ -51,6 +51,10 @@ jobs:
       - name: Verify image runs
         run: |
           docker run --rm -d --name bitbat-ci -p 8000:8000 bitbat:ci
-          sleep 5
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:8000/health && break
+            echo "Waiting for server... ($i)"
+            sleep 2
+          done
           curl -sf http://localhost:8000/health || exit 1
           docker stop bitbat-ci
