@@ -24,6 +24,7 @@ fastapi = "^0.129.0"
 uvicorn = {extras = ["standard"], version = "^0.40.0"}
 httpx = "^0.28.1"
 optuna = "^4.7.0"
+arch = "^7.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.0"
