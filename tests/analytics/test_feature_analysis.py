@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,6 @@ import pandas as pd
 import pytest
 
 from bitbat.analytics.feature_analysis import FeatureAnalyzer
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -66,7 +64,7 @@ class TestLoad:
 
     def test_raises_on_missing_file(self, tmp_path: Path) -> None:
         a = FeatureAnalyzer(tmp_path / "nonexistent.parquet")
-        with pytest.raises(Exception):
+        with pytest.raises(FileNotFoundError):
             a.load()
 
     def test_feature_cols_detected(self, analyzer: FeatureAnalyzer) -> None:
@@ -173,7 +171,7 @@ class TestFeatureGroups:
 
     def test_no_empty_groups(self, analyzer: FeatureAnalyzer) -> None:
         groups = analyzer.feature_groups()
-        for key, cols in groups.items():
+        for _key, cols in groups.items():
             assert len(cols) > 0
 
 

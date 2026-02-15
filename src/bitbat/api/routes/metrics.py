@@ -23,19 +23,29 @@ def _collect_metrics() -> str:
     lines: list[str] = []
 
     # Uptime
-    lines.append(_gauge("bitbat_uptime_seconds", "Seconds since API start", round(time.time() - _START_TIME, 1)))
+    lines.append(
+        _gauge(
+            "bitbat_uptime_seconds", "Seconds since API start", round(time.time() - _START_TIME, 1)
+        )
+    )
 
     # Database
     db_path = Path("data/autonomous.db")
-    lines.append(_gauge("bitbat_database_available", "1 if autonomous.db exists", int(db_path.exists())))
+    lines.append(
+        _gauge("bitbat_database_available", "1 if autonomous.db exists", int(db_path.exists()))
+    )
 
     # Model availability
     model_path = Path("models/1h_4h/xgb.json")
-    lines.append(_gauge("bitbat_model_available", "1 if default model exists", int(model_path.exists())))
+    lines.append(
+        _gauge("bitbat_model_available", "1 if default model exists", int(model_path.exists()))
+    )
 
     # Dataset availability
     ds_path = Path("data/features/1h_4h/dataset.parquet")
-    lines.append(_gauge("bitbat_dataset_available", "1 if default dataset exists", int(ds_path.exists())))
+    lines.append(
+        _gauge("bitbat_dataset_available", "1 if default dataset exists", int(ds_path.exists()))
+    )
 
     # Prediction counts (from DB if available)
     if db_path.exists():
@@ -51,19 +61,31 @@ def _collect_metrics() -> str:
                 correct = [p for p in realized if p.correct]
 
                 lines.append(
-                    _gauge("bitbat_predictions_total_30d", "Total predictions in last 30 days", len(all_preds))
+                    _gauge(
+                        "bitbat_predictions_total_30d",
+                        "Total predictions in last 30 days",
+                        len(all_preds),
+                    )
                 )
                 lines.append(
-                    _gauge("bitbat_predictions_realized_30d", "Realized predictions in last 30 days", len(realized))
+                    _gauge(
+                        "bitbat_predictions_realized_30d",
+                        "Realized predictions in last 30 days",
+                        len(realized),
+                    )
                 )
                 lines.append(
-                    _gauge("bitbat_predictions_correct_30d", "Correct predictions in last 30 days", len(correct))
+                    _gauge(
+                        "bitbat_predictions_correct_30d",
+                        "Correct predictions in last 30 days",
+                        len(correct),
+                    )
                 )
                 hit_rate = len(correct) / len(realized) if realized else 0.0
                 lines.append(
                     _gauge("bitbat_hit_rate_30d", "Hit rate over last 30 days", round(hit_rate, 4))
                 )
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     return "\n".join(lines)

@@ -6,7 +6,6 @@ Tests that hit the real network are marked ``live`` and skipped by default.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -15,7 +14,6 @@ import pandas as pd
 import pytest
 
 from bitbat.autonomous.rate_limiter import RateLimiter
-
 
 # ---------------------------------------------------------------------------
 # Rate-limiter tests (no network, no disk after cleanup)
@@ -113,9 +111,7 @@ class TestPriceIngestionService:
         from bitbat.autonomous.price_ingestion import PriceIngestionService
 
         fake_history = self._make_fake_yf_history()
-        service = PriceIngestionService(
-            symbol="BTC-USD", interval="1h", data_dir=tmp_path
-        )
+        service = PriceIngestionService(symbol="BTC-USD", interval="1h", data_dir=tmp_path)
 
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = fake_history
@@ -144,7 +140,7 @@ class TestPriceIngestionService:
             service.fetch_latest()
             # Fetch again — should not add duplicates.
             mock_ticker.history.return_value = fake_history
-            count2 = service.fetch_latest()
+            service.fetch_latest()
 
         # Second fetch: the service advances start past the last timestamp,
         # so yfinance returns the same rows but they are deduped on write.
@@ -164,9 +160,11 @@ class TestPriceIngestionService:
 
         service = PriceIngestionService(data_dir=tmp_path)
 
-        with patch.object(service, "fetch_latest", side_effect=RuntimeError("network down")):
-            with pytest.raises(RuntimeError, match="network down"):
-                service.fetch_with_retry(max_retries=2)
+        with (
+            patch.object(service, "fetch_latest", side_effect=RuntimeError("network down")),
+            pytest.raises(RuntimeError, match="network down"),
+        ):
+            service.fetch_with_retry(max_retries=2)
 
 
 # ---------------------------------------------------------------------------
@@ -179,9 +177,7 @@ class TestNewsIngestionService:
         return {
             "Data": [
                 {
-                    "published_on": int(
-                        datetime(2024, 1, 15, 12, 0).timestamp()
-                    ),
+                    "published_on": int(datetime(2024, 1, 15, 12, 0).timestamp()),
                     "title": "Bitcoin hits new high",
                     "url": "https://example.com/btc-high",
                     "source": "CryptoTimes",

@@ -28,9 +28,7 @@ from bitbat.gui.widgets import (
     get_latest_prediction,
     get_recent_events,
     get_system_status,
-    minutes_until_next_prediction,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared fixture — a complete realistic database
@@ -118,7 +116,8 @@ def full_db(tmp_path: Path) -> Path:
         VALUES ('{now.isoformat()}', 'INFO', 'Monitoring cycle complete');
 
         INSERT INTO system_logs (created_at, level, message)
-        VALUES ('{(now - timedelta(hours=12)).isoformat()}', 'WARNING', 'Drift detected — retraining triggered');
+        VALUES ('{(now - timedelta(hours=12)).isoformat()}', 'WARNING',
+                'Drift detected — retraining triggered');
         """
     )
     con.commit()
@@ -230,7 +229,7 @@ class TestPresetToConfigFlow:
         assert get_preset(DEFAULT_PRESET) is BALANCED
 
     def test_all_presets_produce_valid_configs(self) -> None:
-        for name, preset in list_presets().items():
+        for _name, preset in list_presets().items():
             cfg = preset.to_dict()
             assert "freq" in cfg
             assert "horizon" in cfg

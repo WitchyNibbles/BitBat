@@ -13,7 +13,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Data helpers (no Streamlit dependency — pure Python)
 # ---------------------------------------------------------------------------
@@ -61,7 +60,7 @@ def _latest_timestamp(
     params: tuple = (),
 ) -> datetime | None:
     """Fetch latest timestamp value from a table/column, if available."""
-    sql = f"SELECT {column} FROM {table}"
+    sql = f"SELECT {column} FROM {table}"  # noqa: S608
     if where_sql:
         sql += f" WHERE {where_sql}"
     sql += f" ORDER BY {column} DESC LIMIT 1"
@@ -82,7 +81,7 @@ def _latest_monitor_heartbeat(db_path: Path) -> datetime | None:
         parsed = _parse_timestamp(payload.get("updated_at"))
         if parsed is not None:
             return parsed
-    except Exception:
+    except Exception:  # noqa: S110
         pass
 
     try:
@@ -168,10 +167,7 @@ def get_recent_events(db_path: Path, limit: int = 10) -> list[dict[str, Any]]:
             "SELECT created_at, level, message FROM system_logs ORDER BY created_at DESC LIMIT ?",
             (limit,),
         )
-    return [
-        {"time": r[0], "level": r[1], "message": r[2]}
-        for r in rows
-    ]
+    return [{"time": r[0], "level": r[1], "message": r[2]} for r in rows]
 
 
 def get_ingestion_status(data_dir: Path) -> dict[str, Any]:
@@ -197,10 +193,9 @@ def get_ingestion_status(data_dir: Path) -> dict[str, Any]:
         hours = (now - mtime).total_seconds() / 3600
         if hours < 2:
             return "🟢 Fresh"
-        elif hours < 24:
+        if hours < 24:
             return f"🟡 {int(hours)}h ago"
-        else:
-            return f"🔴 {int(hours // 24)}d ago"
+        return f"🔴 {int(hours // 24)}d ago"
 
     return {
         "prices": _freshness(prices_mtime),
@@ -210,7 +205,9 @@ def get_ingestion_status(data_dir: Path) -> dict[str, Any]:
     }
 
 
-def minutes_until_next_prediction(last_created_at: str | None, interval_hours: int = 1) -> int | None:
+def minutes_until_next_prediction(
+    last_created_at: str | None, interval_hours: int = 1
+) -> int | None:
     """Return minutes until the next expected prediction, or None."""
     if last_created_at is None:
         return None

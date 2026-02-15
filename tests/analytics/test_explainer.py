@@ -15,7 +15,6 @@ from bitbat.analytics.explainer import (
     _readable_feature_name,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers — create a minimal trained model
 # ---------------------------------------------------------------------------
@@ -81,7 +80,7 @@ class TestModelLoading:
 
     def test_raises_on_missing_model(self, tmp_path: Path) -> None:
         ex = PredictionExplainer(tmp_path / "no_model.json")
-        with pytest.raises(Exception):
+        with pytest.raises(xgb.core.XGBoostError):  # noqa: B017
             ex._load_model()
 
 
@@ -247,8 +246,6 @@ class TestBuildPlainExplanation:
         assert "price return" in text.lower()
 
     def test_handles_empty_contributions(self) -> None:
-        text = _build_plain_explanation(
-            pd.Series(dtype=float), pd.Series(dtype=float), "flat"
-        )
+        text = _build_plain_explanation(pd.Series(dtype=float), pd.Series(dtype=float), "flat")
         assert isinstance(text, str)
         assert len(text) > 0

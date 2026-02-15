@@ -57,10 +57,9 @@ class Preset:
     def _format_tau(self) -> str:
         if self.tau >= 0.02:
             return "High — only very clear signals"
-        elif self.tau >= 0.01:
+        if self.tau >= 0.01:
             return "Medium — balanced"
-        else:
-            return "Low — more sensitive"
+        return "Low — more sensitive"
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,6 @@ how correlated features are, and how importance changes over time.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -76,8 +75,7 @@ class FeatureAnalyzer:
 
         if method == "pearson":
             return subset.corr(method="pearson")
-        else:
-            return subset.corr(method="spearman")
+        return subset.corr(method="spearman")
 
     def feature_label_correlations(self, method: str = "spearman") -> pd.Series:
         """Return per-feature correlation with the label, sorted by absolute value.
@@ -89,8 +87,7 @@ class FeatureAnalyzer:
         mat = self.correlation_matrix(method=method)
         if "label_num" not in mat.columns:
             return pd.Series(dtype=float)
-        corrs = mat["label_num"].drop("label_num").sort_values(key=abs, ascending=False)
-        return corrs
+        return mat["label_num"].drop("label_num").sort_values(key=abs, ascending=False)
 
     # ------------------------------------------------------------------
     # Temporal correlation study
@@ -139,9 +136,7 @@ class FeatureAnalyzer:
             corr, _ = stats.spearmanr(feat_vals, lbl_vals, nan_policy="omit")
             return float(corr) if not np.isnan(corr) else float("nan")
 
-        return tmp["label_num"].rolling(window).apply(
-            lambda x: _rolling_corr(x), raw=False
-        )
+        return tmp["label_num"].rolling(window).apply(lambda x: _rolling_corr(x), raw=False)
 
     # ------------------------------------------------------------------
     # Feature statistics
@@ -172,11 +167,9 @@ class FeatureAnalyzer:
         top = corrs.head(n)
         groups = self.feature_groups()
         col_to_group = {col: g for g, cols in groups.items() for col in cols}
-        return pd.DataFrame(
-            {
-                "feature": top.index,
-                "correlation": top.values,
-                "abs_correlation": top.abs().values,
-                "group": [col_to_group.get(c, "other") for c in top.index],
-            }
-        ).reset_index(drop=True)
+        return pd.DataFrame({
+            "feature": top.index,
+            "correlation": top.values,
+            "abs_correlation": top.abs().values,
+            "group": [col_to_group.get(c, "other") for c in top.index],
+        }).reset_index(drop=True)

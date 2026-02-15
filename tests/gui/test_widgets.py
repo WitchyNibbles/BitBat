@@ -18,7 +18,6 @@ from bitbat.gui.widgets import (
     minutes_until_next_prediction,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -170,12 +169,10 @@ class TestGetSystemStatus:
         sqlite3.connect(str(db)).close()
         heartbeat = tmp_path / "monitoring_agent_heartbeat.json"
         heartbeat.write_text(
-            json.dumps(
-                {
-                    "status": "ok",
-                    "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
-                }
-            )
+            json.dumps({
+                "status": "ok",
+                "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+            })
         )
 
         info = get_system_status(db)
@@ -187,14 +184,12 @@ class TestGetSystemStatus:
         sqlite3.connect(str(db)).close()
         heartbeat = tmp_path / "monitoring_agent_heartbeat.json"
         heartbeat.write_text(
-            json.dumps(
-                {
-                    "status": "ok",
-                    "updated_at": (
-                        datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=4)
-                    ).isoformat(),
-                }
-            )
+            json.dumps({
+                "status": "ok",
+                "updated_at": (
+                    datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=4)
+                ).isoformat(),
+            })
         )
 
         info = get_system_status(db)
@@ -248,10 +243,15 @@ class TestGetRecentEvents:
     def test_limit_respected(self, tmp_path: Path) -> None:
         db = tmp_path / "logs.db"
         con = sqlite3.connect(str(db))
-        con.execute("CREATE TABLE system_logs (id INTEGER PRIMARY KEY, created_at TEXT, level TEXT, message TEXT)")
+        con.execute(
+            "CREATE TABLE system_logs "
+            "(id INTEGER PRIMARY KEY, created_at TEXT, level TEXT, message TEXT)"
+        )
         for i in range(15):
-            con.execute("INSERT INTO system_logs (created_at, level, message) VALUES (?,?,?)",
-                        (datetime.now(UTC).replace(tzinfo=None).isoformat(), "INFO", f"event {i}"))
+            con.execute(
+                "INSERT INTO system_logs (created_at, level, message) VALUES (?,?,?)",
+                (datetime.now(UTC).replace(tzinfo=None).isoformat(), "INFO", f"event {i}"),
+            )
         con.commit()
         con.close()
 
@@ -262,7 +262,8 @@ class TestGetRecentEvents:
         db = tmp_path / "logs_ts.db"
         con = sqlite3.connect(str(db))
         con.execute(
-            "CREATE TABLE system_logs (id INTEGER PRIMARY KEY, timestamp TEXT, level TEXT, message TEXT)"
+            "CREATE TABLE system_logs "
+            "(id INTEGER PRIMARY KEY, timestamp TEXT, level TEXT, message TEXT)"
         )
         con.execute(
             "INSERT INTO system_logs (timestamp, level, message) VALUES (?,?,?)",
