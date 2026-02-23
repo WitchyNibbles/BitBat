@@ -26,6 +26,7 @@ st.markdown("Monitor data ingestion, agent status, and system logs.")
 
 _DB = ROOT / "data" / "autonomous.db"
 _DATA_DIR = ROOT / "data"
+_HEARTBEAT = _DATA_DIR / "monitoring_agent_heartbeat.json"
 
 # ------------------------------------------------------------------
 # Monitoring agent status
@@ -33,7 +34,7 @@ _DATA_DIR = ROOT / "data"
 st.header("Monitoring Agent")
 sys_info = get_system_status(_DB)
 
-col_status, col_last = st.columns(2)
+col_status, col_last, col_interval = st.columns(3)
 with col_status:
     st.metric("Agent Status", sys_info["label"])
 with col_last:
@@ -41,6 +42,144 @@ with col_last:
         st.metric("Last Check-In", f"{sys_info['hours_ago']:.1f} hours ago")
     else:
         st.metric("Last Check-In", "Never")
+with col_interval:
+    if _HEARTBEAT.exists():
+        import json
+
+        try:
+            hb = json.loads(_HEARTBEAT.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            st.metric("Schedule", "Unknown")
+        else:
+            interval = hb.get("interval_seconds")
+            status = hb.get("status", "unknown")
+            if interval is not None:
+                st.metric("Schedule", f"Every {int(interval)} s")
+            else:
+                st.metric("Schedule", status)
+    else:
+        st.metric("Schedule", "Not available")
+
+# ------------------------------------------------------------------
+# Autonomous configuration (drift detection & retraining)
+# ------------------------------------------------------------------
+st.header("Autonomous Configuration")
+
+try:
+    import yaml  # type: ignore[import-not-found, import-untyped]
+except Exception:  # pragma: no cover - defensive import
+    yaml = None  # type: ignore[assignment]
+
+
+def _load_user_config() -> dict:
+    cfg_path = ROOT / "config" / "user_config.yaml"
+    if not cfg_path.exists() or yaml is None:
+        return {}
+    try:
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))  # type: ignore[call-arg]
+    except Exception:
+        return {}
+    return data or {}
+
+
+def _save_user_config(data: dict) -> None:
+    cfg_dir = ROOT / "config"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    cfg_path = cfg_dir / "user_config.yaml"
+    if yaml is None:
+        return
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=True), encoding="utf-8")  # type: ignore[call-arg]
+
+
+user_cfg = _load_user_config()
+auto_cfg = user_cfg.get("autonomous", {}) or {}
+drift_cfg = auto_cfg.get("drift_detection", {}) or {}
+retrain_cfg = auto_cfg.get("retraining", {}) or {}
+
+dc1, dc2, dc3 = st.columns(3)
+with dc1:
+    window_days = st.number_input(
+        "Drift window (days)",
+        min_value=7,
+        max_value=365,
+        value=int(drift_cfg.get("window_days", 30) or 30),
+        step=1,
+        help="Number of days of realized predictions to use for drift checks.",
+    )
+with dc2:
+    min_preds = st.number_input(
+        "Min realized predictions",
+        min_value=10,
+        max_value=1000,
+        value=int(drift_cfg.get("min_predictions_required", 30) or 30),
+        step=5,
+        help="Require at least this many realized predictions before evaluating drift.",
+    )
+with dc3:
+    hit_drop = st.slider(
+        "Hit-rate drop threshold",
+        min_value=0.01,
+        max_value=0.25,
+        value=float(drift_cfg.get("hit_rate_drop_threshold", 0.05) or 0.05),
+        step=0.01,
+        help="Trigger drift when hit-rate falls this much below baseline.",
+    )
+
+rc1, rc2, rc3 = st.columns(3)
+with rc1:
+    sharpe_threshold = st.slider(
+        "Sharpe ratio threshold",
+        min_value=-1.0,
+        max_value=1.0,
+        value=float(drift_cfg.get("sharpe_threshold", 0.0) or 0.0),
+        step=0.05,
+        help="Trigger drift when Sharpe falls below this value.",
+    )
+with rc2:
+    cooldown_hours = st.number_input(
+        "Retrain cooldown (hours)",
+        min_value=1,
+        max_value=168,
+        value=int(retrain_cfg.get("cooldown_hours", 24) or 24),
+        step=1,
+        help="Minimum hours between automatic retraining runs.",
+    )
+with rc3:
+    cv_improvement = st.slider(
+        "Min CV improvement",
+        min_value=0.0,
+        max_value=0.2,
+        value=float(retrain_cfg.get("cv_improvement_threshold", 0.02) or 0.02),
+        step=0.005,
+        help="Only deploy a new model if CV score improves by at least this amount.",
+    )
+
+extra_col1, extra_col2 = st.columns(2)
+with extra_col1:
+    max_train_time = st.number_input(
+        "Max training time (seconds)",
+        min_value=60,
+        max_value=24 * 3600,
+        value=int(retrain_cfg.get("max_training_time_seconds", 3600) or 3600),
+        step=60,
+        help="Upper bound for automatic retraining duration.",
+    )
+with extra_col2:
+    if st.button("Save Autonomous Settings", use_container_width=True):
+        user_cfg.setdefault("autonomous", {})
+        user_cfg["autonomous"]["drift_detection"] = {
+            "window_days": int(window_days),
+            "min_predictions_required": int(min_preds),
+            "hit_rate_drop_threshold": float(hit_drop),
+            "sharpe_threshold": float(sharpe_threshold),
+        }
+        user_cfg["autonomous"]["retraining"] = {
+            "cooldown_hours": int(cooldown_hours),
+            "cv_improvement_threshold": float(cv_improvement),
+            "max_training_time_seconds": int(max_train_time),
+        }
+        _save_user_config(user_cfg)
+        st.success("Autonomous drift and retraining settings saved.")
 
 if sys_info["status"] == "not_started":
     st.info(

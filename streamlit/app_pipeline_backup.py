@@ -909,7 +909,7 @@ def _render_metrics(metrics: dict[str, Any]) -> None:
     fig_path = Path("metrics") / "confusion_matrix.png"
     if fig_path.exists():
         st.subheader("Confusion matrix")
-        st.image(str(fig_path), use_column_width=True)
+        st.image(str(fig_path), width="auto")
 
 
 def _train_model_page(config: dict[str, Any]) -> None:

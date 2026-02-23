@@ -203,9 +203,9 @@ else:
 # ------------------------------------------------------------------
 with st.expander("🔄 Retraining History"):
     retrain_df = _df(
-        "SELECT started_at, trigger_reason, status, cv_improvement "
+        "SELECT started_at, trigger_reason, status, cv_improvement, new_model_version "
         "FROM retraining_events ORDER BY started_at DESC LIMIT 10",
-        cols=["Started", "Reason", "Status", "CV Improvement"],
+        cols=["Started", "Reason", "Status", "CV Improvement", "New Model"],
     )
     if not retrain_df.empty:
         retrain_df["Reason"] = retrain_df["Reason"].map(
@@ -222,3 +222,60 @@ with st.expander("🔄 Retraining History"):
         st.dataframe(retrain_df, width="stretch", hide_index=True)
     else:
         st.info("No retraining events recorded yet.")
+
+# ------------------------------------------------------------------
+# Retraining impact (pre/post metrics)
+# ------------------------------------------------------------------
+with st.expander("📐 Retraining Impact (Accuracy & Sharpe)"):
+    impact_rows = _query(
+        "SELECT started_at, new_model_version FROM retraining_events "
+        "WHERE status='completed' AND new_model_version IS NOT NULL "
+        "ORDER BY started_at DESC LIMIT 5"
+    )
+    if impact_rows:
+        impact_data: list[dict[str, object]] = []
+        for started_at, new_version in impact_rows:
+            started_str = str(started_at)
+            version_str = str(new_version)
+            pre = _query(
+                "SELECT snapshot_time, hit_rate, sharpe_ratio "
+                "FROM performance_snapshots "
+                "WHERE model_version=? AND snapshot_time < ? "
+                "ORDER BY snapshot_time DESC LIMIT 1",
+                (version_str, started_str),
+            )
+            post = _query(
+                "SELECT snapshot_time, hit_rate, sharpe_ratio "
+                "FROM performance_snapshots "
+                "WHERE model_version=? AND snapshot_time >= ? "
+                "ORDER BY snapshot_time ASC LIMIT 1",
+                (version_str, started_str),
+            )
+
+            pre_hit = pre_sharpe = None
+            pre_time = None
+            if pre:
+                pre_time, pre_hit, pre_sharpe = pre[0]
+            post_hit = post_sharpe = None
+            post_time = None
+            if post:
+                post_time, post_hit, post_sharpe = post[0]
+
+            impact_data.append(
+                {
+                    "Retrain Started": started_str,
+                    "Model": version_str,
+                    "Pre Hit-Rate": f"{pre_hit*100:.1f}%" if pre_hit is not None else "—",
+                    "Post Hit-Rate": f"{post_hit*100:.1f}%" if post_hit is not None else "—",
+                    "Pre Sharpe": f"{pre_sharpe:.2f}" if pre_sharpe is not None else "—",
+                    "Post Sharpe": f"{post_sharpe:.2f}" if post_sharpe is not None else "—",
+                }
+            )
+
+        impact_df = pd.DataFrame(impact_data)
+        st.dataframe(impact_df, width="stretch", hide_index=True)
+        st.caption(
+            "Pre metrics are the last snapshot before retraining; post metrics are the first snapshot after."
+        )
+    else:
+        st.info("No completed retraining events with impact metrics available yet.")

@@ -911,7 +911,7 @@ def _render_metrics(metrics: dict[str, Any]) -> None:
     fig_path = Path("metrics") / "confusion_matrix.png"
     if fig_path.exists():
         st.subheader("Confusion matrix")
-        st.image(str(fig_path), use_column_width=True)
+        st.image(str(fig_path), width="auto")
 
 
 def _train_model_page(config: dict[str, Any]) -> None:
@@ -1270,15 +1270,26 @@ def _backtest_page(config: dict[str, Any]) -> None:
 
     predictions_path = data_dir / "predictions" / f"{freq}_{horizon}.parquet"
     prices_path = data_dir / "raw" / "prices" / f"btcusd_yf_{freq}.parquet"
+    db_path = data_dir / "autonomous.db"
 
-    st.caption(f"Predictions: {predictions_path}")
+    st.caption(f"Predictions file: {predictions_path}")
     st.caption(f"Prices: {prices_path}")
+    st.caption(f"Autonomous DB: {db_path}")
 
     if "backtest_cache_bust" not in st.session_state:
         st.session_state["backtest_cache_bust"] = "stable"
 
     controls_col, refresh_col = st.columns([3, 1])
     with controls_col:
+        source = st.radio(
+            "Prediction source",
+            ["Predictions file", "Autonomous DB"],
+            index=0,
+            help=(
+                "Use the batch predictions file for what-if analysis, or "
+                "build a backtest directly from live predictions stored in autonomous.db."
+            ),
+        )
         enter_threshold = st.slider(
             "Entry threshold",
             min_value=0.0,
@@ -1303,8 +1314,11 @@ def _backtest_page(config: dict[str, Any]) -> None:
     run_backtest = st.button("Run backtest", width="stretch")
 
     if run_backtest:
-        if not predictions_path.exists():
+        if source == "Predictions file" and not predictions_path.exists():
             st.error("Predictions file not found. Run batch predictions first.")
+            return
+        if source == "Autonomous DB" and not db_path.exists():
+            st.error("Autonomous DB not found. Start monitoring to generate live predictions.")
             return
         if not prices_path.exists():
             st.error("Prices file not found. Ingest prices first.")
@@ -1312,10 +1326,25 @@ def _backtest_page(config: dict[str, Any]) -> None:
 
         with st.spinner("Running backtest..."):
             try:
-                preds = _load_predictions(
-                    str(predictions_path),
-                    st.session_state["backtest_cache_bust"],
-                )
+                if source == "Predictions file":
+                    preds = _load_predictions(
+                        str(predictions_path),
+                        st.session_state["backtest_cache_bust"],
+                    )
+                else:
+                    import sqlite3
+
+                    con = sqlite3.connect(str(db_path))
+                    preds = pd.read_sql(
+                        "SELECT timestamp_utc, p_up, p_down "
+                        "FROM prediction_outcomes "
+                        "WHERE freq = ? AND horizon = ? "
+                        "ORDER BY timestamp_utc ASC",
+                        con,
+                        params=(freq, horizon),
+                    )
+                    con.close()
+
                 prices = _load_prices(
                     str(prices_path),
                     st.session_state["backtest_cache_bust"],

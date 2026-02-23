@@ -192,9 +192,9 @@ st.markdown(
 )
 
 PRESETS = [
-    (CONSERVATIVE, "Conservative 🛡️"),
-    (BALANCED, "Balanced ⚖️"),
-    (AGGRESSIVE, "Aggressive 🚀"),
+    (CONSERVATIVE, "Conservative"),
+    (BALANCED, "Balanced"),
+    (AGGRESSIVE, "Aggressive"),
 ]
 
 preset_reports: list[BacktestReport] = []
@@ -227,9 +227,9 @@ if preset_reports:
 
     # Overlaid equity curves
     preset_colors = {
-        "Conservative 🛡️": "#3B82F6",
-        "Balanced ⚖️": "#10B981",
-        "Aggressive 🚀": "#EF4444",
+        "Conservative": "#3B82F6",
+        "Balanced": "#10B981",
+        "Aggressive": "#EF4444",
     }
 
     fig2, ax2 = plt.subplots(figsize=(12, 5))

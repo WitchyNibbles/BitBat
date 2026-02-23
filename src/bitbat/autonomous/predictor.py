@@ -141,6 +141,34 @@ class LivePredictor:
             enable_garch = bool(config.get("enable_garch", False))
             features = _generate_price_features(prices, enable_garch=enable_garch)
 
+            # Join sentiment features if news data exists
+            enable_sentiment = bool(config.get("enable_sentiment", True))
+            if enable_sentiment:
+                news_path = (
+                    self.data_dir / "raw" / "news" / "cryptocompare_1h"
+                    / "cryptocompare_btc_1h.parquet"
+                )
+                if news_path.exists():
+                    try:
+                        from bitbat.features.sentiment import aggregate as aggregate_sentiment
+
+                        news_df = pd.read_parquet(news_path)
+                        news_df["published_utc"] = pd.to_datetime(
+                            news_df["published_utc"], utc=True
+                        ).dt.tz_localize(None)
+                        news_df = news_df.sort_values("published_utc")
+                        bar_df = prices.reset_index()[["timestamp_utc"]]
+                        sentiment_features = aggregate_sentiment(
+                            news_df=news_df,
+                            bar_df=bar_df,
+                            freq=self.freq,
+                        )
+                        features = features.join(sentiment_features, how="left")
+                    except Exception as exc:
+                        logger.warning("Sentiment feature generation failed: %s", exc)
+                else:
+                    logger.info("No news data at %s — skipping sentiment features", news_path)
+
             # Join auxiliary features if enabled and data exists
             enable_macro = bool(config.get("enable_macro", False))
             enable_onchain = bool(config.get("enable_onchain", False))

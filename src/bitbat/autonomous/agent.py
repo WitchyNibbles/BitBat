@@ -56,6 +56,47 @@ class MonitoringAgent:
                 },
             )
 
+    def _ingest_prices(self) -> None:
+        """Fetch the latest price bars so the predictor sees fresh data."""
+        try:
+            from pathlib import Path
+
+            from bitbat.autonomous.price_ingestion import PriceIngestionService
+            from bitbat.config.loader import get_runtime_config
+
+            config = get_runtime_config()
+            data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
+            svc = PriceIngestionService(
+                symbol="BTC-USD", interval=self.freq, data_dir=data_dir
+            )
+            n = svc.fetch_with_retry()
+            if n > 0:
+                logger.info("Ingested %d new price bars", n)
+        except Exception:
+            logger.warning("Price ingestion failed", exc_info=True)
+
+    def _ingest_news(self) -> None:
+        """Fetch the latest news articles so sentiment features stay fresh."""
+        try:
+            from bitbat.config.loader import get_runtime_config
+
+            config = get_runtime_config()
+            if not config.get("enable_sentiment", True):
+                return
+
+            from datetime import UTC, datetime, timedelta
+
+            from bitbat.ingest import news_cryptocompare as news_cc
+
+            news_cc.fetch(
+                from_dt=datetime.now(UTC) - timedelta(days=2),
+                to_dt=datetime.now(UTC),
+                throttle_seconds=0.5,
+            )
+            logger.info("News data refreshed")
+        except Exception:
+            logger.warning("News ingestion failed", exc_info=True)
+
     def _ingest_auxiliary_data(self) -> None:
         """Refresh macro and on-chain data if enabled in config."""
         try:
@@ -91,7 +132,13 @@ class MonitoringAgent:
         """Run one monitoring cycle: predict, validate, assess drift, retrain."""
         logger.info("Monitoring cycle started (%s/%s)", self.freq, self.horizon)
 
-        # Step 0: Refresh auxiliary data sources (macro, on-chain).
+        # Step 0a: Refresh price data so predictor sees the latest bars.
+        self._ingest_prices()
+
+        # Step 0b: Refresh news data so sentiment features stay current.
+        self._ingest_news()
+
+        # Step 0c: Refresh auxiliary data sources (macro, on-chain).
         self._ingest_auxiliary_data()
 
         # Step 1: Validate old predictions whose horizon has elapsed.

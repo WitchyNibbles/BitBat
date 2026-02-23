@@ -72,8 +72,8 @@ services:
     environment:
       - PYTHONPATH=/app/src
     restart: unless-stopped
-    profiles:
-      - ui
+    depends_on:
+      - bitbat-api
 
   # -------------------------------------------------------------------------
   # Nginx reverse proxy — routes /api → FastAPI, / → Streamlit

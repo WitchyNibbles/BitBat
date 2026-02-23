@@ -85,9 +85,7 @@ def _render_home() -> None:
     with stat3:
         st.metric("News Data", ingest_status["news"])
     with stat4:
-        mins = minutes_until_next_prediction(
-            latest_pred["created_at"] if latest_pred else None
-        )
+        mins = minutes_until_next_prediction(latest_pred["created_at"] if latest_pred else None)
         if mins is not None:
             render_countdown(mins)
         else:
@@ -132,14 +130,17 @@ def _render_home() -> None:
     # ------------------------------------------------------------------
     st.header("Quick Actions")
 
-    act1, act2, act3 = st.columns(3)
+    act1, act2, act3, act4 = st.columns(4)
     with act1:
+        if st.button("Quick Start", width="stretch", type="primary"):
+            st.switch_page("pages/0_Quick_Start.py")
+    with act2:
         if st.button("📈 View Performance", width="stretch"):
             st.switch_page("pages/2_📈_Performance.py")
-    with act2:
+    with act3:
         if st.button("⚙️ Change Settings", width="stretch"):
             st.switch_page("pages/1_⚙️_Settings.py")
-    with act3:
+    with act4:
         if st.button("❓ Help & About", width="stretch"):
             st.switch_page("pages/3_ℹ️_About.py")
 
@@ -155,38 +156,22 @@ def _render_home() -> None:
             icon = level_icons.get(str(ev["level"]).upper(), "•")
             st.markdown(f"{icon} `{ev['time']}` — {ev['message']}")
     else:
-        st.caption("No recent activity yet. Activity will appear here once the monitoring system is running.")
+        st.caption(
+            "No recent activity yet. Activity will appear here once the monitoring system is running."
+        )
 
     # ------------------------------------------------------------------
     # Getting started (shown when system isn't running)
     # ------------------------------------------------------------------
     if not _DB.exists() or sys_status["status"] == "not_started":
-        st.header("🚀 Getting Started")
+        st.header("Getting Started")
         st.markdown(
-            """
-Welcome to **BitBat**! Here's how to get started in 3 steps:
-
-**1. Configure Settings** *(optional)*
-- Visit the **Settings** page and choose a preset.
-- **Balanced** is recommended for most users.
-
-**2. Start the Monitoring System**
-```bash
-# Option A — Docker (recommended):
-docker-compose up -d
-
-# Option B — directly:
-poetry run python scripts/run_monitoring_agent.py
-```
-
-**3. Wait for Predictions**
-- The system collects data for ~1 hour before making its first prediction.
-- This page refreshes automatically every 60 seconds.
-- Come back here to check for updates!
-
-*Need help? Visit the **About** page.*
-"""
+            "Welcome to **BitBat**! Train a prediction model in one click "
+            "using the **Quick Start** page — just choose a trading style "
+            "and press **Train**."
         )
+        if st.button("Go to Quick Start", type="primary"):
+            st.switch_page("pages/0_Quick_Start.py")
 
     # ------------------------------------------------------------------
     # Footer
