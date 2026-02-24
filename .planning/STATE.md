@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 3 - Monitor Runtime Error Elimination
+**Current focus:** Phase 4 - Monitor Flow Consistency & API Alignment
 
 ## Current Position
 
-Phase: 3 of 8 (Monitor Runtime Error Elimination)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-02-24 - Completed Phase 2 (migration safety hardening + schema-aware API readiness)
+Phase: 4 of 8 (Monitor Flow Consistency & API Alignment)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-24 - Completed 04-01 monitor prediction semantic normalization
 
-Progress: [███░░░░░░░] 25%
+Progress: [█████░░░░░] 43%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 4 min
-- Total execution time: 0.3 hours
+- Total plans completed: 9
+- Average duration: 10 min
+- Total execution time: 1.6 hours
 
 **By Phase:**
 
@@ -29,10 +29,12 @@ Progress: [███░░░░░░░] 25%
 |-------|-------|-------|----------|
 | 1 | 3 | 12 min | 4 min |
 | 2 | 2 | 6 min | 3 min |
+| 3 | 3 | 43 min | 14 min |
+| 4 | 1 | 34 min | 34 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 4 min, 4 min, 3 min, 3 min
-- Trend: Improving
+- Last 5 plans: 34 min, 11 min, 14 min, 18 min, 3 min
+- Trend: Elevated duration due Phase 4 cross-surface semantic alignment work
 
 *Updated after each plan completion*
 | Phase 01 P01 | 4 min | 3 tasks | 3 files |
@@ -40,6 +42,10 @@ Progress: [███░░░░░░░] 25%
 | Phase 01 P03 | 4 min | 3 tasks | 5 files |
 | Phase 02 P01 | 3 min | 3 tasks | 5 files |
 | Phase 02 P02 | 3 min | 3 tasks | 6 files |
+| Phase 03 P01 | 18 min | 3 tasks | 5 files |
+| Phase 03 P02 | 14 min | 3 tasks | 5 files |
+| Phase 03 P03 | 11 min | 3 tasks | 5 files |
+| Phase 04 P01 | 34 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -58,18 +64,23 @@ Recent decisions affecting current work:
 - [Phase 01]: Surface schema incompatibility in monitor CLI with explicit audit/upgrade commands — Operators get actionable remediation rather than opaque traces.
 - [Phase 02]: Upgrade/readiness flows use deterministic compatibility state metadata (`upgraded`, `already_compatible`, `incompatible`) with operation counts.
 - [Phase 02]: Health/status/metrics readiness checks are non-mutating schema audits that surface actionable missing-column diagnostics.
+- [Phase 03]: Introduced `MonitorDatabaseError` + centralized runtime DB fault classification with schema remediation hints.
+- [Phase 03]: Critical monitor DB failures now propagate through agent/CLI/script boundaries instead of being silently swallowed.
+- [Phase 03]: Runtime DB diagnostics standardized across alerts/heartbeat/CLI via structured step/detail/remediation payloads.
+- [Phase 04]: Predictor persistence now treats `predicted_return`/`predicted_price` as canonical monitor prediction semantics.
+- [Phase 04]: Validator correctness now prioritizes return-sign agreement to keep realization results semantically aligned.
 
 ### Pending Todos
 
-- Phase 3 planning: remove monitor OperationalError paths and tighten critical-path exception diagnostics.
+- Phase 4 plan 02: align API/GUI read surfaces and client fixtures with normalized monitor semantics.
 
 ### Blockers/Concerns
 
-- Monitor runtime still needs missing-column fault elimination and clearer critical-path visibility in Phase 3.
-- Timeline reliability still depends on later monitor/API semantic alignment phases.
+- Timeline reliability still depends on upcoming monitor/API semantic alignment and timeline read-model fixes in phases 4-6.
+- Streamlit deprecation cleanup and regression guardrails remain pending in phases 7-8.
 
 ## Session Continuity
 
-Last session: 2026-02-24 14:29
-Stopped at: Completed Phase 2 execution and verification; next step is Phase 3 planning.
+Last session: 2026-02-24 14:35
+Stopped at: Completed 04-01 summary + metadata updates; next step is execute 04-02.
 Resume file: None

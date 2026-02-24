@@ -15,9 +15,9 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 
 ### Monitoring Runtime Stability
 
-- [ ] **MON-01**: Monitoring cycles run without SQLAlchemy `OperationalError` caused by missing prediction columns.
-- [ ] **MON-02**: Prediction write/read paths in monitor + validator behave consistently across active freq/horizon settings.
-- [ ] **MON-03**: Critical monitor DB failures are surfaced with operator-actionable diagnostics (not silently swallowed).
+- [x] **MON-01**: Monitoring cycles run without SQLAlchemy `OperationalError` caused by missing prediction columns.
+- [x] **MON-02**: Prediction write/read paths in monitor + validator behave consistently across active freq/horizon settings.
+- [x] **MON-03**: Critical monitor DB failures are surfaced with operator-actionable diagnostics (not silently swallowed).
 
 ### Timeline Experience (T2)
 
@@ -72,9 +72,9 @@ Deferred to later milestones.
 | SCHE-01 | Phase 1 | Complete |
 | SCHE-02 | Phase 1 | Complete |
 | SCHE-03 | Phase 2 | Complete |
-| MON-01 | Phase 3 | Pending |
-| MON-02 | Phase 4 | Pending |
-| MON-03 | Phase 3 | Pending |
+| MON-01 | Phase 3 | Complete |
+| MON-02 | Phase 4 | Complete |
+| MON-03 | Phase 3 | Complete |
 | TIM-01 | Phase 5 | Pending |
 | TIM-02 | Phase 5 | Pending |
 | TIM-03 | Phase 6 | Pending |
@@ -96,4 +96,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after roadmap creation*
+*Last updated: 2026-02-24 after Phase 3 execution*

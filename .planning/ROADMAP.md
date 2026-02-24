@@ -12,7 +12,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 
 - [x] **Phase 1: Schema Contract Baseline** - Establish DB compatibility baseline and required columns. (Completed 2026-02-24)
 - [x] **Phase 2: Migration Safety & Startup Readiness** - Make upgrades idempotent and enforce preflight checks. (Completed 2026-02-24)
-- [ ] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures.
+- [x] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures. (Completed 2026-02-24)
 - [ ] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces.
 - [ ] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness.
 - [ ] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior.
@@ -61,9 +61,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Patch monitor/predictor DB interactions for robust missing-column handling.
-- [ ] 03-02: Refactor exception boundaries in monitor critical paths.
-- [ ] 03-03: Add structured logging and diagnostics for monitor DB faults.
+- [x] 03-01: Patch monitor/predictor DB interactions for robust missing-column handling.
+- [x] 03-02: Refactor exception boundaries in monitor critical paths.
+- [x] 03-03: Add structured logging and diagnostics for monitor DB faults.
 
 ### Phase 4: Monitor Flow Consistency & API Alignment
 **Goal**: Align prediction field semantics between monitor writes and API/UI reads.
@@ -76,7 +76,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Normalize monitor write semantics for prediction fields and dimensions.
+- [x] 04-01: Normalize monitor write semantics for prediction fields and dimensions.
 - [ ] 04-02: Align API/read models with updated prediction schema semantics.
 
 ### Phase 5: Timeline Core Reliability
@@ -144,8 +144,8 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Schema Contract Baseline | 3/3 | Complete | 2026-02-24 |
 | 2. Migration Safety & Startup Readiness | 2/2 | Complete | 2026-02-24 |
-| 3. Monitor Runtime Error Elimination | 0/3 | Not started | - |
-| 4. Monitor Flow Consistency & API Alignment | 0/2 | Not started | - |
+| 3. Monitor Runtime Error Elimination | 3/3 | Complete | 2026-02-24 |
+| 4. Monitor Flow Consistency & API Alignment | 1/2 | In Progress | - |
 | 5. Timeline Core Reliability | 0/3 | Not started | - |
 | 6. Timeline UX Expansion (T2) | 0/3 | Not started | - |
 | 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |
