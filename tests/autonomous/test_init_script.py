@@ -130,7 +130,10 @@ def test_init_script_upgrade_is_repeat_safe_and_reports_status(tmp_path: Path) -
 
     first_run = _run_init_script("--database-url", db_url, "--upgrade")
     assert first_run.returncode == 0, first_run.stdout + first_run.stderr
-    assert "Upgrade status: upgraded (operations=1, missing_before=1, missing_after=0)" in first_run.stdout
+    assert (
+        "Upgrade status: upgraded (operations=1, missing_before=1, missing_after=0)"
+        in first_run.stdout
+    )
     assert "Compatibility status: PASS" in first_run.stdout
 
     second_run = _run_init_script("--database-url", db_url, "--upgrade")

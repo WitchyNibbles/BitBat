@@ -18,7 +18,11 @@ from .models import (
     create_database_engine,
     init_database,
 )
-from .schema_compat import SchemaCompatibilityError, ensure_schema_compatibility, upgrade_schema_compatibility
+from .schema_compat import (
+    SchemaCompatibilityError,
+    ensure_schema_compatibility,
+    upgrade_schema_compatibility,
+)
 
 
 def _utcnow() -> datetime:

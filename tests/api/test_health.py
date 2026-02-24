@@ -128,7 +128,10 @@ class TestDetailedHealthEndpoint:
         assert "predicted_price" in (schema_service.get("detail") or "")
         assert data["schema_readiness"]["compatibility_state"] == "incompatible"
         assert data["schema_readiness"]["is_compatible"] is False
-        assert "predicted_price" in data["schema_readiness"]["missing_columns"]["prediction_outcomes"]
+        assert (
+            "predicted_price"
+            in data["schema_readiness"]["missing_columns"]["prediction_outcomes"]
+        )
 
     def test_schema_service_ok_for_compatible_schema(
         self,
