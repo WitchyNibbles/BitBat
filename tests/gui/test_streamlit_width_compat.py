@@ -88,3 +88,16 @@ def test_width_keyword_uses_supported_non_boolean_literals() -> None:
 
     assert not boolean_offenders, f"Boolean width arguments found: {boolean_offenders}"
     assert not literal_offenders, f"Unsupported width literal values found: {literal_offenders}"
+
+
+def test_runtime_scope_uses_modern_width_literals() -> None:
+    literals: set[str] = set()
+
+    for file_path in _runtime_streamlit_files():
+        for call in _iter_streamlit_calls(file_path):
+            value = _keyword_value(call, "width")
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                literals.add(value.value)
+
+    assert "stretch" in literals
+    assert "content" in literals

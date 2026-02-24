@@ -14,6 +14,7 @@ from bitbat.gui.widgets import get_latest_prediction, get_recent_events, get_sys
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"
 PAGES_DIR = STREAMLIT_DIR / "pages"
+ALLOWED_WIDTH_LITERALS = {"stretch", "content"}
 
 
 def _runtime_streamlit_files() -> list[Path]:
@@ -133,6 +134,7 @@ def test_phase7_runtime_scope_includes_primary_entrypoints() -> None:
 def test_phase7_runtime_width_contract_has_no_deprecated_keywords_or_booleans() -> None:
     deprecated_offenders: list[str] = []
     boolean_width_offenders: list[str] = []
+    unsupported_width_literals: list[str] = []
 
     for file_path in _runtime_streamlit_files():
         for call in _iter_streamlit_calls(file_path):
@@ -145,8 +147,17 @@ def test_phase7_runtime_width_contract_has_no_deprecated_keywords_or_booleans() 
             if isinstance(width_value, ast.Constant) and isinstance(width_value.value, bool):
                 boolean_width_offenders.append(f"{file_path.relative_to(ROOT)}:{call.lineno}")
 
+            if isinstance(width_value, ast.Constant) and isinstance(width_value.value, str):
+                if width_value.value not in ALLOWED_WIDTH_LITERALS:
+                    unsupported_width_literals.append(
+                        f"{file_path.relative_to(ROOT)}:{call.lineno}={width_value.value!r}"
+                    )
+
     assert not deprecated_offenders, f"Deprecated width keyword usage found: {deprecated_offenders}"
     assert not boolean_width_offenders, f"Boolean width usage found: {boolean_width_offenders}"
+    assert not unsupported_width_literals, (
+        f"Unsupported width literals found: {unsupported_width_literals}"
+    )
 
 
 def test_phase7_primary_gui_workflow_signals_remain_operational(phase7_gui_db: Path) -> None:
