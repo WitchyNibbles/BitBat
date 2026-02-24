@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.models import create_database_engine
 
 
 @pytest.fixture()
@@ -52,6 +54,42 @@ def db_with_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return db_path
 
 
+@pytest.fixture()
+def incompatible_schema_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.chdir(tmp_path)
+    db_path = tmp_path / "data" / "autonomous.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    engine = create_database_engine(f"sqlite:///{db_path}")
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
+        conn.execute(text(
+            """
+            CREATE TABLE prediction_outcomes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp_utc DATETIME NOT NULL,
+                prediction_timestamp DATETIME NOT NULL,
+                predicted_direction VARCHAR(10) NOT NULL,
+                p_up FLOAT,
+                p_down FLOAT,
+                p_flat FLOAT,
+                predicted_return FLOAT,
+                actual_return FLOAT,
+                actual_direction VARCHAR(10),
+                correct BOOLEAN,
+                model_version VARCHAR(64) NOT NULL,
+                freq VARCHAR(16) NOT NULL,
+                horizon VARCHAR(16) NOT NULL,
+                features_used JSON,
+                created_at DATETIME NOT NULL,
+                realized_at DATETIME
+            )
+            """
+        ))
+    engine.dispose()
+    return db_path
+
+
 class TestMetricsEndpoint:
     def test_returns_200(
         self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -88,6 +126,15 @@ class TestMetricsEndpoint:
         text = client.get("/metrics").text
         assert "bitbat_model_available" in text
 
+    def test_has_schema_gauges(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        text = client.get("/metrics").text
+        assert "bitbat_schema_compatible" in text
+        assert "bitbat_schema_missing_columns" in text
+        assert "bitbat_schema_auto_upgrade_possible" in text
+
     def test_prometheus_format(
         self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -114,3 +161,30 @@ class TestMetricsWithData:
         text = client.get("/metrics").text
         # The DB exists, so the gauge should be 1
         assert "bitbat_database_available 1" in text
+
+    def test_schema_shows_compatible(self, client: TestClient, db_with_data: Path) -> None:
+        text = client.get("/metrics").text
+        assert "bitbat_schema_compatible 1" in text
+        assert "bitbat_schema_missing_columns 0" in text
+
+
+class TestMetricsWithIncompatibleSchema:
+    def test_schema_reports_incompatible(
+        self,
+        client: TestClient,
+        incompatible_schema_db: Path,
+    ) -> None:
+        text = client.get("/metrics").text
+        assert "bitbat_database_available 1" in text
+        assert "bitbat_schema_compatible 0" in text
+        assert "bitbat_schema_missing_columns 1" in text
+
+    def test_prediction_gauges_are_not_emitted_when_schema_incompatible(
+        self,
+        client: TestClient,
+        incompatible_schema_db: Path,
+    ) -> None:
+        text = client.get("/metrics").text
+        assert "bitbat_predictions_total_30d" not in text
+        assert "bitbat_predictions_realized_30d" not in text
+        assert "bitbat_predictions_correct_30d" not in text
