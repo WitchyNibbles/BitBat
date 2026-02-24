@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import click
 import numpy as np
@@ -14,6 +14,7 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat import __version__
+from bitbat.autonomous.schema_compat import SchemaCompatibilityError, format_missing_columns
 from bitbat.backtest.engine import run as run_strategy
 from bitbat.backtest.metrics import summary as summarize_backtest
 from bitbat.config.loader import get_runtime_config, set_runtime_config
@@ -28,7 +29,9 @@ from bitbat.model.infer import predict_bar
 from bitbat.model.persist import load as load_model
 from bitbat.model.train import fit_xgb
 from bitbat.timealign.calendar import ensure_utc
-from bitbat.autonomous.schema_compat import SchemaCompatibilityError, format_missing_columns
+
+if TYPE_CHECKING:
+    from bitbat.autonomous.db import MonitorDatabaseError
 
 
 def _config() -> dict[str, Any]:
@@ -149,6 +152,20 @@ def _raise_monitor_schema_error(exc: SchemaCompatibilityError, db_url: str) -> N
                     "Then: poetry run python scripts/init_autonomous_db.py "
                     f'--database-url "{db_url}" --upgrade'
                 ),
+            ]
+        )
+    ) from exc
+
+
+def _raise_monitor_runtime_db_error(exc: MonitorDatabaseError) -> NoReturn:
+    raise click.ClickException(
+        "\n".join(
+            [
+                "Autonomous monitor runtime database failure.",
+                f"Step: {exc.step}",
+                f"Error class: {exc.error_class}",
+                f"Detail: {exc.detail}",
+                f"Remediation: {exc.remediation}",
             ]
         )
     ) from exc
@@ -373,7 +390,12 @@ def model_cv(
     if not window_spec:
         window_spec.append((start, end, start, end))
 
-    dataset = _load_feature_dataset(freq_val, horizon_val, require_label=False, require_forward_return=True)
+    dataset = _load_feature_dataset(
+        freq_val,
+        horizon_val,
+        require_label=False,
+        require_forward_return=True,
+    )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
     y = dataset["r_forward"]
@@ -432,7 +454,12 @@ def model_train(
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
 
-    dataset = _load_feature_dataset(freq_val, horizon_val, require_label=False, require_forward_return=True)
+    dataset = _load_feature_dataset(
+        freq_val,
+        horizon_val,
+        require_label=False,
+        require_forward_return=True,
+    )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
     y = dataset["r_forward"]
@@ -821,7 +848,7 @@ def monitor_refresh(
 def monitor_run_once(freq: str | None, horizon: str | None) -> None:
     """Run one autonomous monitoring iteration."""
     from bitbat.autonomous.agent import MonitoringAgent
-    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
     from bitbat.autonomous.models import init_database
 
     freq_val = _resolve_setting(freq, "freq")
@@ -834,9 +861,11 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
         init_database(db_url)
         db = AutonomousDB(db_url)
         agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+        result = agent.run_once()
     except SchemaCompatibilityError as exc:
         _raise_monitor_schema_error(exc, db_url)
-    result = agent.run_once()
+    except MonitorDatabaseError as exc:
+        _raise_monitor_runtime_db_error(exc)
 
     click.echo("Monitoring run completed")
     click.echo(f"  Validations: {result['validations']}")
@@ -851,7 +880,7 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
 def monitor_start(freq: str | None, horizon: str | None, interval: int | None) -> None:
     """Start continuous autonomous monitoring."""
     from bitbat.autonomous.agent import MonitoringAgent
-    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
     from bitbat.autonomous.models import init_database
 
     freq_val = _resolve_setting(freq, "freq")
@@ -871,6 +900,8 @@ def monitor_start(freq: str | None, horizon: str | None, interval: int | None) -
         agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
     except SchemaCompatibilityError as exc:
         _raise_monitor_schema_error(exc, db_url)
+    except MonitorDatabaseError as exc:
+        _raise_monitor_runtime_db_error(exc)
     click.echo(
         "Starting monitoring loop "
         f"(freq={freq_val}, horizon={horizon_val}, interval={interval_seconds}s)"

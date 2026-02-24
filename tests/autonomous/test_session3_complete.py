@@ -81,8 +81,9 @@ def test_session3_complete_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         lambda: {"validated_count": 0, "correct_count": 0, "hit_rate": 0.0, "errors": []},
     )
     monkeypatch.setattr(agent.drift_detector, "is_in_cooldown", lambda: False)
+    monkeypatch.setattr(agent.continuous_trainer, "should_retrain", lambda: True)
     monkeypatch.setattr(
-        agent.retrainer,
+        agent.continuous_trainer,
         "retrain",
         lambda **_: {"status": "completed", "new_model_version": "v2.0.0", "deployed": True},
     )

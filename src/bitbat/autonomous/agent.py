@@ -8,7 +8,11 @@ from typing import Any
 
 from bitbat.autonomous.alerting import send_alert
 from bitbat.autonomous.continuous_trainer import ContinuousTrainer
-from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.db import (
+    AutonomousDB,
+    MonitorDatabaseError,
+    classify_monitor_db_error,
+)
 from bitbat.autonomous.drift import DriftDetector
 from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.autonomous.predictor import LivePredictor
@@ -46,30 +50,46 @@ class MonitoringAgent:
         )
 
     def _active_model_version(self) -> str:
-        with self.db.session() as session:
-            active = self.db.get_active_model(session, self.freq, self.horizon)
+        try:
+            with self.db.session() as session:
+                active = self.db.get_active_model(session, self.freq, self.horizon)
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="monitor.get_active_model",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
         return active.version if active is not None else "unknown"
 
     def _store_performance_snapshot(self, metrics: dict[str, Any], model_version: str) -> None:
-        with self.db.session() as session:
-            self.db.store_performance_snapshot(
-                session=session,
-                model_version=model_version,
-                freq=self.freq,
-                horizon=self.horizon,
-                window_days=int(self.drift_detector.window_days),
-                metrics={
-                    "total_predictions": metrics.get("total_predictions", 0),
-                    "realized_predictions": metrics.get("realized_predictions", 0),
-                    "hit_rate": metrics.get("hit_rate"),
-                    "sharpe_ratio": metrics.get("sharpe_ratio"),
-                    "avg_return": metrics.get("average_return"),
-                    "max_drawdown": metrics.get("max_drawdown"),
-                    "win_streak": metrics.get("win_streak"),
-                    "lose_streak": metrics.get("lose_streak"),
-                    "calibration_score": metrics.get("calibration_score"),
-                },
-            )
+        try:
+            with self.db.session() as session:
+                self.db.store_performance_snapshot(
+                    session=session,
+                    model_version=model_version,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                    window_days=int(self.drift_detector.window_days),
+                    metrics={
+                        "total_predictions": metrics.get("total_predictions", 0),
+                        "realized_predictions": metrics.get("realized_predictions", 0),
+                        "hit_rate": metrics.get("hit_rate"),
+                        "sharpe_ratio": metrics.get("sharpe_ratio"),
+                        "avg_return": metrics.get("average_return"),
+                        "max_drawdown": metrics.get("max_drawdown"),
+                        "win_streak": metrics.get("win_streak"),
+                        "lose_streak": metrics.get("lose_streak"),
+                        "calibration_score": metrics.get("calibration_score"),
+                    },
+                )
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="monitor.store_performance_snapshot",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
 
     def _ingest_prices(self) -> None:
         """Fetch the latest price bars so the predictor sees fresh data."""
@@ -167,17 +187,27 @@ class MonitoringAgent:
                 logger.info("New prediction: %s", prediction_result)
             else:
                 logger.info("No new prediction generated this cycle")
+        except MonitorDatabaseError:
+            raise
         except Exception:
             logger.exception("Prediction generation failed")
 
-        with self.db.session() as session:
-            recent_predictions = self.db.get_recent_predictions(
-                session=session,
-                freq=self.freq,
-                horizon=self.horizon,
-                days=int(self.drift_detector.window_days),
-                realized_only=True,
-            )
+        try:
+            with self.db.session() as session:
+                recent_predictions = self.db.get_recent_predictions(
+                    session=session,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                    days=int(self.drift_detector.window_days),
+                    realized_only=True,
+                )
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="monitor.fetch_recent_predictions",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
 
         metrics = PerformanceMetrics(recent_predictions).to_dict()
         model_version = self._active_model_version()
@@ -226,6 +256,13 @@ class MonitoringAgent:
         while True:
             try:
                 self.run_once()
+            except MonitorDatabaseError as exc:
+                logger.error(
+                    "Monitoring cycle database failure at %s: %s",
+                    exc.step,
+                    exc.detail,
+                )
+                send_alert("ERROR", "Monitoring cycle database failure", exc.to_dict())
             except Exception as exc:
                 logger.exception("Monitoring cycle failed: %s", exc)
                 send_alert("ERROR", "Monitoring cycle failed", {"error": str(exc)})

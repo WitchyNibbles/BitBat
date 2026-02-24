@@ -17,7 +17,7 @@ from types import FrameType
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bitbat.autonomous.agent import MonitoringAgent
-from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import init_database
 from bitbat.config.loader import set_runtime_config
 
@@ -133,6 +133,22 @@ def main() -> int:
                 horizon=horizon,
                 interval=interval,
                 db_url=db_url,
+            )
+        except MonitorDatabaseError as exc:
+            logger.error(
+                "Monitoring cycle DB failure step=%s detail=%s remediation=%s",
+                exc.step,
+                exc.detail,
+                exc.remediation,
+            )
+            _write_heartbeat(
+                heartbeat,
+                status="error",
+                freq=freq,
+                horizon=horizon,
+                interval=interval,
+                db_url=db_url,
+                error=f"{exc.step}: {exc.detail}. {exc.remediation}",
             )
         except Exception:  # pragma: no cover - defensive top-level loop
             logger.exception("Monitoring cycle failed.")

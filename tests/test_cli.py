@@ -7,11 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import click
 import numpy as np
 import pandas as pd
 import pandas.testing as pd_testing
 import pytest
-import click
 
 from bitbat.cli import main
 from bitbat.io.fs import read_parquet, write_parquet
@@ -475,7 +475,12 @@ def test_cli_batch_run(
 
     def fake_predict(*args: Any, **kwargs: Any) -> dict[str, Any]:
         timestamp = kwargs.get("timestamp")
-        return {"timestamp": timestamp, "predicted_return": 0.005, "predicted_direction": "up", "predicted_price": None}
+        return {
+            "timestamp": timestamp,
+            "predicted_return": 0.005,
+            "predicted_direction": "up",
+            "predicted_price": None,
+        }
 
     class FakeModel:
         feature_names = ["feat_price"]
@@ -772,6 +777,62 @@ def test_cli_monitor_run_once_schema_error_message(
     assert "schema is incompatible" in message.lower()
     assert "predicted_price" in message
     assert "--audit" in message
+    assert "--upgrade" in message
+
+
+def test_cli_monitor_run_once_runtime_db_error_message(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from bitbat.autonomous.db import MonitorDatabaseError
+
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_runtime_error.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_runtime_error_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class BrokenAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def run_once(self) -> dict[str, Any]:
+            raise MonitorDatabaseError(
+                step="predict.store_prediction",
+                detail="Schema incompatible: missing prediction_outcomes(predicted_price)",
+                remediation=(
+                    'Run `poetry run python scripts/init_autonomous_db.py --database-url "'
+                    f'{db_url}" --audit` then `poetry run python scripts/init_autonomous_db.py '
+                    f'--database-url "{db_url}" --upgrade`.'
+                ),
+                error_class="OperationalError",
+                database_url=db_url,
+            )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", BrokenAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "run-once",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(click.ClickException) as exc_info:
+        main()
+
+    message = str(exc_info.value)
+    assert "runtime database failure" in message.lower()
+    assert "predict.store_prediction" in message
     assert "--upgrade" in message
 
 
