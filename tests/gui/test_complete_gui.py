@@ -23,7 +23,7 @@ from bitbat.gui.presets import (
     get_preset,
     list_presets,
 )
-from bitbat.gui.timeline import summarize_timeline_status
+from bitbat.gui.timeline import format_timeline_empty_state, summarize_timeline_insights, summarize_timeline_status
 from bitbat.gui.widgets import (
     db_query,
     get_ingestion_status,
@@ -265,6 +265,27 @@ class TestTimelineStatusMetrics:
         assert summary["correct"] == 1
         assert summary["pending"] == 1
         assert summary["accuracy"] == pytest.approx(50.0)
+
+    def test_timeline_insights_include_avg_confidence_and_direction_counts(self) -> None:
+        predictions = pd.DataFrame({
+            "timestamp_utc": pd.date_range("2024-02-01", periods=4, freq="h"),
+            "predicted_direction": ["up", "down", "flat", "up"],
+            "p_up": [0.8, 0.2, 0.3, None],
+            "p_down": [0.1, 0.7, 0.3, None],
+            "correct": [1, 0, None, None],
+        })
+
+        insights = summarize_timeline_insights(predictions)
+        assert insights["total"] == 4
+        assert insights["average_confidence"] == pytest.approx(60.0, abs=0.01)
+        assert insights["up_count"] == 2
+        assert insights["down_count"] == 1
+        assert insights["flat_count"] == 1
+
+    def test_timeline_empty_state_message_explicit_for_filters(self) -> None:
+        message = format_timeline_empty_state("1h", "24h", "7d")
+        assert "1h / 24h / 7d" in message
+        assert "Try adjusting freq, horizon, or date window." in message
 
 
 # ---------------------------------------------------------------------------

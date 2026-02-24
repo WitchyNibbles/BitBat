@@ -234,26 +234,74 @@ elif state == "RUNNING":
     @st.fragment(run_every=60)
     def _live_timeline() -> None:
         from bitbat.gui.timeline import (
+            apply_timeline_filters,
             build_timeline_figure,
+            format_timeline_empty_state,
             get_price_series,
             get_timeline_data,
-            summarize_timeline_status,
+            list_timeline_filter_options,
+            summarize_timeline_insights,
         )
 
-        predictions = get_timeline_data(_DB_PATH, freq, horizon)
+        timeline_freq_options, timeline_horizon_options = list_timeline_filter_options(
+            _DB_PATH,
+            freq,
+            horizon,
+        )
+        date_window_options = ["24h", "7d", "30d", "all"]
+
+        if "timeline_filter_freq" not in st.session_state:
+            st.session_state["timeline_filter_freq"] = freq
+        if "timeline_filter_horizon" not in st.session_state:
+            st.session_state["timeline_filter_horizon"] = horizon
+        if "timeline_filter_window" not in st.session_state:
+            st.session_state["timeline_filter_window"] = "7d"
+        if "timeline_show_overlay" not in st.session_state:
+            st.session_state["timeline_show_overlay"] = True
+
+        if st.session_state["timeline_filter_freq"] not in timeline_freq_options:
+            st.session_state["timeline_filter_freq"] = freq
+        if st.session_state["timeline_filter_horizon"] not in timeline_horizon_options:
+            st.session_state["timeline_filter_horizon"] = horizon
+        if st.session_state["timeline_filter_window"] not in date_window_options:
+            st.session_state["timeline_filter_window"] = "7d"
+
+        filter_cols = st.columns(4)
+        with filter_cols[0]:
+            selected_freq = st.selectbox(
+                "Timeline Freq",
+                options=timeline_freq_options,
+                key="timeline_filter_freq",
+            )
+        with filter_cols[1]:
+            selected_horizon = st.selectbox(
+                "Timeline Horizon",
+                options=timeline_horizon_options,
+                key="timeline_filter_horizon",
+            )
+        with filter_cols[2]:
+            selected_window = st.selectbox(
+                "Date Window",
+                options=date_window_options,
+                key="timeline_filter_window",
+            )
+        with filter_cols[3]:
+            show_overlay = st.toggle(
+                "Overlay Compare",
+                key="timeline_show_overlay",
+            )
+
+        predictions = get_timeline_data(_DB_PATH, selected_freq, selected_horizon, limit=2000)
+        predictions = apply_timeline_filters(predictions, date_window=selected_window)
 
         if predictions.empty:
-            st.info(
-                "Waiting for predictions... "
-                "The monitoring agent runs every hour — "
-                "the first prediction should appear soon."
-            )
+            st.info(format_timeline_empty_state(selected_freq, selected_horizon, selected_window))
             return
 
         first_ts = predictions["timestamp_utc"].min()
-        prices = get_price_series(_DATA_DIR, freq, first_ts)
+        prices = get_price_series(_DATA_DIR, selected_freq, first_ts)
 
-        fig = build_timeline_figure(predictions, prices)
+        fig = build_timeline_figure(predictions, prices, show_overlay=show_overlay)
         st.plotly_chart(fig, use_container_width=True)
 
         # Legend
@@ -266,17 +314,23 @@ elif state == "RUNNING":
             st.caption("Auto-refreshes every 60 seconds")
 
         # Summary metrics
-        status_summary = summarize_timeline_status(predictions)
+        insights = summarize_timeline_insights(predictions)
+        avg_confidence = insights["average_confidence"]
 
-        m1, m2, m3, m4 = st.columns(4)
+        m1, m2, m3, m4, m5 = st.columns(5)
         with m1:
-            st.metric("Total Predictions", int(status_summary["total"]))
+            st.metric("Total Predictions", int(insights["total"]))
         with m2:
-            st.metric("Completed", int(status_summary["completed"]))
+            st.metric("Completed", int(insights["completed"]))
         with m3:
-            st.metric("Correct", int(status_summary["correct"]))
+            st.metric("Correct", int(insights["correct"]))
         with m4:
-            st.metric("Accuracy", f"{status_summary['accuracy']:.1f}%")
+            st.metric("Accuracy", f"{insights['accuracy']:.1f}%")
+        with m5:
+            if avg_confidence is None:
+                st.metric("Avg Confidence", "n/a")
+            else:
+                st.metric("Avg Confidence", f"{avg_confidence:.1f}%")
 
     _live_timeline()
 
