@@ -29,7 +29,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
   1. Existing local databases can be brought to a schema state containing runtime-required prediction columns.
   2. Application startup performs schema compatibility checks before monitor cycles begin.
   3. Missing schema preconditions are surfaced with actionable operator-facing errors.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Audit current model/table expectations vs on-disk SQLite states.
