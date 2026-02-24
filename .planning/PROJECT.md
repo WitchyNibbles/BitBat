@@ -1,8 +1,14 @@
 # BitBat Reliability and Timeline Evolution
 
+## Current State
+
+- **Shipped version:** v1.0 (2026-02-24)
+- **Milestone result:** D1/D2/D3 delivered and verified
+- **Release acceptance command:** `make test-release`
+
 ## What This Is
 
-BitBat is an existing local-first BTC prediction application with CLI, API, autonomous monitoring, and a Streamlit dashboard. This project focuses on stabilizing the current broken behavior and extending the timeline experience so the GUI becomes reliable and decision-useful again. The immediate targets are monitor DB runtime failures, broken prediction timeline behavior, and Streamlit deprecation cleanup.
+BitBat is a local-first BTC prediction application with CLI, API, autonomous monitoring, and a Streamlit dashboard. v1.0 stabilized monitoring + schema behavior, repaired and expanded the timeline experience, and standardized Streamlit compatibility guardrails for repeatable release verification.
 
 ## Core Value
 
@@ -12,45 +18,44 @@ A reliable prediction system where operators can trust that monitoring runs with
 
 ### Validated
 
-- [x] Ingest BTC market/news data and persist datasets to local parquet storage.
-- [x] Build features and train/persist XGBoost models for directional prediction workflows.
-- [x] Serve prediction/system data through FastAPI and Streamlit surfaces.
-- [x] Persist autonomous monitoring state in SQLite (`data/autonomous.db`) with model/prediction/performance tables.
+- ✓ SCHE-01/02/03: Runtime schema compatibility, startup preflight, and idempotent upgrades are in place.
+- ✓ MON-01/02/03: Monitor DB runtime stability and actionable fault diagnostics are enforced.
+- ✓ TIM-01/02/03/04/05: Timeline reliability and UX expansion are delivered and regression-covered.
+- ✓ GUI-01/02/03: Deprecated `use_container_width` usage removed and compatibility checks enforced.
+- ✓ QUAL-01/02/03: D1/D2/D3 release gates implemented with canonical acceptance workflow.
+- ✓ API-01/02: API/readiness surfaces are aligned with runtime schema/timeline semantics.
 
-### Active
+### Active (Next Milestone Candidates)
 
-- [ ] Fix monitor/runtime DB errors caused by schema mismatch around `prediction_outcomes.predicted_price`.
-- [ ] Restore and improve prediction timeline behavior to include predictions, realized outcomes, confidence context, and practical filtering.
-- [ ] Remove Streamlit deprecation usage by replacing all `use_container_width` calls with `width='stretch'` or `width='content'` as appropriate.
-- [ ] Deliver timeline enhancements beyond basic restore (scope C) without regressing existing monitoring and prediction workflows.
-- [ ] Define and verify completion gates: D1 no monitor DB runtime errors, D2 timeline renders/updates correctly, D3 no `use_container_width` warnings.
+- [ ] ANLY-01: Timeline supports model-vs-model comparative overlays.
+- [ ] ANLY-02: Timeline supports exportable segment reports with annotation metadata.
+- [ ] OPER-01: Optional database backend migration path beyond SQLite for higher concurrency.
+- [ ] Define v1.1 milestone goals and acceptance criteria.
 
 ### Out of Scope
 
-- Full UI redesign across all pages - not required to solve current reliability and timeline goals.
-- Major model strategy replacement (for example changing core model family/objective) - not part of this stabilization cycle.
-- Infrastructure migration away from SQLite - defer unless blocked by hard technical limits.
+- Full dashboard redesign across all pages.
+- Major model strategy replacement.
+- Multi-tenant auth/permissions redesign.
 
 ## Context
 
-The codebase already implements full ingestion, modeling, API, autonomous monitoring, and dashboard layers. Current operational breakage is concentrated in monitor DB interactions (`no such column: prediction_outcomes.predicted_price`) and timeline/UI reliability. Streamlit deprecation warnings indicate outdated widget API usage (`use_container_width`) and must be remediated across the GUI.
-
-## Constraints
-
-- **Tech stack**: Keep Python + Streamlit + FastAPI + SQLAlchemy/SQLite architecture - align with existing deployed/runtime surfaces.
-- **Compatibility**: Preserve existing local artifact layout (`data/`, `models/`, `metrics/`) - avoid breaking current workflows and scripts.
-- **Safety**: Prefer additive/compatible DB fixes and deterministic migrations - avoid risky destructive schema operations.
-- **Scope discipline**: Prioritize D1/D2/D3 completion before optional broader enhancements.
-- **Performance**: Timeline improvements must remain responsive on typical local datasets.
+v1.0 was delivered through 8 phases (21 plans, 63 tasks) and finalized with release-level verification. The runtime now has explicit schema/readiness contracts, timeline semantics are deterministic and filter-safe, and Streamlit compatibility regressions are prevented by automated checks.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Treat this as brownfield stabilization plus targeted enhancement (scope C) | Existing app already has production-like surfaces but is currently broken in critical paths | - Pending |
-| Timeline target is T2 (improve, not just restore) | User explicitly requested richer timeline behavior | - Pending |
-| Done criteria are D1/D2/D3 | Provides explicit technical acceptance gates | - Pending |
-| Prioritize DB/runtime correctness before visual polish | Monitor failures block trust in system operation | - Pending |
+| Treat this as brownfield stabilization plus targeted enhancement (scope C) | Existing app surfaces were valuable but unstable in critical paths | ✓ Shipped in v1.0 |
+| Timeline target is T2 (improve, not just restore) | Timeline quality was central to operator usability | ✓ Shipped in v1.0 |
+| Done criteria are D1/D2/D3 | Technical acceptance gates needed to be explicit and verifiable | ✓ Enforced by phase gates + `make test-release` |
+| Prioritize DB/runtime correctness before visual polish | Reliability blockers had to be eliminated before UX expansion | ✓ Executed in phase order 1→8 |
+
+## Next Milestone Goals
+
+1. Define v1.1 scope and requirement priorities.
+2. Create fresh milestone requirements and roadmap phases.
+3. Decide whether to keep phases in-place or archive raw phase directories.
 
 ---
-*Last updated: 2026-02-24 after initialization*
+*Last updated: 2026-02-24 after v1.0 milestone completion*
