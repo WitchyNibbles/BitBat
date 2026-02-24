@@ -11,7 +11,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Schema Contract Baseline** - Establish DB compatibility baseline and required columns. (Completed 2026-02-24)
-- [ ] **Phase 2: Migration Safety & Startup Readiness** - Make upgrades idempotent and enforce preflight checks.
+- [x] **Phase 2: Migration Safety & Startup Readiness** - Make upgrades idempotent and enforce preflight checks. (Completed 2026-02-24)
 - [ ] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures.
 - [ ] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces.
 - [ ] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness.
@@ -47,8 +47,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Harden migration/idempotency behavior for repeated executions.
-- [ ] 02-02: Wire schema readiness into health/status surfaces.
+- [x] 02-01: Harden migration/idempotency behavior for repeated executions.
+- [x] 02-02: Wire schema readiness into health/status surfaces.
 
 ### Phase 3: Monitor Runtime Error Elimination
 **Goal**: Remove monitor DB runtime failures and improve critical-path failure visibility.
@@ -143,7 +143,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema Contract Baseline | 3/3 | Complete | 2026-02-24 |
-| 2. Migration Safety & Startup Readiness | 0/2 | Not started | - |
+| 2. Migration Safety & Startup Readiness | 2/2 | Complete | 2026-02-24 |
 | 3. Monitor Runtime Error Elimination | 0/3 | Not started | - |
 | 4. Monitor Flow Consistency & API Alignment | 0/2 | Not started | - |
 | 5. Timeline Core Reliability | 0/3 | Not started | - |

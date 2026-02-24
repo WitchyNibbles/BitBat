@@ -11,7 +11,7 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 
 - [x] **SCHE-01**: Existing local databases can be upgraded safely so `prediction_outcomes` contains required runtime columns (including `predicted_price`) without manual table recreation.
 - [x] **SCHE-02**: Application startup validates schema compatibility and surfaces actionable errors when migration/preconditions are missing.
-- [ ] **SCHE-03**: Schema upgrade path is idempotent (safe to run multiple times) and preserves existing prediction history.
+- [x] **SCHE-03**: Schema upgrade path is idempotent (safe to run multiple times) and preserves existing prediction history.
 
 ### Monitoring Runtime Stability
 
@@ -42,7 +42,7 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 ### API / Surface Alignment
 
 - [ ] **API-01**: API and GUI timeline-consumed fields remain semantically aligned after schema/timeline changes.
-- [ ] **API-02**: Health/status surfaces accurately reflect readiness when schema compatibility is not satisfied.
+- [x] **API-02**: Health/status surfaces accurately reflect readiness when schema compatibility is not satisfied.
 
 ## v2 Requirements
 
@@ -71,7 +71,7 @@ Deferred to later milestones.
 |-------------|-------|--------|
 | SCHE-01 | Phase 1 | Complete |
 | SCHE-02 | Phase 1 | Complete |
-| SCHE-03 | Phase 2 | Pending |
+| SCHE-03 | Phase 2 | Complete |
 | MON-01 | Phase 3 | Pending |
 | MON-02 | Phase 4 | Pending |
 | MON-03 | Phase 3 | Pending |
@@ -87,7 +87,7 @@ Deferred to later milestones.
 | QUAL-02 | Phase 8 | Pending |
 | QUAL-03 | Phase 8 | Pending |
 | API-01 | Phase 4 | Pending |
-| API-02 | Phase 2 | Pending |
+| API-02 | Phase 2 | Complete |
 
 **Coverage:**
 - v1 requirements: 19 total
