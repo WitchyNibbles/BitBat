@@ -3,8 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+from sqlalchemy import text
+
 from bitbat.autonomous.agent import MonitoringAgent
 from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 from bitbat.autonomous.models import PerformanceSnapshot, init_database
 
 
@@ -54,6 +58,41 @@ def _seed_realized_predictions(db: AutonomousDB, *, total: int, correct_count: i
             )
 
 
+def _create_legacy_prediction_outcomes(database_url: str) -> None:
+    db = AutonomousDB(database_url, auto_upgrade_schema=False)
+    with db.engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
+        conn.execute(text(
+            """
+            CREATE TABLE prediction_outcomes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp_utc DATETIME NOT NULL,
+                prediction_timestamp DATETIME NOT NULL,
+                predicted_direction VARCHAR(10) NOT NULL,
+                p_up FLOAT,
+                p_down FLOAT,
+                p_flat FLOAT,
+                predicted_return FLOAT,
+                actual_return FLOAT,
+                actual_direction VARCHAR(10),
+                correct BOOLEAN,
+                model_version VARCHAR(64) NOT NULL,
+                freq VARCHAR(16) NOT NULL,
+                horizon VARCHAR(16) NOT NULL,
+                features_used JSON,
+                created_at DATETIME NOT NULL,
+                realized_at DATETIME
+            )
+            """
+        ))
+
+
+def _disable_ingestion(agent: MonitoringAgent) -> None:
+    agent._ingest_prices = lambda: None  # type: ignore[method-assign]
+    agent._ingest_news = lambda: None  # type: ignore[method-assign]
+    agent._ingest_auxiliary_data = lambda: None  # type: ignore[method-assign]
+
+
 def test_monitoring_agent_integration(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
@@ -74,11 +113,13 @@ def test_monitoring_agent_integration(tmp_path: Path) -> None:
         {"hit_rate": 0.3},
     )
     agent.drift_detector.is_in_cooldown = lambda: False  # type: ignore[method-assign]
-    agent.retrainer.retrain = lambda **_: {  # type: ignore[method-assign]
+    agent.continuous_trainer.should_retrain = lambda: True  # type: ignore[method-assign]
+    agent.continuous_trainer.retrain = lambda **_: {  # type: ignore[method-assign]
         "status": "completed",
         "new_model_version": "v2.0.0",
         "deployed": True,
     }
+    _disable_ingestion(agent)
 
     result = agent.run_once()
 
@@ -108,6 +149,8 @@ def test_no_drift_scenario(tmp_path: Path) -> None:
         "No drift detected",
         {"hit_rate": 0.87},
     )
+    agent.continuous_trainer.should_retrain = lambda: False  # type: ignore[method-assign]
+    _disable_ingestion(agent)
 
     result = agent.run_once()
     assert result["drift_detected"] is False
@@ -141,9 +184,48 @@ def test_cooldown_enforcement(tmp_path: Path) -> None:
         called["count"] += 1
         return {"status": "completed"}
 
-    agent.retrainer.retrain = _retrain  # type: ignore[method-assign]
+    agent.continuous_trainer.should_retrain = lambda: False  # type: ignore[method-assign]
+    agent.continuous_trainer.retrain = _retrain  # type: ignore[method-assign]
+    _disable_ingestion(agent)
     result = agent.run_once()
 
     assert result["drift_detected"] is True
     assert result["retraining_triggered"] is False
     assert called["count"] == 0
+
+
+def test_schema_preflight_blocks_incompatible_legacy_schema(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    _create_legacy_prediction_outcomes(database_url)
+    db = AutonomousDB(database_url, auto_upgrade_schema=False)
+
+    with pytest.raises(SchemaCompatibilityError, match="predicted_price"):
+        MonitoringAgent(db, "1h", "4h")
+
+
+def test_schema_preflight_allows_upgraded_legacy_schema(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    _create_legacy_prediction_outcomes(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _seed_realized_predictions(db, total=10, correct_count=6)
+
+    agent = MonitoringAgent(db, "1h", "4h")
+    agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
+        "validated_count": 0,
+        "correct_count": 0,
+        "hit_rate": 0.0,
+        "errors": [],
+    }
+    agent.drift_detector.check_drift = lambda: (  # type: ignore[method-assign]
+        False,
+        "No drift detected",
+        {"hit_rate": 0.6},
+    )
+    agent.continuous_trainer.should_retrain = lambda: False  # type: ignore[method-assign]
+    _disable_ingestion(agent)
+
+    result = agent.run_once()
+    assert result["drift_detected"] is False

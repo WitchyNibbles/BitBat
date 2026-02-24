@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing as pd_testing
 import pytest
+import click
 
 from bitbat.cli import main
 from bitbat.io.fs import read_parquet, write_parquet
@@ -354,7 +355,7 @@ def test_cli_model_cv(
     class FakeBooster:
         def predict(self, dmatrix: FakeDMatrix) -> np.ndarray:
             n = len(dmatrix.data)
-            return np.tile(np.array([0.2, 0.3, 0.5]), (n, 1))
+            return np.random.default_rng(0).normal(0, 0.01, n)
 
     def fake_fit_xgb(
         X_train: pd.DataFrame,
@@ -367,22 +368,23 @@ def test_cli_model_cv(
         metrics_dir = Path("metrics")
         metrics_dir.mkdir(parents=True, exist_ok=True)
         metrics = {
-            "balanced_accuracy": 0.8,
-            "mcc": 0.2,
-            "per_class": {},
-            "pr_curves": {},
-            "threshold": kwargs.get("threshold", 0.0),
+            "rmse": 0.005,
+            "mae": 0.003,
+            "r2": 0.1,
+            "directional_accuracy": 0.55,
+            "correlation": 0.3,
+            "n_samples": 24,
         }
-        (metrics_dir / "classification_metrics.json").write_text(
+        (metrics_dir / "regression_metrics.json").write_text(
             json.dumps(metrics),
             encoding="utf-8",
         )
-        (metrics_dir / "confusion_matrix.png").write_bytes(b"")
+        (metrics_dir / "prediction_scatter.png").write_bytes(b"")
         return metrics
 
     monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
     monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.classification_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
 
     argv = [
         "bitbat",
@@ -414,7 +416,7 @@ def test_cli_model_cv(
     summary_path = Path("metrics") / "cv_summary.json"
     assert summary_path.exists()
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    assert "average_balanced_accuracy" in summary
+    assert "average_rmse" in summary
 
 
 def test_cli_batch_run(
@@ -473,7 +475,7 @@ def test_cli_batch_run(
 
     def fake_predict(*args: Any, **kwargs: Any) -> dict[str, Any]:
         timestamp = kwargs.get("timestamp")
-        return {"timestamp": timestamp, "p_up": 0.55, "p_down": 0.25}
+        return {"timestamp": timestamp, "predicted_return": 0.005, "predicted_direction": "up", "predicted_price": None}
 
     class FakeModel:
         feature_names = ["feat_price"]
@@ -506,15 +508,13 @@ def test_cli_batch_run(
     assert len(preds) == 1
     assert {
         "timestamp_utc",
-        "p_up",
-        "p_down",
+        "predicted_return",
         "freq",
         "horizon",
         "model_version",
         "realized_r",
-        "realized_label",
     }.issubset(preds.columns)
-    assert abs(preds.iloc[0]["p_up"] - 0.55) < 1e-9
+    assert abs(preds.iloc[0]["predicted_return"] - 0.005) < 1e-9
     assert pd.isna(preds.iloc[0]["realized_r"])
 
     monkeypatch.setattr(sys, "argv", argv)
@@ -550,13 +550,12 @@ def test_cli_batch_realize(
     prediction_ts = idx[4]
     preds = pd.DataFrame({
         "timestamp_utc": [prediction_ts],
-        "p_up": [0.6],
-        "p_down": [0.3],
+        "predicted_return": [0.005],
+        "predicted_price": [float("nan")],
         "freq": [freq],
         "horizon": [horizon],
         "model_version": ["test"],
         "realized_r": [np.nan],
-        "realized_label": [pd.NA],
     })
     preds.to_parquet(preds_dir / "1h_4h.parquet", index=False)
 
@@ -570,8 +569,6 @@ def test_cli_batch_realize(
         freq,
         "--horizon",
         horizon,
-        "--tau",
-        "0.01",
     ]
     monkeypatch.setattr(sys, "argv", argv)
     main()
@@ -579,7 +576,6 @@ def test_cli_batch_realize(
     realized_preds = pd.read_parquet(preds_dir / "1h_4h.parquet")
     ret = (close[4 + 4] / close[4]) - 1
     assert pytest.approx(realized_preds.loc[0, "realized_r"], abs=1e-9) == ret
-    assert realized_preds.loc[0, "realized_label"] in {"up", "down", "flat"}
 
     monkeypatch.setattr(sys, "argv", argv)
     main()
@@ -597,13 +593,12 @@ def test_cli_monitor_refresh(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     idx = pd.date_range(now - pd.Timedelta(hours=9), periods=10, freq=freq)
     preds = pd.DataFrame({
         "timestamp_utc": idx,
-        "p_up": np.linspace(0.5, 0.7, len(idx)),
-        "p_down": np.linspace(0.3, 0.1, len(idx)),
+        "predicted_return": np.linspace(-0.005, 0.01, len(idx)),
+        "predicted_price": [float("nan")] * len(idx),
         "freq": [freq] * len(idx),
         "horizon": [horizon] * len(idx),
         "model_version": ["test"] * len(idx),
         "realized_r": np.linspace(-0.01, 0.02, len(idx)),
-        "realized_label": ["flat"] * len(idx),
     })
     preds.to_parquet(predictions_dir / "1h_4h.parquet", index=False)
 
@@ -663,8 +658,6 @@ def test_cli_validate_run(
         "1h",
         "--horizon",
         "4h",
-        "--tau",
-        "0.01",
     ]
     monkeypatch.setattr(sys, "argv", argv)
     main()
@@ -722,6 +715,64 @@ def test_cli_monitor_run_once(
     out = capsys.readouterr().out
     assert "Monitoring run completed" in out
     assert "Validations: 2" in out
+
+
+def test_cli_monitor_run_once_schema_error_message(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from bitbat.autonomous.schema_compat import (
+        SchemaAuditReport,
+        SchemaCompatibilityError,
+        TableSchemaAudit,
+    )
+
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_schema_error.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_schema_error_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class BrokenDB:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+            report = SchemaAuditReport(tables=(
+                TableSchemaAudit(
+                    table_name="prediction_outcomes",
+                    required_columns=("predicted_price",),
+                    existing_columns=(),
+                    missing_columns=("predicted_price",),
+                    addable_missing_columns=("predicted_price",),
+                    blocking_missing_columns=(),
+                ),
+            ))
+            raise SchemaCompatibilityError(report, db_url)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.db.AutonomousDB", BrokenDB)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "run-once",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(click.ClickException) as exc_info:
+        main()
+
+    message = str(exc_info.value)
+    assert "schema is incompatible" in message.lower()
+    assert "predicted_price" in message
+    assert "--audit" in message
+    assert "--upgrade" in message
 
 
 def test_cli_monitor_status_and_snapshots(
