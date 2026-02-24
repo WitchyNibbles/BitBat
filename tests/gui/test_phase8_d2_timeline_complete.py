@@ -25,6 +25,14 @@ try:
 except ImportError:
     _has_plotly = False
 
+D2_CANONICAL_SUITES = [
+    "tests/gui/test_timeline.py",
+    "tests/gui/test_complete_gui.py",
+    "tests/gui/test_phase5_timeline_complete.py",
+    "tests/gui/test_phase6_timeline_ux_complete.py",
+    "tests/gui/test_phase8_d2_timeline_complete.py",
+]
+
 
 def _seed_phase8_d2_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
@@ -193,3 +201,8 @@ def test_phase8_d2_release_gate_no_result_filter_message_is_explicit(tmp_path: P
     message = format_timeline_empty_state("4h", "24h", "24h")
     assert "4h / 24h / 24h" in message
     assert "No timeline events match the current filters" in message
+
+
+def test_phase8_d2_canonical_suite_files_exist() -> None:
+    for rel_path in D2_CANONICAL_SUITES:
+        assert Path(rel_path).exists(), f"Missing D2 suite file: {rel_path}"
