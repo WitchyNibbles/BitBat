@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 try:  # pragma: no cover - dependency guard
     import sqlalchemy  # noqa: F401
 except ImportError:  # pragma: no cover - optional dependency
     pytest.skip("sqlalchemy not installed", allow_module_level=True)
 
-from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError, classify_monitor_db_error
 from bitbat.autonomous.models import init_database
 
 
@@ -135,3 +137,27 @@ def test_deactivate_old_models_returns_updated_count(tmp_path: Path) -> None:
 
         active = db.get_active_model(session=session, freq="1h", horizon="4h")
         assert active is None
+
+
+def test_classify_monitor_db_error_surfaces_schema_remediation(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    raw_error = OperationalError(
+        "SELECT predicted_price FROM prediction_outcomes",
+        {},
+        sqlite3.OperationalError("no such column: prediction_outcomes.predicted_price"),
+    )
+    classified = classify_monitor_db_error(
+        raw_error,
+        step="predict.store_prediction",
+        database_url=database_url,
+        engine=db.engine,
+    )
+
+    assert isinstance(classified, MonitorDatabaseError)
+    assert classified.step == "predict.store_prediction"
+    assert "schema" in classified.detail.lower() or "no such column" in classified.detail.lower()
+    assert "--audit" in classified.remediation
+    assert "--upgrade" in classified.remediation

@@ -7,9 +7,9 @@ import pytest
 from sqlalchemy import text
 
 from bitbat.autonomous.agent import MonitoringAgent
-from bitbat.autonomous.db import AutonomousDB
-from bitbat.autonomous.schema_compat import SchemaCompatibilityError
+from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import PerformanceSnapshot, init_database
+from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 
 
 def _db_url(tmp_path: Path) -> str:
@@ -198,9 +198,8 @@ def test_schema_preflight_blocks_incompatible_legacy_schema(tmp_path: Path) -> N
     database_url = _db_url(tmp_path)
     init_database(database_url)
     _create_legacy_prediction_outcomes(database_url)
-    db = AutonomousDB(database_url, auto_upgrade_schema=False)
-
     with pytest.raises(SchemaCompatibilityError, match="predicted_price"):
+        db = AutonomousDB(database_url, auto_upgrade_schema=False)
         MonitoringAgent(db, "1h", "4h")
 
 
@@ -229,3 +228,37 @@ def test_schema_preflight_allows_upgraded_legacy_schema(tmp_path: Path) -> None:
 
     result = agent.run_once()
     assert result["drift_detected"] is False
+
+
+def test_monitoring_agent_surfaces_runtime_db_failure(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _seed_realized_predictions(db, total=10, correct_count=5)
+
+    agent = MonitoringAgent(db, "1h", "4h")
+    _disable_ingestion(agent)
+    agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
+        "validated_count": 0,
+        "correct_count": 0,
+        "hit_rate": 0.0,
+        "errors": [],
+    }
+
+    def _raise_runtime_db_error() -> dict[str, object]:
+        raise MonitorDatabaseError(
+            step="predict.store_prediction",
+            detail="Schema incompatible: missing prediction_outcomes(predicted_price)",
+            remediation="Run --audit then --upgrade",
+            error_class="OperationalError",
+            database_url=database_url,
+        )
+
+    agent.predictor.predict_latest = _raise_runtime_db_error  # type: ignore[method-assign]
+
+    with pytest.raises(MonitorDatabaseError) as exc_info:
+        agent.run_once()
+
+    assert exc_info.value.step == "predict.store_prediction"
+    assert "upgrade" in exc_info.value.remediation.lower()

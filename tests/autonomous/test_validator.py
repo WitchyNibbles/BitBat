@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 import pytest
+from sqlalchemy.exc import OperationalError
 
-from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import init_database
 from bitbat.autonomous.validator import PredictionValidator
 
@@ -173,3 +175,30 @@ def test_validate_batch_updates_database(tmp_path: Path, monkeypatch: pytest.Mon
             realized_only=True,
         )
     assert len(realized) == 2
+
+
+def test_find_predictions_to_validate_surfaces_runtime_db_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    validator = PredictionValidator(db=db, freq="1h", horizon="4h")
+
+    def _raise_db_error(*args: object, **kwargs: object) -> list[object]:
+        del args, kwargs
+        raise OperationalError(
+            "SELECT * FROM prediction_outcomes",
+            {},
+            sqlite3.OperationalError("no such column: prediction_outcomes.predicted_price"),
+        )
+
+    monkeypatch.setattr(db, "get_unrealized_predictions", _raise_db_error)
+
+    with pytest.raises(MonitorDatabaseError) as exc_info:
+        validator.find_predictions_to_validate()
+
+    message = str(exc_info.value)
+    assert "validate.fetch_unrealized_predictions" in message
+    assert "--audit" in message
