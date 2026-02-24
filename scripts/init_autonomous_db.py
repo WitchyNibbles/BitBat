@@ -12,6 +12,7 @@ from sqlalchemy import inspect
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bitbat.autonomous.models import Base, create_database_engine, init_database
+from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_schema_audit
 
 EXPECTED_TABLES = [
     "prediction_outcomes",
@@ -51,15 +52,34 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Drop and recreate existing autonomous tables.",
     )
+    parser.add_argument(
+        "--audit",
+        action="store_true",
+        help="Run non-destructive schema compatibility audit and exit.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.audit and args.force:
+        print("Cannot combine --audit and --force.")
+        return 2
+
     _ensure_sqlite_parent(args.database_url)
 
     engine = create_database_engine(args.database_url)
     existing = check_existing_tables(args.database_url)
+
+    if args.audit:
+        report = audit_schema_compatibility(engine=engine)
+        print(format_schema_audit(report))
+        if report.is_compatible:
+            print("Compatibility status: PASS")
+            return 0
+        print("Compatibility status: FAIL")
+        print("Rerun with --force to recreate schema if this is a disposable local DB.")
+        return 1
 
     if existing and not args.force:
         print(f"Found existing autonomous tables: {existing}")
