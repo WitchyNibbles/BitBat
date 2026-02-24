@@ -162,6 +162,11 @@ def _normalize_timeline_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _prediction_columns(con: sqlite3.Connection) -> set[str]:
+    table_exists = con.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='prediction_outcomes' LIMIT 1"
+    ).fetchone()
+    if table_exists is None:
+        return set()
     rows = con.execute("PRAGMA table_info(prediction_outcomes)").fetchall()
     return {str(row[1]) for row in rows}
 
@@ -192,12 +197,19 @@ def _build_timeline_query(columns: set[str]) -> str | None:
         "correct" if "correct" in columns else "NULL AS correct",
     ]
 
+    order_clause = "ORDER BY timestamp_utc DESC"
+    if "created_at" in columns:
+        order_clause = "ORDER BY timestamp_utc DESC, created_at DESC"
+    elif "id" in columns:
+        order_clause = "ORDER BY timestamp_utc DESC, id DESC"
+
     return (
         "SELECT "
         + ", ".join(select_exprs)
         + " FROM prediction_outcomes "
         "WHERE freq = ? AND horizon = ? "
-        "ORDER BY timestamp_utc DESC "
+        + order_clause
+        + " "
         "LIMIT ?"
     )
 
@@ -245,6 +257,11 @@ def summarize_timeline_status(predictions: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def _sanitize_limit(limit: int) -> int:
+    parsed = int(limit)
+    return max(parsed, 1)
+
+
 def get_timeline_data(
     db_path: Path,
     freq: str,
@@ -260,13 +277,15 @@ def get_timeline_data(
     if not db_path.exists():
         return _empty_timeline_frame()
 
+    safe_limit = _sanitize_limit(limit)
+
     try:
         with sqlite3.connect(str(db_path)) as con:
             columns = _prediction_columns(con)
             query = _build_timeline_query(columns)
             if query is None:
                 return _empty_timeline_frame()
-            raw_df = pd.read_sql_query(query, con, params=(freq, horizon, limit))
+            raw_df = pd.read_sql_query(query, con, params=(freq, horizon, safe_limit))
     except Exception:
         return _empty_timeline_frame()
     return _normalize_timeline_rows(raw_df)
