@@ -10,7 +10,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Schema Contract Baseline** - Establish DB compatibility baseline and required columns.
+- [x] **Phase 1: Schema Contract Baseline** - Establish DB compatibility baseline and required columns. (Completed 2026-02-24)
 - [ ] **Phase 2: Migration Safety & Startup Readiness** - Make upgrades idempotent and enforce preflight checks.
 - [ ] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures.
 - [ ] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces.
@@ -34,7 +34,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 Plans:
 - [x] 01-01-PLAN.md — Audit current model/table expectations vs on-disk SQLite states.
 - [x] 01-02-PLAN.md — Implement compatibility/migration baseline for required prediction columns.
-- [ ] 01-03-PLAN.md — Add startup schema preflight and failure messaging.
+- [x] 01-03-PLAN.md — Add startup schema preflight and failure messaging.
 
 ### Phase 2: Migration Safety & Startup Readiness
 **Goal**: Ensure migration path is repeatable, non-destructive, and deployment-safe.
@@ -142,7 +142,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema Contract Baseline | 2/3 | In Progress | - |
+| 1. Schema Contract Baseline | 3/3 | Complete | 2026-02-24 |
 | 2. Migration Safety & Startup Readiness | 0/2 | Not started | - |
 | 3. Monitor Runtime Error Elimination | 0/3 | Not started | - |
 | 4. Monitor Flow Consistency & API Alignment | 0/2 | Not started | - |

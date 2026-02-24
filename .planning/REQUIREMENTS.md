@@ -10,7 +10,7 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 ### Schema & Data Compatibility
 
 - [x] **SCHE-01**: Existing local databases can be upgraded safely so `prediction_outcomes` contains required runtime columns (including `predicted_price`) without manual table recreation.
-- [ ] **SCHE-02**: Application startup validates schema compatibility and surfaces actionable errors when migration/preconditions are missing.
+- [x] **SCHE-02**: Application startup validates schema compatibility and surfaces actionable errors when migration/preconditions are missing.
 - [ ] **SCHE-03**: Schema upgrade path is idempotent (safe to run multiple times) and preserves existing prediction history.
 
 ### Monitoring Runtime Stability
@@ -70,7 +70,7 @@ Deferred to later milestones.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SCHE-01 | Phase 1 | Complete |
-| SCHE-02 | Phase 1 | Pending |
+| SCHE-02 | Phase 1 | Complete |
 | SCHE-03 | Phase 2 | Pending |
 | MON-01 | Phase 3 | Pending |
 | MON-02 | Phase 4 | Pending |
