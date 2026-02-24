@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import click
 import numpy as np
@@ -23,12 +23,12 @@ from bitbat.dataset.splits import walk_forward
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.ingest import prices as prices_module
 from bitbat.labeling.returns import forward_return
-from bitbat.labeling.targets import classify
-from bitbat.model.evaluate import classification_metrics
+from bitbat.model.evaluate import regression_metrics
 from bitbat.model.infer import predict_bar
 from bitbat.model.persist import load as load_model
 from bitbat.model.train import fit_xgb
 from bitbat.timealign.calendar import ensure_utc
+from bitbat.autonomous.schema_compat import SchemaCompatibilityError, format_missing_columns
 
 
 def _config() -> dict[str, Any]:
@@ -87,14 +87,21 @@ def _feature_dataset_path(freq: str, horizon: str) -> Path:
     return _data_path("features", f"{freq}_{horizon}", "dataset.parquet")
 
 
-def _load_feature_dataset(freq: str, horizon: str, *, require_label: bool) -> pd.DataFrame:
+def _load_feature_dataset(
+    freq: str,
+    horizon: str,
+    *,
+    require_label: bool,
+    require_forward_return: bool | None = None,
+) -> pd.DataFrame:
     dataset_path = _feature_dataset_path(freq, horizon)
     _ensure_path_exists(dataset_path, "Feature dataset")
     dataset = pd.read_parquet(dataset_path)
+    _require_fwd = require_forward_return if require_forward_return is not None else require_label
     dataset = ensure_feature_contract(
         dataset,
         require_label=require_label,
-        require_forward_return=require_label,
+        require_forward_return=_require_fwd,
         require_features_full=_sentiment_enabled(),
     )
     return dataset.sort_values("timestamp_utc").set_index("timestamp_utc")
@@ -125,6 +132,26 @@ def _predictions_path(freq: str, horizon: str) -> Path:
 
 def _model_path(freq: str, horizon: str) -> Path:
     return Path("models") / f"{freq}_{horizon}" / "xgb.json"
+
+
+def _raise_monitor_schema_error(exc: SchemaCompatibilityError, db_url: str) -> NoReturn:
+    missing = format_missing_columns(exc.report) or "unknown"
+    raise click.ClickException(
+        "\n".join(
+            [
+                "Autonomous DB schema is incompatible for monitor commands.",
+                f"Missing columns: {missing}",
+                (
+                    "Run: poetry run python scripts/init_autonomous_db.py "
+                    f'--database-url "{db_url}" --audit'
+                ),
+                (
+                    "Then: poetry run python scripts/init_autonomous_db.py "
+                    f'--database-url "{db_url}" --upgrade'
+                ),
+            ]
+        )
+    ) from exc
 
 
 @click.group(name="bitbat", invoke_without_command=True)
@@ -256,21 +283,13 @@ def news_pull(from_dt: str, to_dt: str, source: str | None, output: Path | None)
 @features.command("build")
 @click.option("--start", default=None, help="Start datetime for feature build.")
 @click.option("--end", default=None, help="End datetime for feature build.")
-@click.option(
-    "--tau",
-    type=float,
-    default=None,
-    help="Label threshold override (defaults to config).",
-)
 def features_build(
     start: str | None,
     end: str | None,
-    tau: float | None,
 ) -> None:
     """Build feature matrix and labels."""
     freq = _resolve_setting(None, "freq")
     horizon = _resolve_setting(None, "horizon")
-    tau_val = tau if tau is not None else float(_config()["tau"])
     enable_sentiment = _sentiment_enabled()
 
     prices_path = _data_path("raw", "prices", f"btcusd_yf_{freq}.parquet")
@@ -312,7 +331,6 @@ def features_build(
         news_path,
         freq=freq,
         horizon=horizon,
-        tau=tau_val,
         start=default_start,
         end=default_end,
         enable_sentiment=enable_sentiment,
@@ -331,7 +349,6 @@ def features_build(
 @click.option("--end", required=True, help="Training window end (ISO8601).")
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
-@click.option("--tau", type=float, default=None, help="Label threshold (defaults to config).")
 @click.option(
     "--windows",
     type=str,
@@ -344,13 +361,11 @@ def model_cv(
     end: str,
     freq: str | None,
     horizon: str | None,
-    tau: float | None,
     windows: Iterable[tuple[str, str, str, str]],
 ) -> None:
     """Run walk-forward cross validation."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
-    tau_val = tau if tau is not None else float(_config()["tau"])
 
     window_spec: list[tuple[str, str, str, str]] = []
     for a, b, c, d in windows:
@@ -358,10 +373,10 @@ def model_cv(
     if not window_spec:
         window_spec.append((start, end, start, end))
 
-    dataset = _load_feature_dataset(freq_val, horizon_val, require_label=True)
+    dataset = _load_feature_dataset(freq_val, horizon_val, require_label=False, require_forward_return=True)
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
-    y = dataset["label"]
+    y = dataset["r_forward"]
 
     folds = walk_forward(X.index, windows=window_spec, embargo_bars=1)
 
@@ -380,27 +395,22 @@ def model_cv(
 
         booster, _ = fit_xgb(X_train, y_train, seed=int(_config()["seed"]))
         dtest = xgb.DMatrix(X_test, feature_names=list(X_test.columns))
-        proba = booster.predict(dtest)
-        metrics = classification_metrics(
-            y_test,
-            proba,
-            threshold=tau_val,
-            class_labels=list(y.unique()),
-        )
+        predicted = booster.predict(dtest)
+        metrics = regression_metrics(y_test, predicted)
         summary.append(metrics)
         click.echo(
             "Fold "
-            f"{idx + 1}: balanced_accuracy={metrics['balanced_accuracy']:.3f}, "
-            f"mcc={metrics['mcc']:.3f}"
+            f"{idx + 1}: rmse={metrics['rmse']:.6f}, "
+            f"mae={metrics['mae']:.6f}"
         )
 
     if summary:
-        avg_balanced = float(np.mean([metric["balanced_accuracy"] for metric in summary]))
-        avg_mcc = float(np.mean([metric["mcc"] for metric in summary]))
+        avg_rmse = float(np.mean([metric["rmse"] for metric in summary]))
+        avg_mae = float(np.mean([metric["mae"] for metric in summary]))
         aggregate = {
             "folds": summary,
-            "average_balanced_accuracy": avg_balanced,
-            "average_mcc": avg_mcc,
+            "average_rmse": avg_rmse,
+            "average_mae": avg_mae,
         }
         metrics_dir = Path("metrics")
         metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -408,35 +418,28 @@ def model_cv(
             json.dumps(aggregate, indent=2),
             encoding="utf-8",
         )
-        click.echo(f"Aggregate: balanced_accuracy={avg_balanced:.3f}, mcc={avg_mcc:.3f}")
+        click.echo(f"Aggregate: rmse={avg_rmse:.6f}, mae={avg_mae:.6f}")
 
 
 @model.command("train")
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
-@click.option(
-    "--class-weights/--no-class-weights",
-    default=True,
-    show_default=True,
-    help="Enable class weighting during training.",
-)
 def model_train(
     freq: str | None,
     horizon: str | None,
-    class_weights: bool,
 ) -> None:
     """Train the XGBoost model."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
 
-    dataset = _load_feature_dataset(freq_val, horizon_val, require_label=True)
+    dataset = _load_feature_dataset(freq_val, horizon_val, require_label=False, require_forward_return=True)
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
-    y = dataset["label"]
+    y = dataset["r_forward"]
     X.attrs["freq"] = freq_val
     X.attrs["horizon"] = horizon_val
 
-    booster, _ = fit_xgb(X, y, class_weights=class_weights, seed=int(_config()["seed"]))
+    booster, _ = fit_xgb(X, y, seed=int(_config()["seed"]))
     model_path = _model_path(freq_val, horizon_val)
     click.echo(f"Trained model saved to {model_path}")
 
@@ -499,13 +502,12 @@ def model_infer(
         result = predict_bar(booster, row, timestamp=ts)
         records.append({
             "timestamp_utc": result.get("timestamp", ts),
-            "p_up": result.get("p_up"),
-            "p_down": result.get("p_down"),
+            "predicted_return": result.get("predicted_return"),
+            "predicted_price": result.get("predicted_price"),
             "freq": freq_val,
             "horizon": horizon_val,
             "model_version": __version__,
             "realized_r": float("nan"),
-            "realized_label": pd.NA,
         })
 
     predictions = ensure_predictions_contract(pd.DataFrame(records))
@@ -522,13 +524,6 @@ def model_infer(
 @backtest.command("run")
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
-@click.option(
-    "--enter-threshold",
-    "enter_threshold",
-    type=float,
-    default=None,
-    help="Entry probability threshold.",
-)
 @click.option(
     "--allow-short",
     "allow_short_flag",
@@ -553,7 +548,6 @@ def model_infer(
 def backtest_run(
     freq: str | None,
     horizon: str | None,
-    enter_threshold: float | None,
     allow_short_flag: bool,
     no_allow_short_flag: bool,
     cost_bps: float | None,
@@ -561,7 +555,6 @@ def backtest_run(
     """Run backtest using stored predictions."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
-    enter = enter_threshold if enter_threshold is not None else float(_config()["enter_threshold"])
     cost = cost_bps if cost_bps is not None else float(_config()["cost_bps"])
 
     if allow_short_flag and no_allow_short_flag:
@@ -580,8 +573,7 @@ def backtest_run(
     prices = _load_prices_indexed(freq_val)
     close = prices["close"].reindex(preds["timestamp_utc"]).ffill()
 
-    proba_up = preds.set_index("timestamp_utc")["p_up"]
-    proba_down = preds.set_index("timestamp_utc")["p_down"]
+    predicted_returns = preds.set_index("timestamp_utc")["predicted_return"]
 
     if allow_short_flag:
         allow_short_val = True
@@ -592,9 +584,7 @@ def backtest_run(
 
     trades, equity = run_strategy(
         close,
-        proba_up,
-        proba_down,
-        enter=enter,
+        predicted_returns,
         allow_short=allow_short_val,
         cost_bps=cost,
     )
@@ -668,7 +658,8 @@ def batch_run(
     aligned_features = features_validated[expected_features]
     latest_ts = aligned_features.index.max()
     feature_row = aligned_features.loc[latest_ts]
-    prediction = predict_bar(booster, feature_row, timestamp=latest_ts)
+    current_price = float(prices["close"].iloc[-1])
+    prediction = predict_bar(booster, feature_row, timestamp=latest_ts, current_price=current_price)
 
     timestamp_value = prediction.get("timestamp", latest_ts)
     timestamp_utc = pd.to_datetime(timestamp_value, utc=True, errors="coerce")
@@ -680,13 +671,12 @@ def batch_run(
 
     record = {
         "timestamp_utc": timestamp_py,
-        "p_up": float(prediction["p_up"]),
-        "p_down": float(prediction["p_down"]),
+        "predicted_return": float(prediction["predicted_return"]),
+        "predicted_price": prediction.get("predicted_price"),
         "freq": freq_val,
         "horizon": horizon_val,
         "model_version": model_version or __version__,
         "realized_r": np.nan,
-        "realized_label": pd.NA,
     }
     new_df = ensure_predictions_contract(pd.DataFrame([record]))
 
@@ -716,26 +706,19 @@ def batch_run(
         init_database(db_url)
         db = AutonomousDB(db_url)
 
-        p_up = float(prediction["p_up"])
-        p_down = float(prediction["p_down"])
-        p_flat = max(0.0, 1.0 - p_up - p_down)
-        if p_flat > p_up and p_flat > p_down:
-            direction = "flat"
-        elif p_up >= p_down:
-            direction = "up"
-        else:
-            direction = "down"
+        predicted_return = float(prediction["predicted_return"])
+        predicted_direction = prediction["predicted_direction"]
 
         with db.session() as session:
             db.store_prediction(
                 session=session,
                 timestamp_utc=timestamp_py,
-                predicted_direction=direction,
-                p_up=p_up,
-                p_down=p_down,
+                predicted_direction=predicted_direction,
                 model_version=model_version or __version__,
                 freq=freq_val,
                 horizon=horizon_val,
+                predicted_return=predicted_return,
+                predicted_price=prediction.get("predicted_price"),
             )
         click.echo(f"Also stored in autonomous DB ({db_url})")
     except Exception as exc:
@@ -745,16 +728,13 @@ def batch_run(
 @batch.command("realize")
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
-@click.option("--tau", type=float, default=None, help="Label threshold (defaults to config).")
 def batch_realize(
     freq: str | None,
     horizon: str | None,
-    tau: float | None,
 ) -> None:
-    """Attach realized returns and labels to stored predictions."""
+    """Attach realized returns to stored predictions."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
-    tau_val = tau if tau is not None else float(_config()["tau"])
 
     predictions_path = _predictions_path(freq_val, horizon_val)
     _ensure_path_exists(predictions_path, "Predictions parquet")
@@ -780,8 +760,6 @@ def batch_realize(
 
     preds.loc[pending_mask, "realized_r"] = preds.loc[pending_mask, "timestamp_utc"].map(returns)
     updated_mask = preds["realized_r"].notna()
-    labels = classify(preds.loc[updated_mask, "realized_r"], tau_val)
-    preds.loc[labels.index, "realized_label"] = labels.astype("string")
 
     preds = ensure_predictions_contract(preds)
     preds.to_parquet(predictions_path, index=False)
@@ -824,8 +802,7 @@ def monitor_refresh(
         hit_rate = float((realised[realized_mask] > cost / 10000).mean())
     live_metrics = {
         "count": int(len(preds)),
-        "avg_p_up": float(preds["p_up"].mean()),
-        "avg_p_down": float(preds["p_down"].mean()),
+        "avg_predicted_return": float(preds["predicted_return"].mean()),
         "realized_count": int(realized_mask.sum()),
         "hit_rate": hit_rate,
         "updated_at": datetime.now(UTC).isoformat(),
@@ -853,9 +830,12 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
         _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
     )
 
-    init_database(db_url)
-    db = AutonomousDB(db_url)
-    agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    try:
+        init_database(db_url)
+        db = AutonomousDB(db_url)
+        agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    except SchemaCompatibilityError as exc:
+        _raise_monitor_schema_error(exc, db_url)
     result = agent.run_once()
 
     click.echo("Monitoring run completed")
@@ -882,12 +862,15 @@ def monitor_start(freq: str | None, horizon: str | None, interval: int | None) -
     interval_seconds = (
         interval
         if interval is not None
-        else int(_config().get("autonomous", {}).get("validation_interval", 3600))
+        else int(_config().get("autonomous", {}).get("validation_interval", 300))
     )
 
-    init_database(db_url)
-    db = AutonomousDB(db_url)
-    agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    try:
+        init_database(db_url)
+        db = AutonomousDB(db_url)
+        agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    except SchemaCompatibilityError as exc:
+        _raise_monitor_schema_error(exc, db_url)
     click.echo(
         "Starting monitoring loop "
         f"(freq={freq_val}, horizon={horizon_val}, interval={interval_seconds}s)"
@@ -909,8 +892,11 @@ def monitor_status(freq: str | None, horizon: str | None) -> None:
         _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
     )
 
-    init_database(db_url)
-    db = AutonomousDB(db_url)
+    try:
+        init_database(db_url)
+        db = AutonomousDB(db_url)
+    except SchemaCompatibilityError as exc:
+        _raise_monitor_schema_error(exc, db_url)
 
     with db.session() as session:
         latest_snapshot = (
@@ -968,8 +954,11 @@ def monitor_snapshots(freq: str | None, horizon: str | None, last_count: int) ->
         _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
     )
 
-    init_database(db_url)
-    db = AutonomousDB(db_url)
+    try:
+        init_database(db_url)
+        db = AutonomousDB(db_url)
+    except SchemaCompatibilityError as exc:
+        _raise_monitor_schema_error(exc, db_url)
 
     with db.session() as session:
         snapshots = (
@@ -1000,8 +989,7 @@ def monitor_snapshots(freq: str | None, horizon: str | None, last_count: int) ->
 @validate.command("run")
 @click.option("--freq", default=None, help="Bar frequency (defaults to config).")
 @click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
-@click.option("--tau", type=float, default=None, help="Classification threshold override.")
-def validate_run(freq: str | None, horizon: str | None, tau: float | None) -> None:
+def validate_run(freq: str | None, horizon: str | None) -> None:
     """Validate pending predictions against realized outcomes."""
     from bitbat.autonomous.db import AutonomousDB
     from bitbat.autonomous.models import init_database
@@ -1009,16 +997,15 @@ def validate_run(freq: str | None, horizon: str | None, tau: float | None) -> No
 
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
-    tau_val = tau if tau is not None else float(_config().get("tau", 0.01))
     db_url = str(
         _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
     )
 
-    click.echo(f"Starting validation: freq={freq_val}, horizon={horizon_val}, tau={tau_val}")
+    click.echo(f"Starting validation: freq={freq_val}, horizon={horizon_val}")
 
     init_database(db_url)
     db = AutonomousDB(db_url)
-    validator = PredictionValidator(db=db, freq=freq_val, horizon=horizon_val, tau=tau_val)
+    validator = PredictionValidator(db=db, freq=freq_val, horizon=horizon_val)
     results = validator.validate_all()
 
     click.echo("")
