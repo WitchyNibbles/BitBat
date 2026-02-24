@@ -223,8 +223,13 @@ def _format_percent(value: Any, *, signed: bool = False) -> str:
 
 def _resolve_marker_price(ts: pd.Timestamp, prices: pd.DataFrame, row: pd.Series) -> float | None:
     if not prices.empty and "close" in prices.columns:
+        tolerance = pd.Timedelta(0)
+        if len(prices.index) >= 2:
+            deltas = prices.index.to_series().sort_values().diff().dropna()
+            if not deltas.empty:
+                tolerance = deltas.median() / 2
         try:
-            idx = prices.index.get_indexer([ts], method="nearest")
+            idx = prices.index.get_indexer([ts], method="nearest", tolerance=tolerance)
         except Exception:
             idx = [-1]
         if len(idx) > 0 and idx[0] >= 0:
