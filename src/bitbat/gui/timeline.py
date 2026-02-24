@@ -4,8 +4,245 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
+
+_DIRECTION_STYLES = {
+    "up": {"color": "#10B981", "symbol": "triangle-up"},
+    "down": {"color": "#EF4444", "symbol": "triangle-down"},
+    "flat": {"color": "#6B7280", "symbol": "circle"},
+}
+
+_STATUS_STYLES = {
+    "pending": {"opacity": 0.75, "size": 10, "label": "Pending"},
+    "realized_correct": {"opacity": 1.0, "size": 14, "label": "Realized (Correct)"},
+    "realized_wrong": {"opacity": 0.4, "size": 12, "label": "Realized (Wrong)"},
+}
+
+_BOOL_TRUE = {"1", "true", "t", "yes", "y"}
+_BOOL_FALSE = {"0", "false", "f", "no", "n"}
+
+_TIMELINE_COLUMNS = [
+    "timestamp_utc",
+    "predicted_direction",
+    "p_up",
+    "p_down",
+    "predicted_return",
+    "predicted_price",
+    "actual_return",
+    "actual_direction",
+    "correct",
+    "confidence",
+    "is_realized",
+    "prediction_status",
+]
+
+
+def _empty_timeline_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=_TIMELINE_COLUMNS)
+
+
+def _coerce_direction(series: pd.Series, *, default: str | None) -> pd.Series:
+    values = series.astype("string").str.strip().str.lower()
+    valid = values.isin({"up", "down", "flat"})
+    if default is None:
+        return values.where(valid, pd.NA)
+    return values.where(valid, default).fillna(default)
+
+
+def _coerce_numeric(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series([pd.NA] * len(df), index=df.index, dtype="Float64")
+    return pd.to_numeric(df[column], errors="coerce").astype("Float64")
+
+
+def _coerce_nullable_bool(value: Any) -> bool | None:
+    if pd.isna(value):
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+        return None
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _BOOL_TRUE:
+            return True
+        if normalized in _BOOL_FALSE:
+            return False
+    return None
+
+
+def _direction_from_return(value: Any) -> str | None:
+    if pd.isna(value):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed > 0:
+        return "up"
+    if parsed < 0:
+        return "down"
+    return "flat"
+
+
+def _normalize_timeline_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return _empty_timeline_frame()
+
+    normalized = df.copy()
+
+    if "timestamp_utc" not in normalized.columns:
+        return _empty_timeline_frame()
+
+    normalized["timestamp_utc"] = pd.to_datetime(
+        normalized["timestamp_utc"],
+        errors="coerce",
+        utc=True,
+    ).dt.tz_convert(None)
+    normalized = normalized.dropna(subset=["timestamp_utc"])
+    if normalized.empty:
+        return _empty_timeline_frame()
+
+    normalized["predicted_direction"] = _coerce_direction(
+        normalized.get("predicted_direction", pd.Series("flat", index=normalized.index)),
+        default="flat",
+    )
+    normalized["actual_direction"] = _coerce_direction(
+        normalized.get("actual_direction", pd.Series(pd.NA, index=normalized.index)),
+        default=None,
+    )
+
+    normalized["p_up"] = _coerce_numeric(normalized, "p_up")
+    normalized["p_down"] = _coerce_numeric(normalized, "p_down")
+    normalized["predicted_return"] = _coerce_numeric(normalized, "predicted_return")
+    normalized["predicted_price"] = _coerce_numeric(normalized, "predicted_price")
+    normalized["actual_return"] = _coerce_numeric(normalized, "actual_return")
+
+    raw_correct = normalized.get("correct", pd.Series(pd.NA, index=normalized.index))
+    correct = raw_correct.map(_coerce_nullable_bool).astype("boolean")
+
+    direction_known = normalized["actual_direction"].notna()
+    derived_from_direction = normalized["predicted_direction"].eq(normalized["actual_direction"])
+    correct = correct.where(~(correct.isna() & direction_known), derived_from_direction)
+
+    realized_direction = normalized["actual_return"].map(_direction_from_return).astype("string")
+    return_known = realized_direction.notna()
+    derived_from_return = normalized["predicted_direction"].eq(realized_direction)
+    correct = correct.where(~(correct.isna() & return_known), derived_from_return)
+    normalized["correct"] = correct.astype("boolean")
+
+    confidence_inputs = pd.concat([normalized["p_up"], normalized["p_down"]], axis=1)
+    normalized["confidence"] = confidence_inputs.max(axis=1, skipna=True).astype("Float64")
+    has_confidence = confidence_inputs.notna().any(axis=1)
+    normalized["confidence"] = normalized["confidence"].where(has_confidence, pd.NA)
+
+    normalized["is_realized"] = (
+        normalized["correct"].notna()
+        | normalized["actual_direction"].notna()
+        | normalized["actual_return"].notna()
+    )
+    normalized["prediction_status"] = "pending"
+    normalized.loc[
+        normalized["is_realized"] & normalized["correct"].eq(True),
+        "prediction_status",
+    ] = "realized_correct"
+    normalized.loc[
+        normalized["is_realized"] & normalized["correct"].eq(False),
+        "prediction_status",
+    ] = "realized_wrong"
+
+    normalized = normalized.sort_values("timestamp_utc").reset_index(drop=True)
+    return normalized[_TIMELINE_COLUMNS]
+
+
+def _prediction_columns(con: sqlite3.Connection) -> set[str]:
+    rows = con.execute("PRAGMA table_info(prediction_outcomes)").fetchall()
+    return {str(row[1]) for row in rows}
+
+
+def _build_timeline_query(columns: set[str]) -> str | None:
+    if not columns:
+        return None
+
+    if "timestamp_utc" in columns:
+        timestamp_expr = "timestamp_utc"
+    elif "prediction_timestamp" in columns:
+        timestamp_expr = "prediction_timestamp AS timestamp_utc"
+    else:
+        return None
+
+    if "freq" not in columns or "horizon" not in columns:
+        return None
+
+    select_exprs = [
+        timestamp_expr,
+        "predicted_direction" if "predicted_direction" in columns else "'flat' AS predicted_direction",
+        "p_up" if "p_up" in columns else "NULL AS p_up",
+        "p_down" if "p_down" in columns else "NULL AS p_down",
+        "predicted_return" if "predicted_return" in columns else "NULL AS predicted_return",
+        "predicted_price" if "predicted_price" in columns else "NULL AS predicted_price",
+        "actual_return" if "actual_return" in columns else "NULL AS actual_return",
+        "actual_direction" if "actual_direction" in columns else "NULL AS actual_direction",
+        "correct" if "correct" in columns else "NULL AS correct",
+    ]
+
+    return (
+        "SELECT "
+        + ", ".join(select_exprs)
+        + " FROM prediction_outcomes "
+        "WHERE freq = ? AND horizon = ? "
+        "ORDER BY timestamp_utc DESC "
+        "LIMIT ?"
+    )
+
+
+def _format_percent(value: Any, *, signed: bool = False) -> str:
+    if pd.isna(value):
+        return "n/a"
+    parsed = float(value)
+    return f"{parsed:+.2%}" if signed else f"{parsed:.1%}"
+
+
+def _resolve_marker_price(ts: pd.Timestamp, prices: pd.DataFrame, row: pd.Series) -> float | None:
+    if not prices.empty and "close" in prices.columns:
+        try:
+            idx = prices.index.get_indexer([ts], method="nearest")
+        except Exception:
+            idx = [-1]
+        if len(idx) > 0 and idx[0] >= 0:
+            close = prices["close"].iloc[idx[0]]
+            if pd.notna(close):
+                return float(close)
+
+    predicted_price = row.get("predicted_price")
+    if pd.notna(predicted_price):
+        return float(predicted_price)
+    return None
+
+
+def summarize_timeline_status(predictions: pd.DataFrame) -> dict[str, float]:
+    """Summarize total/completed/correct/pending counts from normalized status fields."""
+    normalized = _normalize_timeline_rows(predictions)
+
+    total = int(len(normalized))
+    completed = int(normalized["prediction_status"].ne("pending").sum())
+    correct = int(normalized["prediction_status"].eq("realized_correct").sum())
+    pending = int(normalized["prediction_status"].eq("pending").sum())
+    accuracy = (correct / completed * 100) if completed else 0.0
+
+    return {
+        "total": total,
+        "completed": completed,
+        "correct": correct,
+        "pending": pending,
+        "accuracy": accuracy,
+    }
 
 
 def get_timeline_data(
@@ -16,37 +253,23 @@ def get_timeline_data(
 ) -> pd.DataFrame:
     """Query predictions from the autonomous DB for the timeline chart.
 
-    Returns a DataFrame sorted by timestamp with columns:
-    ``timestamp_utc``, ``predicted_direction``, ``p_up``, ``p_down``,
-    ``actual_direction``, ``correct``.
+    Returns a normalized DataFrame sorted by timestamp with explicit status
+    semantics (`prediction_status` and `is_realized`) so timeline consumers
+    do not depend on ad-hoc null checks.
     """
     if not db_path.exists():
-        return pd.DataFrame()
+        return _empty_timeline_frame()
 
-    con = sqlite3.connect(str(db_path))
     try:
-        df = pd.read_sql_query(
-            """
-            SELECT timestamp_utc, predicted_direction, p_up, p_down,
-                   actual_return, actual_direction, correct
-            FROM prediction_outcomes
-            WHERE freq = ? AND horizon = ?
-            ORDER BY timestamp_utc DESC
-            LIMIT ?
-            """,
-            con,
-            params=(freq, horizon, limit),
-        )
+        with sqlite3.connect(str(db_path)) as con:
+            columns = _prediction_columns(con)
+            query = _build_timeline_query(columns)
+            if query is None:
+                return _empty_timeline_frame()
+            raw_df = pd.read_sql_query(query, con, params=(freq, horizon, limit))
     except Exception:
-        return pd.DataFrame()
-    finally:
-        con.close()
-
-    if df.empty:
-        return df
-
-    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"])
-    return df.sort_values("timestamp_utc").reset_index(drop=True)
+        return _empty_timeline_frame()
+    return _normalize_timeline_rows(raw_df)
 
 
 def get_price_series(
@@ -78,8 +301,7 @@ def build_timeline_figure(
     """Build a Plotly figure showing BTC price with prediction markers.
 
     Markers are color-coded by direction (green=up, red=down, gray=flat)
-    and opacity indicates correctness (bright=correct, faded=wrong,
-    medium=pending).
+    and styled by explicit prediction status semantics.
 
     Returns a ``plotly.graph_objects.Figure``.
     """
@@ -87,12 +309,15 @@ def build_timeline_figure(
 
     fig = go.Figure()
 
+    normalized = _normalize_timeline_rows(predictions)
+    marker_prices = prices.sort_index() if not prices.empty else prices
+
     # Price line
-    if not prices.empty:
+    if not marker_prices.empty:
         fig.add_trace(
             go.Scatter(
-                x=prices.index,
-                y=prices["close"],
+                x=marker_prices.index,
+                y=marker_prices["close"],
                 mode="lines",
                 name="BTC Price",
                 line={"color": "#6366f1", "width": 2},
@@ -100,39 +325,18 @@ def build_timeline_figure(
         )
 
     # Prediction markers
-    direction_style = {
-        "up": {"color": "#10B981", "symbol": "triangle-up"},
-        "down": {"color": "#EF4444", "symbol": "triangle-down"},
-        "flat": {"color": "#6B7280", "symbol": "circle"},
-    }
-
-    for _, row in predictions.iterrows():
+    for _, row in normalized.iterrows():
         ts = pd.Timestamp(row["timestamp_utc"])
-        style = direction_style.get(row["predicted_direction"], direction_style["flat"])
+        direction_style = _DIRECTION_STYLES.get(row["predicted_direction"], _DIRECTION_STYLES["flat"])
+        status_style = _STATUS_STYLES.get(row["prediction_status"], _STATUS_STYLES["pending"])
 
-        # Find the closest price for marker y-position
-        price_at_ts = None
-        if not prices.empty:
-            idx = prices.index.get_indexer([ts], method="nearest")
-            if len(idx) > 0 and idx[0] >= 0:
-                price_at_ts = float(prices["close"].iloc[idx[0]])
-
+        price_at_ts = _resolve_marker_price(ts, marker_prices, row)
         if price_at_ts is None:
             continue
 
-        # Correctness determines opacity and size
-        correct = row.get("correct")
-        if correct is True or correct == 1:
-            opacity, size = 1.0, 14
-            result_label = "Correct"
-        elif correct is False or correct == 0:
-            opacity, size = 0.4, 12
-            result_label = "Wrong"
-        else:
-            opacity, size = 0.7, 10
-            result_label = "Pending"
-
-        confidence = max(float(row.get("p_up", 0)), float(row.get("p_down", 0)))
+        confidence = _format_percent(row.get("confidence"))
+        predicted_return = _format_percent(row.get("predicted_return"), signed=True)
+        actual_return = _format_percent(row.get("actual_return"), signed=True)
 
         fig.add_trace(
             go.Scatter(
@@ -140,17 +344,19 @@ def build_timeline_figure(
                 y=[price_at_ts],
                 mode="markers",
                 marker={
-                    "color": style["color"],
-                    "size": size,
-                    "symbol": style["symbol"],
-                    "opacity": opacity,
+                    "color": direction_style["color"],
+                    "size": status_style["size"],
+                    "symbol": direction_style["symbol"],
+                    "opacity": status_style["opacity"],
                 },
                 showlegend=False,
                 hovertemplate=(
                     f"<b>{ts:%Y-%m-%d %H:%M}</b><br>"
                     f"Prediction: {row['predicted_direction']}<br>"
-                    f"Confidence: {confidence:.1%}<br>"
-                    f"Result: {result_label}"
+                    f"Confidence: {confidence}<br>"
+                    f"Predicted Return: {predicted_return}<br>"
+                    f"Actual Return: {actual_return}<br>"
+                    f"Status: {status_style['label']}"
                     "<extra></extra>"
                 ),
             )
