@@ -77,3 +77,12 @@ def test_phase8_release_runtime_streamlit_contract_has_no_deprecated_width_keywo
     assert not boolean_width_offenders, (
         f"Boolean Streamlit width usage detected in runtime files: {boolean_width_offenders}"
     )
+
+
+def test_phase8_release_makefile_target_covers_d1_d2_d3_commands() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "test-release:" in makefile
+    assert "tests/autonomous/test_phase8_d1_monitor_schema_complete.py" in makefile
+    assert "tests/gui/test_phase8_d2_timeline_complete.py" in makefile
+    assert "tests/gui/test_phase8_release_verification_complete.py" in makefile
