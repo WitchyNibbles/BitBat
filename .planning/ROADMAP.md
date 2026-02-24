@@ -58,7 +58,7 @@ Plans:
   1. Monitoring cycles run without `OperationalError` tied to missing prediction columns.
   2. Critical DB failures in monitor flow are no longer silently swallowed.
   3. Operator-visible diagnostics identify failing monitor step and remediation path.
-**Plans**: 3/3 plans complete
+**Plans**: 3 plans
 
 Plans:
 - [x] 03-01: Patch monitor/predictor DB interactions for robust missing-column handling.
@@ -87,7 +87,7 @@ Plans:
   1. Timeline reliably renders both recent and historical prediction records.
   2. Pending and realized predictions are visually and semantically distinguished.
   3. Timeline remains functional when optional fields are null or delayed.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
 - [x] 05-01: Build/upgrade timeline read-model normalization layer. (Completed 2026-02-24)
