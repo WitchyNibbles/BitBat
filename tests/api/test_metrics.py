@@ -178,6 +178,7 @@ class TestMetricsWithIncompatibleSchema:
         assert "bitbat_database_available 1" in text
         assert "bitbat_schema_compatible 0" in text
         assert "bitbat_schema_missing_columns 1" in text
+        assert "bitbat_schema_auto_upgrade_possible 1" in text
 
     def test_prediction_gauges_are_not_emitted_when_schema_incompatible(
         self,
@@ -188,3 +189,4 @@ class TestMetricsWithIncompatibleSchema:
         assert "bitbat_predictions_total_30d" not in text
         assert "bitbat_predictions_realized_30d" not in text
         assert "bitbat_predictions_correct_30d" not in text
+        assert "bitbat_hit_rate_30d" not in text

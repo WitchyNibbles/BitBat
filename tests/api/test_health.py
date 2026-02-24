@@ -132,6 +132,24 @@ class TestDetailedHealthEndpoint:
             "predicted_price"
             in data["schema_readiness"]["missing_columns"]["prediction_outcomes"]
         )
+        assert data["schema_readiness"]["missing_columns_text"] is not None
+        assert data["schema_readiness"]["missing_columns_text"] in schema_service["detail"]
+
+    def test_schema_service_degraded_detail_matches_readiness_detail(
+        self,
+        client: SyncASGIClient,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        db_path = tmp_path / "data" / "autonomous.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        _create_legacy_prediction_outcomes(f"sqlite:///{db_path}")
+
+        data = client.get("/health/detailed").json()
+        schema_service = _schema_service(data["services"])
+        assert schema_service["status"] == "degraded"
+        assert schema_service["detail"] == data["schema_readiness"]["detail"]
 
     def test_schema_service_ok_for_compatible_schema(
         self,
