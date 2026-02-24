@@ -8,6 +8,8 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
+from bitbat.autonomous.schema_compat import audit_schema_compatibility
+
 router = APIRouter(tags=["metrics"])
 
 _START_TIME = time.time()
@@ -35,6 +37,41 @@ def _collect_metrics() -> str:
         _gauge("bitbat_database_available", "1 if autonomous.db exists", int(db_path.exists()))
     )
 
+    schema_compatible = 0
+    schema_missing_columns = 0
+    schema_can_auto_upgrade = 0
+    if db_path.exists():
+        try:
+            report = audit_schema_compatibility(database_url=f"sqlite:///{db_path}")
+            schema_compatible = int(report.is_compatible)
+            schema_missing_columns = report.missing_column_count
+            schema_can_auto_upgrade = int(report.can_auto_upgrade)
+        except Exception:  # noqa: BLE001
+            schema_compatible = 0
+            schema_missing_columns = 0
+            schema_can_auto_upgrade = 0
+    lines.append(
+        _gauge(
+            "bitbat_schema_compatible",
+            "1 if autonomous.db schema meets runtime compatibility contract",
+            schema_compatible,
+        )
+    )
+    lines.append(
+        _gauge(
+            "bitbat_schema_missing_columns",
+            "Count of missing required schema columns for runtime compatibility",
+            schema_missing_columns,
+        )
+    )
+    lines.append(
+        _gauge(
+            "bitbat_schema_auto_upgrade_possible",
+            "1 if missing schema columns can be fixed with additive auto-upgrade",
+            schema_can_auto_upgrade,
+        )
+    )
+
     # Model availability
     model_path = Path("models/1h_4h/xgb.json")
     lines.append(
@@ -48,11 +85,11 @@ def _collect_metrics() -> str:
     )
 
     # Prediction counts (from DB if available)
-    if db_path.exists():
+    if db_path.exists() and schema_compatible:
         try:
             from bitbat.autonomous.db import AutonomousDB
 
-            db = AutonomousDB(f"sqlite:///{db_path}")
+            db = AutonomousDB(f"sqlite:///{db_path}", auto_upgrade_schema=False)
             with db.session() as session:
                 all_preds = db.get_recent_predictions(
                     session, "1h", "4h", days=30, realized_only=False

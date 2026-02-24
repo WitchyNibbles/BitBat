@@ -9,10 +9,51 @@ from fastapi import APIRouter, HTTPException, Query
 from bitbat.api.schemas import (
     FeatureImportanceItem,
     FeatureImportanceResponse,
+    SchemaReadinessDetails,
     SystemStatusResponse,
 )
+from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_missing_columns
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+def _schema_readiness(db_path: Path) -> SchemaReadinessDetails:
+    """Audit schema compatibility for readiness without mutating DB state."""
+    if not db_path.exists():
+        return SchemaReadinessDetails(
+            compatibility_state="unavailable",
+            is_compatible=False,
+            detail="autonomous.db not found",
+        )
+
+    try:
+        report = audit_schema_compatibility(database_url=f"sqlite:///{db_path}")
+    except Exception as exc:  # noqa: BLE001
+        return SchemaReadinessDetails(
+            compatibility_state="error",
+            is_compatible=False,
+            detail=f"schema audit failed: {exc}",
+        )
+
+    if report.is_compatible:
+        return SchemaReadinessDetails(
+            compatibility_state="compatible",
+            is_compatible=True,
+            can_auto_upgrade=report.can_auto_upgrade,
+        )
+
+    missing_columns = {
+        table_name: list(columns) for table_name, columns in report.missing_columns.items()
+    }
+    missing_text = format_missing_columns(report)
+    return SchemaReadinessDetails(
+        compatibility_state="incompatible",
+        is_compatible=False,
+        can_auto_upgrade=report.can_auto_upgrade,
+        missing_columns=missing_columns,
+        missing_columns_text=missing_text,
+        detail=f"missing required columns: {missing_text}",
+    )
 
 
 @router.get("/feature-importance", response_model=FeatureImportanceResponse)
@@ -52,7 +93,9 @@ def system_status(
     model_path = Path("models") / f"{freq}_{horizon}" / "xgb.json"
     dataset_path = Path("data/features") / f"{freq}_{horizon}" / "dataset.parquet"
 
-    database_ok = db_path.exists()
+    database_present = db_path.exists()
+    schema_readiness = _schema_readiness(db_path)
+    database_ok = database_present and schema_readiness.is_compatible
     model_exists = model_path.exists()
     dataset_exists = dataset_path.exists()
 
@@ -64,7 +107,7 @@ def system_status(
         try:
             from bitbat.autonomous.db import AutonomousDB
 
-            db = AutonomousDB(f"sqlite:///{db_path}")
+            db = AutonomousDB(f"sqlite:///{db_path}", auto_upgrade_schema=False)
             with db.session() as session:
                 active = db.get_active_model(session, freq, horizon)
                 if active:
@@ -75,13 +118,15 @@ def system_status(
                 total_predictions = len(rows)
                 if rows:
                     last_prediction_time = rows[0].timestamp_utc
-        except Exception:
+        except Exception:  # noqa: BLE001
             database_ok = False
 
     return SystemStatusResponse(
         database_ok=database_ok,
+        database_present=database_present,
         model_exists=model_exists,
         dataset_exists=dataset_exists,
+        schema_readiness=schema_readiness,
         active_model_version=active_version,
         total_predictions=total_predictions,
         last_prediction_time=last_prediction_time,
