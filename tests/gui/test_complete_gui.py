@@ -219,6 +219,13 @@ class TestFullSystemIntegration:
         assert prediction["direction"] == "up"
         assert any("Monitoring cycle complete" in event["message"] for event in events)
 
+    def test_primary_workflow_prediction_payload_has_core_fields(self, full_db: Path) -> None:
+        prediction = get_latest_prediction(full_db)
+
+        assert prediction is not None
+        assert prediction["model_version"] == "v1.0"
+        assert isinstance(prediction["predicted_return"], float)
+
 
 # ---------------------------------------------------------------------------
 # Timeline status metrics alignment
