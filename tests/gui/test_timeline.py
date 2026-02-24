@@ -367,6 +367,37 @@ def test_summarize_timeline_insights_includes_avg_confidence() -> None:
     assert summary["flat_count"] == 0
 
 
+def test_summarize_timeline_insights_matches_filtered_subset() -> None:
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(
+            [
+                "2024-01-01 00:00:00",
+                "2024-01-08 00:00:00",
+                "2024-01-09 00:00:00",
+                "2024-01-10 00:00:00",
+            ]
+        ),
+        "predicted_direction": ["up", "down", "up", "flat"],
+        "p_up": [0.8, 0.2, 0.7, None],
+        "p_down": [0.1, 0.7, 0.2, None],
+        "correct": [1, 0, 0, None],
+    })
+
+    filtered = apply_timeline_filters(predictions, date_window="24h")
+    summary = summarize_timeline_insights(filtered)
+
+    assert len(filtered) == 2
+    assert summary["total"] == 2
+    assert summary["completed"] == 1
+    assert summary["pending"] == 1
+    assert summary["correct"] == 0
+    assert summary["accuracy"] == pytest.approx(0.0)
+    assert summary["average_confidence"] == pytest.approx(70.0)
+    assert summary["up_count"] == 1
+    assert summary["down_count"] == 0
+    assert summary["flat_count"] == 1
+
+
 def test_format_timeline_empty_state_includes_filters() -> None:
     message = format_timeline_empty_state("1h", "4h", "7d")
     assert "1h / 4h / 7d" in message
