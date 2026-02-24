@@ -13,6 +13,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import yaml
 
@@ -22,6 +23,7 @@ from bitbat.gui.presets import (
     get_preset,
     list_presets,
 )
+from bitbat.gui.timeline import summarize_timeline_status
 from bitbat.gui.widgets import (
     db_query,
     get_ingestion_status,
@@ -55,7 +57,8 @@ def full_db(tmp_path: Path) -> Path:
         CREATE TABLE prediction_outcomes (
             id INTEGER PRIMARY KEY, timestamp_utc TEXT,
             prediction_timestamp TEXT, predicted_direction TEXT,
-            p_up REAL, p_down REAL, p_flat REAL, predicted_return REAL,
+            p_up REAL, p_down REAL, p_flat REAL,
+            predicted_return REAL, predicted_price REAL,
             actual_return REAL, actual_direction TEXT, correct BOOLEAN,
             model_version TEXT, freq TEXT, horizon TEXT,
             features_used TEXT,
@@ -170,7 +173,7 @@ class TestFullSystemIntegration:
         pred = get_latest_prediction(full_db)
         assert pred is not None
         assert pred["direction"] == "up"
-        assert pred["confidence"] >= 0.5
+        assert isinstance(pred["predicted_return"], float)
 
     def test_recent_events_loaded(self, full_db: Path) -> None:
         events = get_recent_events(full_db, limit=10)
@@ -205,6 +208,44 @@ class TestFullSystemIntegration:
             "SELECT hit_rate FROM performance_snapshots ORDER BY snapshot_time DESC LIMIT 1",
         )
         assert rows[0][0] == pytest.approx(0.67)
+
+
+# ---------------------------------------------------------------------------
+# Timeline status metrics alignment
+# ---------------------------------------------------------------------------
+
+
+class TestTimelineStatusMetrics:
+    def test_timeline_status_summary_mixed_rows(self) -> None:
+        predictions = pd.DataFrame({
+            "timestamp_utc": pd.date_range("2024-01-01", periods=4, freq="h"),
+            "predicted_direction": ["up", "down", "up", "flat"],
+            "p_up": [0.75, None, 0.6, None],
+            "p_down": [0.2, None, 0.3, None],
+            "predicted_return": [0.01, -0.01, 0.005, None],
+            "predicted_price": [42_000.0, 41_900.0, 42_200.0, None],
+            "actual_return": [0.01, -0.005, -0.002, None],
+            "actual_direction": ["up", "down", "down", None],
+            "correct": [1, None, 0, None],
+        })
+
+        summary = summarize_timeline_status(predictions)
+
+        assert summary["total"] == 4
+        assert summary["completed"] == 3
+        assert summary["correct"] == 2
+        assert summary["pending"] == 1
+        assert summary["accuracy"] == pytest.approx(66.67, abs=0.01)
+
+    def test_timeline_status_summary_handles_empty_input(self) -> None:
+        summary = summarize_timeline_status(pd.DataFrame())
+        assert summary == {
+            "total": 0,
+            "completed": 0,
+            "correct": 0,
+            "pending": 0,
+            "accuracy": 0.0,
+        }
 
 
 # ---------------------------------------------------------------------------

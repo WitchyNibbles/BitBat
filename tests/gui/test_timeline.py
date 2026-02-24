@@ -18,7 +18,7 @@ except ImportError:
 
 
 def _create_test_db(db_path: Path) -> None:
-    """Create a minimal autonomous DB with sample predictions."""
+    """Create an autonomous DB with mixed legacy and new prediction rows."""
     import sqlite3
 
     con = sqlite3.connect(str(db_path))
@@ -30,6 +30,8 @@ def _create_test_db(db_path: Path) -> None:
             predicted_direction TEXT,
             p_up REAL,
             p_down REAL,
+            predicted_return REAL,
+            predicted_price REAL,
             actual_return REAL,
             actual_direction TEXT,
             correct INTEGER,
@@ -39,17 +41,31 @@ def _create_test_db(db_path: Path) -> None:
         """
     )
     rows = [
-        ("2024-01-01 00:00:00", "up", 0.7, 0.2, 0.01, "up", 1, "1h", "4h"),
-        ("2024-01-01 01:00:00", "down", 0.3, 0.6, -0.005, "down", 1, "1h", "4h"),
-        ("2024-01-01 02:00:00", "up", 0.6, 0.3, -0.002, "down", 0, "1h", "4h"),
-        ("2024-01-01 03:00:00", "up", 0.65, 0.25, None, None, None, "1h", "4h"),
+        ("2024-01-01 00:00:00", "up", 0.7, 0.2, None, None, 0.01, "up", 1, "1h", "4h"),
+        (
+            "2024-01-01 01:00:00",
+            "down",
+            None,
+            None,
+            -0.01,
+            42_000.0,
+            -0.005,
+            "down",
+            None,
+            "1h",
+            "4h",
+        ),
+        ("2024-01-01 02:00:00", "up", 0.55, 0.35, 0.004, 43_000.0, -0.002, "down", 0, "1h", "4h"),
+        ("2024-01-01 03:00:00", "up", None, None, 0.006, 44_000.0, None, None, None, "1h", "4h"),
+        ("2024-01-01 04:00:00", "down", 0.2, 0.7, -0.02, 40_000.0, -0.02, "down", 1, "4h", "24h"),
     ]
     con.executemany(
         """
         INSERT INTO prediction_outcomes
             (timestamp_utc, predicted_direction, p_up, p_down,
-             actual_return, actual_direction, correct, freq, horizon)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             predicted_return, predicted_price, actual_return, actual_direction,
+             correct, freq, horizon)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         rows,
     )
@@ -66,9 +82,101 @@ def test_get_timeline_data(tmp_path: Path) -> None:
     assert len(df) == 4
     assert "timestamp_utc" in df.columns
     assert "predicted_direction" in df.columns
-    assert "correct" in df.columns
+    expected_columns = {
+        "timestamp_utc",
+        "predicted_direction",
+        "p_up",
+        "p_down",
+        "predicted_return",
+        "predicted_price",
+        "actual_return",
+        "actual_direction",
+        "correct",
+        "confidence",
+        "is_realized",
+        "prediction_status",
+    }
+    assert expected_columns.issubset(df.columns)
     # Should be sorted by timestamp
     assert df["timestamp_utc"].is_monotonic_increasing
+    assert df["prediction_status"].tolist() == [
+        "realized_correct",
+        "realized_correct",
+        "realized_wrong",
+        "pending",
+    ]
+    assert df["is_realized"].tolist() == [True, True, True, False]
+    assert pd.isna(df.loc[1, "confidence"])
+
+
+def test_get_timeline_data_with_legacy_probability_schema(tmp_path: Path) -> None:
+    import sqlite3
+
+    db_path = tmp_path / "legacy.db"
+    con = sqlite3.connect(str(db_path))
+    con.execute(
+        """
+        CREATE TABLE prediction_outcomes (
+            id INTEGER PRIMARY KEY,
+            timestamp_utc TEXT,
+            predicted_direction TEXT,
+            p_up REAL,
+            p_down REAL,
+            freq TEXT,
+            horizon TEXT
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO prediction_outcomes
+            (timestamp_utc, predicted_direction, p_up, p_down, freq, horizon)
+        VALUES ('2024-01-01 00:00:00', 'up', 0.8, 0.1, '1h', '4h')
+        """
+    )
+    con.commit()
+    con.close()
+
+    df = get_timeline_data(db_path, "1h", "4h")
+
+    assert len(df) == 1
+    assert "predicted_return" in df.columns
+    assert pd.isna(df.loc[0, "predicted_return"])
+    assert float(df.loc[0, "confidence"]) == pytest.approx(0.8)
+
+
+def test_get_timeline_data_falls_back_to_prediction_timestamp(tmp_path: Path) -> None:
+    import sqlite3
+
+    db_path = tmp_path / "fallback_timestamp.db"
+    con = sqlite3.connect(str(db_path))
+    con.execute(
+        """
+        CREATE TABLE prediction_outcomes (
+            id INTEGER PRIMARY KEY,
+            prediction_timestamp TEXT,
+            predicted_direction TEXT,
+            p_up REAL,
+            p_down REAL,
+            freq TEXT,
+            horizon TEXT
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO prediction_outcomes
+            (prediction_timestamp, predicted_direction, p_up, p_down, freq, horizon)
+        VALUES ('2024-01-01 05:00:00', 'down', 0.2, 0.7, '1h', '4h')
+        """
+    )
+    con.commit()
+    con.close()
+
+    df = get_timeline_data(db_path, "1h", "4h")
+
+    assert len(df) == 1
+    assert df.loc[0, "timestamp_utc"] == pd.Timestamp("2024-01-01 05:00:00")
 
 
 def test_get_timeline_data_empty(tmp_path: Path) -> None:
@@ -81,7 +189,7 @@ def test_get_timeline_data_filters_by_freq(tmp_path: Path) -> None:
     db_path = tmp_path / "test.db"
     _create_test_db(db_path)
 
-    df = get_timeline_data(db_path, "4h", "24h")  # No matching rows
+    df = get_timeline_data(db_path, "15m", "1h")  # No matching rows
     assert df.empty
 
 
