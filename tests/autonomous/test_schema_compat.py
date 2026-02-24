@@ -172,11 +172,19 @@ def test_upgrade_is_idempotent_and_preserves_rows(tmp_path: Path) -> None:
     second = upgrade_schema_compatibility(database_url=database_url)
 
     assert first.upgraded is True
+    assert first.upgrade_state == "upgraded"
+    assert first.operation_count == 1
+    assert first.missing_columns_before == 1
+    assert first.missing_columns_after == 0
     assert ("prediction_outcomes", "predicted_price") in {
         (action.table_name, action.column_name) for action in first.actions
     }
     assert first.is_compatible is True
     assert second.upgraded is False
+    assert second.upgrade_state == "already_compatible"
+    assert second.operation_count == 0
+    assert second.missing_columns_before == 0
+    assert second.missing_columns_after == 0
     assert second.is_compatible is True
 
     engine = create_database_engine(database_url)
@@ -196,7 +204,18 @@ def test_autonomous_db_init_applies_upgrade_for_legacy_schema(tmp_path: Path) ->
     database_url = _db_url(tmp_path, "legacy_runtime_init.db")
     _create_legacy_prediction_outcomes(database_url, with_row=True)
 
+    first_db = AutonomousDB(database_url)
+    assert first_db.schema_compatibility_status["upgrade_state"] == "upgraded"
+    assert first_db.schema_compatibility_status["operations_applied"] == 1
+    assert first_db.schema_compatibility_status["missing_columns_before"] == 1
+    assert first_db.schema_compatibility_status["missing_columns_after"] == 0
+
     db = AutonomousDB(database_url)
+    assert db.schema_compatibility_status["upgrade_state"] == "already_compatible"
+    assert db.schema_compatibility_status["operations_applied"] == 0
+    assert db.schema_compatibility_status["missing_columns_before"] == 0
+    assert db.schema_compatibility_status["missing_columns_after"] == 0
+
     with db.session() as session:
         rows = db.get_recent_predictions(
             session=session,
