@@ -97,3 +97,5 @@ tmp*/
 agent_plans/
 .claude
 CLAUDE.md
+AGENTS.md
+.planning/
