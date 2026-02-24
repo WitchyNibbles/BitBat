@@ -29,9 +29,8 @@ def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped
         id=p.id,
         timestamp_utc=p.timestamp_utc,
         predicted_direction=p.predicted_direction,
-        p_up=p.p_up,
-        p_down=p.p_down,
-        p_flat=p.p_flat,
+        predicted_return=p.predicted_return,
+        predicted_price=p.predicted_price,
         actual_direction=p.actual_direction,
         actual_return=p.actual_return,
         correct=p.correct,
@@ -42,7 +41,7 @@ def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped
 
 
 @router.get("/latest", response_model=PredictionResponse)
-def latest_prediction(
+async def latest_prediction(
     freq: str = Query("1h", description="Bar frequency"),
     horizon: str = Query("4h", description="Prediction horizon"),
 ) -> PredictionResponse:
@@ -56,7 +55,7 @@ def latest_prediction(
 
 
 @router.get("/history", response_model=PredictionListResponse)
-def prediction_history(
+async def prediction_history(
     freq: str = Query("1h"),
     horizon: str = Query("4h"),
     days: int = Query(30, ge=1, le=365),
@@ -76,7 +75,7 @@ def prediction_history(
 
 
 @router.get("/performance", response_model=PerformanceResponse)
-def prediction_performance(
+async def prediction_performance(
     freq: str = Query("1h"),
     horizon: str = Query("4h"),
     days: int = Query(30, ge=1, le=365),
@@ -99,6 +98,24 @@ def prediction_performance(
         hit_rate = correct / total if total else None
         returns = [r.actual_return for r in rows if r.actual_return is not None]
         avg_ret = sum(returns) / len(returns) if returns else None
+
+        # Directional accuracy, MAE, RMSE from predicted_return vs actual_return
+        dir_correct = 0
+        dir_total = 0
+        errors: list[float] = []
+        for r in rows:
+            pr = getattr(r, "predicted_return", None)
+            ar = r.actual_return
+            if pr is not None and ar is not None:
+                errors.append(pr - ar)
+                # Directional accuracy: both same sign (or both zero)
+                if (pr >= 0 and ar >= 0) or (pr < 0 and ar < 0):
+                    dir_correct += 1
+                dir_total += 1
+
+        mae = sum(abs(e) for e in errors) / len(errors) if errors else None
+        rmse = (sum(e**2 for e in errors) / len(errors)) ** 0.5 if errors else None
+        directional_accuracy = dir_correct / dir_total if dir_total else None
 
         # Streaks
         win_streak = lose_streak = cur_win = cur_lose = 0
@@ -125,4 +142,7 @@ def prediction_performance(
             avg_return=avg_ret,
             win_streak=win_streak,
             lose_streak=lose_streak,
+            mae=mae,
+            rmse=rmse,
+            directional_accuracy=directional_accuracy,
         )

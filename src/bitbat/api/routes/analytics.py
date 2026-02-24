@@ -57,7 +57,7 @@ def _schema_readiness(db_path: Path) -> SchemaReadinessDetails:
 
 
 @router.get("/feature-importance", response_model=FeatureImportanceResponse)
-def feature_importance(
+async def feature_importance(
     freq: str = Query("1h"),
     horizon: str = Query("4h"),
     top_n: int = Query(20, ge=1, le=100),
@@ -84,7 +84,7 @@ def feature_importance(
 
 
 @router.get("/status", response_model=SystemStatusResponse)
-def system_status(
+async def system_status(
     freq: str = Query("1h"),
     horizon: str = Query("4h"),
 ) -> SystemStatusResponse:

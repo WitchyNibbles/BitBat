@@ -110,7 +110,7 @@ def _check_dataset(freq: str = "1h", horizon: str = "4h") -> ServiceStatus:
 
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
+async def health() -> HealthResponse:
     """Quick liveness probe — always returns ``ok``."""
     return HealthResponse(
         status="ok",
@@ -120,7 +120,7 @@ def health() -> HealthResponse:
 
 
 @router.get("/health/detailed", response_model=DetailedHealthResponse)
-def health_detailed() -> DetailedHealthResponse:
+async def health_detailed() -> DetailedHealthResponse:
     """Readiness probe — checks database, model, and dataset availability."""
     schema_service, schema_readiness = _check_schema_readiness()
     services = [_check_database(), schema_service, _check_model(), _check_dataset()]

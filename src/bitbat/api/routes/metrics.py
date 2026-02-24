@@ -129,6 +129,6 @@ def _collect_metrics() -> str:
 
 
 @router.get("/metrics", response_class=PlainTextResponse)
-def prometheus_metrics() -> str:
+async def prometheus_metrics() -> str:
     """Prometheus-compatible metrics endpoint."""
     return _collect_metrics()
