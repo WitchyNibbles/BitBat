@@ -32,7 +32,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Audit current model/table expectations vs on-disk SQLite states.
+- [x] 01-01-PLAN.md — Audit current model/table expectations vs on-disk SQLite states.
 - [ ] 01-02-PLAN.md — Implement compatibility/migration baseline for required prediction columns.
 - [ ] 01-03-PLAN.md — Add startup schema preflight and failure messaging.
 
@@ -142,7 +142,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema Contract Baseline | 0/3 | Not started | - |
+| 1. Schema Contract Baseline | 1/3 | In Progress | - |
 | 2. Migration Safety & Startup Readiness | 0/2 | Not started | - |
 | 3. Monitor Runtime Error Elimination | 0/3 | Not started | - |
 | 4. Monitor Flow Consistency & API Alignment | 0/2 | Not started | - |
