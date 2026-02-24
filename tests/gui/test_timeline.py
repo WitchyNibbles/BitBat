@@ -490,6 +490,28 @@ def test_build_timeline_figure_confidence_exact_percent_and_na() -> None:
     assert "Confidence: n/a" in marker_traces[1].hovertemplate
 
 
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_figure_confidence_does_not_affect_marker_size() -> None:
+    from bitbat.gui.timeline import build_timeline_figure
+
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=2, freq="h"),
+        "predicted_direction": ["up", "up"],
+        "p_up": [0.95, 0.51],
+        "p_down": [0.01, 0.45],
+        "correct": [True, True],
+    })
+    prices = pd.DataFrame(
+        {"close": [100.0, 100.5]},
+        index=pd.date_range("2024-01-01", periods=2, freq="h"),
+    )
+
+    fig = build_timeline_figure(predictions, prices)
+    marker_traces = fig.data[1:]
+    assert len(marker_traces) == 2
+    assert marker_traces[0].marker.size == marker_traces[1].marker.size == 14
+
+
 def test_build_timeline_overlay_frame_pending_semantics() -> None:
     predictions = pd.DataFrame({
         "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="h"),
