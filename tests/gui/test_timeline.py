@@ -552,7 +552,7 @@ def test_build_timeline_figure_with_overlay_traces() -> None:
     assert "Mismatch Band" in names
 
     realized_trace = next(trace for trace in fig.data if trace.name == "Realized Return")
-    assert realized_trace.y[-1] is None
+    assert pd.isna(realized_trace.y[-1])
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
