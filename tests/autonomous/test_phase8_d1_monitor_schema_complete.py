@@ -13,6 +13,14 @@ from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import init_database
 from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 
+D1_CANONICAL_SUITE = [
+    "tests/autonomous/test_phase8_d1_monitor_schema_complete.py",
+    "tests/autonomous/test_agent_integration.py",
+    "tests/test_cli.py",
+    "tests/api/test_health.py",
+    "tests/api/test_metrics.py",
+]
+
 
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'phase8_d1.db'}"
@@ -169,3 +177,8 @@ def test_phase8_d1_runtime_db_failure_remains_actionable(tmp_path: Path) -> None
 
     assert exc_info.value.step == "predict.store_prediction"
     assert "upgrade" in exc_info.value.remediation.lower()
+
+
+def test_phase8_d1_canonical_suite_files_exist() -> None:
+    for rel_path in D1_CANONICAL_SUITE:
+        assert Path(rel_path).exists(), f"Missing D1 suite file: {rel_path}"
