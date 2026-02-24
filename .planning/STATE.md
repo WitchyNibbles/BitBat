@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 6 - Timeline UX Expansion (T2)
+**Current focus:** Phase 7 - Streamlit Compatibility Sweep
 
 ## Current Position
 
-Phase: 6 of 8 (Timeline UX Expansion (T2))
-Plan: 0 of 3 in current phase
-Status: Phase 5 complete and verified; ready for Phase 6 planning/execution
-Last activity: 2026-02-24 - Completed Phase 5 timeline reliability plans and verification
+Phase: 7 of 8 (Streamlit Compatibility Sweep)
+Plan: 0 of 2 in current phase
+Status: Phase 6 complete and verified; ready for Phase 7 planning/execution
+Last activity: 2026-02-24 - Completed Phase 6 timeline UX plans and verification
 
-Progress: [██████░░░░] 62%
+Progress: [████████░░] 76%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 10 min
-- Total execution time: 2.4 hours
+- Total plans completed: 16
+- Average duration: 11 min
+- Total execution time: 2.9 hours
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: [██████░░░░] 62%
 | 3 | 3 | 43 min | 14 min |
 | 4 | 2 | 52 min | 26 min |
 | 5 | 3 | 27 min | 9 min |
+| 6 | 3 | 31 min | 10 min |
 
 **Recent Trend:**
-- Last 5 plans: 10 min, 14 min, 3 min, 18 min, 34 min
-- Trend: Stable delivery with stronger timeline regression gates after Phase 5
+- Last 5 plans: 8 min, 9 min, 14 min, 10 min, 14 min
+- Trend: Stable wave execution with strong timeline UX test gating
 
 *Updated after each plan completion*
 | Phase 01 P01 | 4 min | 3 tasks | 3 files |
@@ -51,6 +52,9 @@ Progress: [██████░░░░] 62%
 | Phase 05 P01 | 3 min | 3 tasks | 3 files |
 | Phase 05 P02 | 14 min | 3 tasks | 4 files |
 | Phase 05 P03 | 10 min | 3 tasks | 3 files |
+| Phase 06 P01 | 14 min | 3 tasks | 4 files |
+| Phase 06 P02 | 9 min | 3 tasks | 4 files |
+| Phase 06 P03 | 8 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -80,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Timeline confidence remains nullable when probability fields are absent to avoid misleading synthetic confidence values.
 - [Phase 05]: Marker placement uses bounded nearest-price tolerance before `predicted_price` fallback to prevent stale sparse-price matches.
 - [Phase 05]: Quick Start timeline metrics and phase-level gates now consume normalized status summaries, not raw `correct` null checks.
+- [Phase 06]: Timeline filter controls (`freq`, `horizon`, date window) are always visible and session-persistent, with explicit no-result messaging.
+- [Phase 06]: Predicted-vs-realized overlays use return-scale comparison traces with mismatch bands and pending-safe realized omissions.
+- [Phase 06]: Phase-level regression gate (`test_phase6_timeline_ux_complete.py`) validates combined TIM-03/04/05 semantics end-to-end.
 
 ### Pending Todos
 
@@ -91,6 +98,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-24 17:04
-Stopped at: Phase 6 context gathered.
-Resume file: .planning/phases/06-timeline-ux-expansion-t2/06-CONTEXT.md
+Last session: 2026-02-24 17:55
+Stopped at: Completed Phase 6 verification; next step is discuss/plan Phase 7 Streamlit compatibility sweep.
+Resume file: None

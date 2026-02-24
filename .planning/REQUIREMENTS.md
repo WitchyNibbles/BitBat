@@ -23,9 +23,9 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 
 - [x] **TIM-01**: Timeline page renders recent and historical prediction records reliably from operational data.
 - [x] **TIM-02**: Timeline clearly distinguishes pending vs realized predictions and shows realized outcome alignment.
-- [ ] **TIM-03**: Timeline exposes confidence and direction context per prediction event.
-- [ ] **TIM-04**: Timeline supports practical filtering (at least freq/horizon/date window) without breaking rendering.
-- [ ] **TIM-05**: Timeline supports improved visualization for predicted vs realized behavior (overlay/comparison view).
+- [x] **TIM-03**: Timeline exposes confidence and direction context per prediction event.
+- [x] **TIM-04**: Timeline supports practical filtering (at least freq/horizon/date window) without breaking rendering.
+- [x] **TIM-05**: Timeline supports improved visualization for predicted vs realized behavior (overlay/comparison view).
 
 ### GUI Compatibility & UX Hygiene
 
@@ -77,9 +77,9 @@ Deferred to later milestones.
 | MON-03 | Phase 3 | Complete |
 | TIM-01 | Phase 5 | Complete |
 | TIM-02 | Phase 5 | Complete |
-| TIM-03 | Phase 6 | Pending |
-| TIM-04 | Phase 6 | Pending |
-| TIM-05 | Phase 6 | Pending |
+| TIM-03 | Phase 6 | Complete |
+| TIM-04 | Phase 6 | Complete |
+| TIM-05 | Phase 6 | Complete |
 | GUI-01 | Phase 7 | Pending |
 | GUI-02 | Phase 7 | Pending |
 | GUI-03 | Phase 7 | Pending |
@@ -96,4 +96,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 5 execution*
+*Last updated: 2026-02-24 after Phase 6 execution*

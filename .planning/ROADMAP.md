@@ -15,7 +15,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - [x] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures. (Completed 2026-02-24)
 - [x] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces. (completed 2026-02-24)
 - [x] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness. (completed 2026-02-24)
-- [ ] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior.
+- [x] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior. (completed 2026-02-24)
 - [ ] **Phase 7: Streamlit Compatibility Sweep** - Remove deprecated width API usage globally.
 - [ ] **Phase 8: Regression Gates & Release Verification** - Lock in D1/D2/D3 via automated checks and end-to-end verification.
 
@@ -29,7 +29,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
   1. Existing local databases can be brought to a schema state containing runtime-required prediction columns.
   2. Application startup performs schema compatibility checks before monitor cycles begin.
   3. Missing schema preconditions are surfaced with actionable operator-facing errors.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Audit current model/table expectations vs on-disk SQLite states.
@@ -105,9 +105,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: Implement confidence/direction timeline presentation improvements.
-- [ ] 06-02: Implement and validate timeline filtering controls.
-- [ ] 06-03: Implement predicted-vs-realized comparison overlays.
+- [x] 06-01: Implement confidence/direction timeline presentation improvements. (Completed 2026-02-24)
+- [x] 06-02: Implement and validate timeline filtering controls. (Completed 2026-02-24)
+- [x] 06-03: Implement predicted-vs-realized comparison overlays. (Completed 2026-02-24)
 
 ### Phase 7: Streamlit Compatibility Sweep
 **Goal**: Remove deprecated Streamlit width API usage across GUI surfaces.
@@ -147,6 +147,6 @@ Plans:
 | 3. Monitor Runtime Error Elimination | 3/3 | Complete | 2026-02-24 |
 | 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete    | 2026-02-24 |
 | 5. Timeline Core Reliability | 3/3 | Complete    | 2026-02-24 |
-| 6. Timeline UX Expansion (T2) | 0/3 | Not started | - |
+| 6. Timeline UX Expansion (T2) | 3/3 | Complete    | 2026-02-24 |
 | 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |
 | 8. Regression Gates & Release Verification | 0/3 | Not started | - |
