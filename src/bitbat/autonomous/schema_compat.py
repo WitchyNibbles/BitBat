@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine
@@ -55,6 +56,10 @@ class SchemaAuditReport:
     def can_auto_upgrade(self) -> bool:
         return all(not table.blocking_missing_columns for table in self.tables)
 
+    @property
+    def missing_column_count(self) -> int:
+        return sum(len(table.missing_columns) for table in self.tables)
+
 
 @dataclass(frozen=True, slots=True)
 class SchemaUpgradeAction:
@@ -80,6 +85,35 @@ class SchemaUpgradeResult:
     @property
     def is_compatible(self) -> bool:
         return self.report_after.is_compatible
+
+    @property
+    def upgrade_state(self) -> Literal["upgraded", "already_compatible", "incompatible"]:
+        if self.actions:
+            return "upgraded"
+        if self.report_after.is_compatible:
+            return "already_compatible"
+        return "incompatible"
+
+    @property
+    def operation_count(self) -> int:
+        return len(self.actions)
+
+    @property
+    def missing_columns_before(self) -> int:
+        return self.report_before.missing_column_count
+
+    @property
+    def missing_columns_after(self) -> int:
+        return self.report_after.missing_column_count
+
+    @property
+    def status(self) -> dict[str, str | int]:
+        return {
+            "upgrade_state": self.upgrade_state,
+            "operations_applied": self.operation_count,
+            "missing_columns_before": self.missing_columns_before,
+            "missing_columns_after": self.missing_columns_after,
+        }
 
 
 class SchemaCompatibilityError(RuntimeError):
