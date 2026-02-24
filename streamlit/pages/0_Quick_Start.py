@@ -79,7 +79,7 @@ if state == "INITIAL":
             st.markdown(f"**{label}:** {value}")
         st.caption(preset.description)
 
-    if st.button("Train Model", type="primary", use_container_width=True):
+    if st.button("Train Model", type="primary", width="stretch"):
         st.session_state["train_state"] = "TRAINING"
         st.session_state["selected_preset"] = selected_key
         st.rerun()
@@ -213,7 +213,7 @@ elif state == "RUNNING":
     control_cols = st.columns(2)
     with control_cols[0]:
         if not st.session_state.get("_monitor_running", False):
-            if st.button("Start Monitoring", type="primary", use_container_width=True):
+            if st.button("Start Monitoring", type="primary", width="stretch"):
                 _start_monitoring(freq, horizon)
                 st.success("Monitoring loop started.")
         else:
@@ -221,7 +221,7 @@ elif state == "RUNNING":
 
     with control_cols[1]:
         if st.session_state.get("_monitor_running", False):
-            if st.button("Stop Monitoring", use_container_width=True):
+            if st.button("Stop Monitoring", width="stretch"):
                 _MONITOR_STOP_EVENT.set()
                 st.session_state["_monitor_running"] = False
                 st.info("Monitoring loop will stop after the current cycle.")
@@ -302,7 +302,7 @@ elif state == "RUNNING":
         prices = get_price_series(_DATA_DIR, selected_freq, first_ts)
 
         fig = build_timeline_figure(predictions, prices, show_overlay=show_overlay)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         # Legend
         c1, c2, c3 = st.columns(3)
@@ -338,7 +338,7 @@ elif state == "RUNNING":
     # Retrain button
     # ------------------------------------------------------------------
     st.divider()
-    if st.button("Retrain Model", type="primary", use_container_width=True):
+    if st.button("Retrain Model", type="primary", width="stretch"):
         # Reset monitor so it restarts with new model after retraining
         st.session_state["_monitor_running"] = False
         st.session_state["train_result"] = None

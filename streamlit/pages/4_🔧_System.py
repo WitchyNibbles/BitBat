@@ -165,7 +165,7 @@ with extra_col1:
         help="Upper bound for automatic retraining duration.",
     )
 with extra_col2:
-    if st.button("Save Autonomous Settings", use_container_width=True):
+    if st.button("Save Autonomous Settings", width="stretch"):
         user_cfg.setdefault("autonomous", {})
         user_cfg["autonomous"]["drift_detection"] = {
             "window_days": int(window_days),
