@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 4 - Monitor Flow Consistency & API Alignment
+**Current focus:** Phase 5 - Timeline Core Reliability
 
 ## Current Position
 
-Phase: 4 of 8 (Monitor Flow Consistency & API Alignment)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-24 - Completed 04-01 monitor prediction semantic normalization
+Phase: 5 of 8 (Timeline Core Reliability)
+Plan: 0 of 3 in current phase
+Status: Phase 4 complete; ready to plan next phase
+Last activity: 2026-02-24 - Completed Phase 4 monitor/API semantic alignment
 
-Progress: [█████░░░░░] 43%
+Progress: [█████░░░░░] 48%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 10 min
-- Total execution time: 1.6 hours
+- Total plans completed: 10
+- Average duration: 11 min
+- Total execution time: 1.9 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [█████░░░░░] 43%
 | 1 | 3 | 12 min | 4 min |
 | 2 | 2 | 6 min | 3 min |
 | 3 | 3 | 43 min | 14 min |
-| 4 | 1 | 34 min | 34 min |
+| 4 | 2 | 52 min | 26 min |
 
 **Recent Trend:**
-- Last 5 plans: 34 min, 11 min, 14 min, 18 min, 3 min
-- Trend: Elevated duration due Phase 4 cross-surface semantic alignment work
+- Last 5 plans: 18 min, 34 min, 11 min, 14 min, 18 min
+- Trend: Stable with moderate complexity after Phase 4 semantic alignment completion
 
 *Updated after each plan completion*
 | Phase 01 P01 | 4 min | 3 tasks | 3 files |
@@ -46,6 +46,7 @@ Progress: [█████░░░░░] 43%
 | Phase 03 P02 | 14 min | 3 tasks | 5 files |
 | Phase 03 P03 | 11 min | 3 tasks | 5 files |
 | Phase 04 P01 | 34 min | 3 tasks | 6 files |
+| Phase 04 P02 | 18 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -69,18 +70,20 @@ Recent decisions affecting current work:
 - [Phase 03]: Runtime DB diagnostics standardized across alerts/heartbeat/CLI via structured step/detail/remediation payloads.
 - [Phase 04]: Predictor persistence now treats `predicted_return`/`predicted_price` as canonical monitor prediction semantics.
 - [Phase 04]: Validator correctness now prioritizes return-sign agreement to keep realization results semantically aligned.
+- [Phase 04]: Prediction API and widget surfaces now share one return/price semantic contract.
+- [Phase 04]: API tests use ASGI transport wrapper to avoid blocked runtime portal/threadpool behavior.
 
 ### Pending Todos
 
-- Phase 4 plan 02: align API/GUI read surfaces and client fixtures with normalized monitor semantics.
+- Phase 5 planning: normalize timeline read-model behavior for pending vs realized prediction rendering.
 
 ### Blockers/Concerns
 
-- Timeline reliability still depends on upcoming monitor/API semantic alignment and timeline read-model fixes in phases 4-6.
+- Timeline reliability now depends on Phase 5 read-model/render hardening for mixed pending/realized records.
 - Streamlit deprecation cleanup and regression guardrails remain pending in phases 7-8.
 
 ## Session Continuity
 
-Last session: 2026-02-24 14:35
-Stopped at: Completed 04-01 summary + metadata updates; next step is execute 04-02.
+Last session: 2026-02-24 14:40
+Stopped at: Completed Phase 4 execution and summaries; next step is Phase 5 planning.
 Resume file: None

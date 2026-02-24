@@ -13,7 +13,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - [x] **Phase 1: Schema Contract Baseline** - Establish DB compatibility baseline and required columns. (Completed 2026-02-24)
 - [x] **Phase 2: Migration Safety & Startup Readiness** - Make upgrades idempotent and enforce preflight checks. (Completed 2026-02-24)
 - [x] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures. (Completed 2026-02-24)
-- [ ] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces.
+- [x] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces. (completed 2026-02-24)
 - [ ] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness.
 - [ ] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior.
 - [ ] **Phase 7: Streamlit Compatibility Sweep** - Remove deprecated width API usage globally.
@@ -77,7 +77,7 @@ Plans:
 
 Plans:
 - [x] 04-01: Normalize monitor write semantics for prediction fields and dimensions.
-- [ ] 04-02: Align API/read models with updated prediction schema semantics.
+- [x] 04-02: Align API/read models with updated prediction schema semantics.
 
 ### Phase 5: Timeline Core Reliability
 **Goal**: Restore stable timeline rendering with accurate pending/realized behavior.
@@ -145,7 +145,7 @@ Plans:
 | 1. Schema Contract Baseline | 3/3 | Complete | 2026-02-24 |
 | 2. Migration Safety & Startup Readiness | 2/2 | Complete | 2026-02-24 |
 | 3. Monitor Runtime Error Elimination | 3/3 | Complete | 2026-02-24 |
-| 4. Monitor Flow Consistency & API Alignment | 1/2 | In Progress | - |
+| 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete   | 2026-02-24 |
 | 5. Timeline Core Reliability | 0/3 | Not started | - |
 | 6. Timeline UX Expansion (T2) | 0/3 | Not started | - |
 | 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |

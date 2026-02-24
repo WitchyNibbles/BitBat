@@ -41,7 +41,7 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 
 ### API / Surface Alignment
 
-- [ ] **API-01**: API and GUI timeline-consumed fields remain semantically aligned after schema/timeline changes.
+- [x] **API-01**: API and GUI timeline-consumed fields remain semantically aligned after schema/timeline changes.
 - [x] **API-02**: Health/status surfaces accurately reflect readiness when schema compatibility is not satisfied.
 
 ## v2 Requirements
@@ -86,7 +86,7 @@ Deferred to later milestones.
 | QUAL-01 | Phase 8 | Pending |
 | QUAL-02 | Phase 8 | Pending |
 | QUAL-03 | Phase 8 | Pending |
-| API-01 | Phase 4 | Pending |
+| API-01 | Phase 4 | Complete |
 | API-02 | Phase 2 | Complete |
 
 **Coverage:**
