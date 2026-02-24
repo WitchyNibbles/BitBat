@@ -6,19 +6,19 @@
 
 ## Summary
 
-The immediate runtime failure is a schema/code mismatch: the `PredictionOutcome` ORM model and downstream reads/writes expect `prediction_outcomes.predicted_price`, but the existing `data/autonomous.db` table does not contain that column. Current initialization (`Base.metadata.create_all`) creates missing tables but does not migrate existing table schemas, so long-lived databases remain incompatible.
+The operational failure (`no such column: prediction_outcomes.predicted_price`) is a classic brownfield schema drift issue: runtime code and ORM models expect a column that older local SQLite files do not contain. The current initialization path (`Base.metadata.create_all`) creates missing tables but does not mutate existing table schemas, so historical DBs remain incompatible.
 
-Phase 1 should establish a compatibility baseline that works on existing databases without destructive resets. The safest near-term approach is an idempotent compatibility upgrade path (column existence checks + additive migrations) plus startup preflight checks that fail fast with actionable error messages.
+Phase 1 should deliver a compatibility baseline with two capabilities: (1) deterministic schema introspection and additive upgrade for required columns, and (2) startup preflight checks that block unsafe monitor runs with clear remediation output. This should be implemented without destructive resets so existing prediction history survives.
 
-**Primary recommendation:** Add an explicit schema compatibility layer for `prediction_outcomes` (including `predicted_price`) and run it before monitor cycles start.
+**Primary recommendation:** Introduce a dedicated `schema_compat` module for required-column contract enforcement and call it from initialization/preflight paths before monitor IO.
 
 <phase_requirements>
 ## Phase Requirements
 
 | ID | Description | Research Support |
 |----|-------------|-----------------|
-| SCHE-01 | Existing local DBs can be upgraded safely to include required runtime columns | Additive, idempotent migration strategy using SQLite introspection + `ALTER TABLE ... ADD COLUMN` guards |
-| SCHE-02 | Startup validates schema compatibility and surfaces actionable errors | Preflight schema check in monitor startup path + clear diagnostics when mismatch persists |
+| SCHE-01 | Existing local DBs can be upgraded safely to include required runtime columns | Additive `ALTER TABLE ... ADD COLUMN` guarded by column existence checks |
+| SCHE-02 | Startup validates schema compatibility and surfaces actionable errors | Preflight validation invoked before monitor loop and surfaced through CLI/runtime diagnostics |
 </phase_requirements>
 
 ## Standard Stack
@@ -27,23 +27,23 @@ Phase 1 should establish a compatibility baseline that works on existing databas
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| SQLAlchemy | 2.x | ORM model definitions and sessions | Already authoritative model layer in this codebase |
-| SQLite | bundled | Runtime monitor state storage | Current persistent backend for local operations |
-| Python `sqlite3`/PRAGMA via SQLAlchemy engine | stdlib | Column introspection and migration guards | Deterministic compatibility checks for existing DB files |
+| SQLAlchemy | 2.x | ORM metadata, engine/session lifecycle | Existing authoritative schema/runtime layer in repo |
+| SQLite | bundled | Persistent local monitor state | Current default DB backend for monitor, API, and GUI surfaces |
+| Python stdlib / SQL introspection | stdlib | Idempotent compatibility checks and upgrade guards | Minimal dependency path, deterministic for local DB files |
 
 ### Supporting
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| Alembic (optional in follow-up) | latest compatible | Structured migration revisions | Use if moving from compatibility patching to full migration history |
-| pytest | 8.x | Regression verification | Use for compatibility + preflight behavior coverage |
+| pytest | 8.x | Compatibility and preflight regression tests | Required to prevent re-introducing schema drift failures |
+| Alembic (defer decision) | latest compatible | Long-term migration revision history | Consider in later hardening phase if migration complexity grows |
 
 ### Alternatives Considered
 
 | Instead of | Could Use | Tradeoff |
 |-----------|-----------|----------|
-| Additive compatibility patching | Full DB reset/recreate | Reset is simpler but destroys history and hides migration regressions |
-| Immediate Alembic adoption | Lightweight migration helper in current modules | Alembic gives long-term rigor; helper is faster for critical unblock |
+| Additive compatibility layer | Drop/recreate table or DB | Faster short-term but destroys history and masks migration bugs |
+| Immediate full Alembic adoption | Lightweight compatibility helper in existing module boundaries | Alembic is stronger long-term; helper unblocks Phase 1 with lower implementation overhead |
 
 ## Architecture Patterns
 
@@ -52,124 +52,132 @@ Phase 1 should establish a compatibility baseline that works on existing databas
 ```text
 src/bitbat/autonomous/
 ├── models.py                 # ORM schema truth
-├── db.py                     # runtime repository operations
-├── schema_compat.py          # NEW: compatibility checks + idempotent upgrades
-└── agent.py                  # monitoring startup path calls preflight
+├── db.py                     # repository operations and session handling
+├── schema_compat.py          # NEW: required columns, introspection, additive upgrades
+└── agent.py                  # monitor preflight usage
 
 scripts/
-└── init_autonomous_db.py     # can invoke schema compatibility command
+└── init_autonomous_db.py     # explicit compatibility audit/upgrade entrypoint
 
 tests/autonomous/
-└── test_schema_compat.py     # NEW: regression tests for DB upgrade paths
+└── test_schema_compat.py     # compatibility + idempotency regression tests
 ```
 
-### Pattern 1: Additive Migration Guard
+### Pattern 1: Required-Column Registry
 
-**What:** Introspect table columns, add missing non-destructive columns only when absent.
-**When to use:** Existing SQLite DB might be behind current ORM model.
+**What:** Maintain explicit required column set for runtime-critical tables.
+**When to use:** Any runtime path depending on `prediction_outcomes` fields.
 **Example:**
 
 ```python
-# Pseudocode pattern
-columns = existing_columns("prediction_outcomes")
-if "predicted_price" not in columns:
-    execute("ALTER TABLE prediction_outcomes ADD COLUMN predicted_price FLOAT")
+REQUIRED_PREDICTION_COLUMNS = {
+    "id", "timestamp_utc", "predicted_direction", "predicted_return",
+    "predicted_price", "model_version", "freq", "horizon"
+}
 ```
 
-### Pattern 2: Startup Schema Preflight
+### Pattern 2: Additive Idempotent Upgrade
 
-**What:** Validate required columns before monitor runtime operations.
-**When to use:** Before monitor loop and DB-dependent CLI/API paths.
+**What:** Add missing nullable columns only when absent.
+**When to use:** Legacy DB detected at startup/audit.
 **Example:**
 
 ```python
-missing = required_columns - existing_columns("prediction_outcomes")
+if "predicted_price" not in current_cols:
+    conn.execute(text("ALTER TABLE prediction_outcomes ADD COLUMN predicted_price FLOAT"))
+```
+
+### Pattern 3: Startup Preflight Gate
+
+**What:** Validate compatibility before monitor loop proceeds.
+**When to use:** `monitor start`, `monitor run-once`, monitor-agent bootstrap.
+**Example:**
+
+```python
+missing = required_cols - current_cols
 if missing:
-    raise RuntimeError(f"Schema incompatible: missing {sorted(missing)}")
+    raise RuntimeError(f"Schema incompatible. Missing columns: {sorted(missing)}")
 ```
 
 ### Anti-Patterns to Avoid
 
-- Running monitor writes before schema preflight.
-- Using exception swallowing to hide compatibility failures.
-- Treating `create_all` as a migration tool for existing tables.
+- Assuming `create_all` handles migration for existing tables.
+- Applying destructive reset as default fix path.
+- Catch-and-continue handling for schema incompatibility in critical runtime paths.
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Schema drift detection | Scattered ad-hoc checks in many call sites | Single schema compatibility module + shared utility | Centralized behavior, easier regression testing |
-| Startup failure messaging | Generic stack traces only | Structured actionable errors | Operators can fix quickly without code spelunking |
+| Compatibility checks scattered in many modules | Repeated ad-hoc query snippets | Single shared compatibility utility module | Consistent behavior + easier regression test coverage |
+| Operator remediation logic embedded in stack traces | Opaque unstructured exceptions | Structured error messages with remediation hints | Faster incident resolution |
 
-**Key insight:** Centralized compatibility logic prevents repeated break/fix cycles across monitor, API, and GUI.
+**Key insight:** A small centralized compatibility boundary in `autonomous/` is enough to restore runtime reliability for Phase 1.
 
 ## Common Pitfalls
 
-### Pitfall 1: Assuming `create_all` upgrades existing schemas
-**What goes wrong:** Existing DB tables keep old columns; runtime queries fail.
-**How to avoid:** Explicit migration/introspection for table alterations.
+### Pitfall 1: One-time fix without regression tests
+**What goes wrong:** Column added manually once; issue returns on fresh/dev DB variants.
+**How to avoid:** Automated tests for legacy schema + idempotent rerun behavior.
 
-### Pitfall 2: Fixing only one codepath
-**What goes wrong:** Monitor works, but UI/API still fail due unpatched read paths.
-**How to avoid:** Define required-column contract once and reuse across surfaces.
+### Pitfall 2: Upgrade path that mutates data semantics
+**What goes wrong:** Existing rows or constraints are unintentionally changed.
+**How to avoid:** Additive nullable column additions only in Phase 1.
 
-### Pitfall 3: Non-idempotent migration logic
-**What goes wrong:** Re-running startup fails or mutates schema unexpectedly.
-**How to avoid:** Guard every migration with presence checks.
+### Pitfall 3: Preflight implemented in one entrypoint only
+**What goes wrong:** `monitor start` works but `monitor run-once` or script path still fails.
+**How to avoid:** Reuse one preflight utility across all monitor entrypoints.
 
 ## Code Examples
 
-### Existing schema truth source
+### ORM expectation already present
 
 ```python
 # src/bitbat/autonomous/models.py
-class PredictionOutcome(Base):
-    predicted_price = mapped_column(Float, nullable=True)
+predicted_price = mapped_column(Float, nullable=True)
 ```
 
-### Existing runtime expectation
-
-```python
-# src/bitbat/gui/widgets.py query includes predicted_price
-SELECT timestamp_utc, predicted_direction, predicted_return, predicted_price, ...
-```
-
-### Observed live DB mismatch
+### Current DB deficiency observed
 
 ```text
-prediction_outcomes columns in current data/autonomous.db:
-id, timestamp_utc, prediction_timestamp, predicted_direction, p_up,
-p_down, p_flat, predicted_return, actual_return, actual_direction,
-correct, model_version, freq, horizon, features_used, created_at, realized_at
-# predicted_price missing
+PRAGMA table_info(prediction_outcomes)
+# missing: predicted_price
+```
+
+### Runtime read dependency
+
+```python
+# src/bitbat/gui/widgets.py
+SELECT ... predicted_price ... FROM prediction_outcomes
 ```
 
 ## Open Questions
 
-1. Should compatibility upgrades run automatically at monitor startup or only via explicit command?
-   - Recommendation: Startup preflight can apply additive-safe upgrades, then verify.
-2. Should Alembic be introduced in Phase 1 or deferred to later hardening?
-   - Recommendation: Keep Phase 1 focused on additive unblock; evaluate Alembic in later phase.
+1. Should compatibility upgrade execute automatically in production monitor boot, or require explicit operator flag?
+   - Recommendation: permit automatic additive-safe upgrade, then enforce validation.
+2. Should health endpoint report compatibility state in Phase 1 or Phase 2?
+   - Recommendation: keep detailed readiness projection in Phase 2 per roadmap traceability.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 - `src/bitbat/autonomous/models.py`
 - `src/bitbat/autonomous/db.py`
-- `src/bitbat/gui/widgets.py`
+- `src/bitbat/autonomous/agent.py`
 - `scripts/init_autonomous_db.py`
-- live schema inspection of `data/autonomous.db` (`PRAGMA table_info(prediction_outcomes)`)
+- live DB introspection (`data/autonomous.db`, `PRAGMA table_info(prediction_outcomes)`)
 
 ### Secondary (MEDIUM confidence)
 - `.planning/REQUIREMENTS.md`
 - `.planning/ROADMAP.md`
+- `.planning/STATE.md`
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH (directly from current codebase)
-- Architecture: HIGH (fits existing module boundaries)
-- Pitfalls: HIGH (reproduced by observed runtime mismatch)
+- Standard stack: HIGH (derived directly from existing code)
+- Architecture patterns: HIGH (aligned with current module boundaries)
+- Pitfalls: HIGH (rooted in reproduced runtime mismatch)
 
 **Research date:** 2026-02-24
 **Valid until:** 2026-03-24
