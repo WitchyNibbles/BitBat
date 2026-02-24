@@ -16,7 +16,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - [x] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces. (completed 2026-02-24)
 - [x] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness. (completed 2026-02-24)
 - [x] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior. (completed 2026-02-24)
-- [ ] **Phase 7: Streamlit Compatibility Sweep** - Remove deprecated width API usage globally.
+- [x] **Phase 7: Streamlit Compatibility Sweep** - Remove deprecated width API usage globally. (completed 2026-02-24)
 - [ ] **Phase 8: Regression Gates & Release Verification** - Lock in D1/D2/D3 via automated checks and end-to-end verification.
 
 ## Phase Details
@@ -117,11 +117,11 @@ Plans:
   1. `use_container_width=True` usages are replaced with `width='stretch'`.
   2. `use_container_width=False` usages are replaced with `width='content'`.
   3. Primary GUI workflows run without width deprecation warnings.
-**Plans**: 2 plans
+**Plans**: 2/2 plans complete
 
 Plans:
-- [ ] 07-01: Apply width API migration across Streamlit app/pages/widgets.
-- [ ] 07-02: Verify warning-free execution across primary GUI interaction flows.
+- [x] 07-01: Apply width API migration across Streamlit app/pages/widgets. (Completed 2026-02-24)
+- [x] 07-02: Verify warning-free execution across primary GUI interaction flows. (Completed 2026-02-24)
 
 ### Phase 8: Regression Gates & Release Verification
 **Goal**: Enforce D1/D2/D3 through automated checks and final validation.
@@ -148,5 +148,5 @@ Plans:
 | 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete    | 2026-02-24 |
 | 5. Timeline Core Reliability | 3/3 | Complete    | 2026-02-24 |
 | 6. Timeline UX Expansion (T2) | 3/3 | Complete    | 2026-02-24 |
-| 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |
+| 7. Streamlit Compatibility Sweep | 2/2 | Complete    | 2026-02-24 |
 | 8. Regression Gates & Release Verification | 0/3 | Not started | - |

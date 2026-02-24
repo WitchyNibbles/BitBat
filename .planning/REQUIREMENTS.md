@@ -29,9 +29,9 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 
 ### GUI Compatibility & UX Hygiene
 
-- [ ] **GUI-01**: All Streamlit UI code replaces deprecated `use_container_width=True` with `width='stretch'`.
-- [ ] **GUI-02**: All Streamlit UI code replaces deprecated `use_container_width=False` with `width='content'`.
-- [ ] **GUI-03**: Primary GUI workflows execute without deprecation warnings related to width arguments.
+- [x] **GUI-01**: All Streamlit UI code replaces deprecated `use_container_width=True` with `width='stretch'`.
+- [x] **GUI-02**: All Streamlit UI code replaces deprecated `use_container_width=False` with `width='content'`.
+- [x] **GUI-03**: Primary GUI workflows execute without deprecation warnings related to width arguments.
 
 ### Quality & Verification
 
@@ -80,9 +80,9 @@ Deferred to later milestones.
 | TIM-03 | Phase 6 | Complete |
 | TIM-04 | Phase 6 | Complete |
 | TIM-05 | Phase 6 | Complete |
-| GUI-01 | Phase 7 | Pending |
-| GUI-02 | Phase 7 | Pending |
-| GUI-03 | Phase 7 | Pending |
+| GUI-01 | Phase 7 | Complete |
+| GUI-02 | Phase 7 | Complete |
+| GUI-03 | Phase 7 | Complete |
 | QUAL-01 | Phase 8 | Pending |
 | QUAL-02 | Phase 8 | Pending |
 | QUAL-03 | Phase 8 | Pending |
@@ -96,4 +96,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 6 execution*
+*Last updated: 2026-02-24 after Phase 7 execution*
