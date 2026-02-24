@@ -145,7 +145,7 @@ Plans:
 | 1. Schema Contract Baseline | 3/3 | Complete | 2026-02-24 |
 | 2. Migration Safety & Startup Readiness | 2/2 | Complete | 2026-02-24 |
 | 3. Monitor Runtime Error Elimination | 3/3 | Complete | 2026-02-24 |
-| 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete   | 2026-02-24 |
+| 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete    | 2026-02-24 |
 | 5. Timeline Core Reliability | 0/3 | Not started | - |
 | 6. Timeline UX Expansion (T2) | 0/3 | Not started | - |
 | 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |
