@@ -29,6 +29,12 @@ def _iter_streamlit_calls(file_path: Path) -> list[ast.Call]:
     return calls
 
 
+def _call_target_name(call: ast.Call) -> str:
+    if isinstance(call.func, ast.Attribute):
+        return f"st.{call.func.attr}"
+    return "st.<unknown>"
+
+
 def _keyword_value(call: ast.Call, keyword_name: str) -> ast.AST | None:
     for keyword in call.keywords:
         if keyword.arg == keyword_name:
@@ -41,6 +47,7 @@ def test_runtime_scope_covers_primary_gui_entrypoints() -> None:
     assert "app.py" in names
     assert "0_Quick_Start.py" in names
     assert "4_🔧_System.py" in names
+    assert len(names) >= 10
 
 
 def test_deprecated_usage_absent_in_runtime_streamlit_sources() -> None:
@@ -49,7 +56,9 @@ def test_deprecated_usage_absent_in_runtime_streamlit_sources() -> None:
         for call in _iter_streamlit_calls(file_path):
             value = _keyword_value(call, "use_container_width")
             if value is not None:
-                offenders.append(f"{file_path.relative_to(ROOT)}:{call.lineno}")
+                offenders.append(
+                    f"{file_path.relative_to(ROOT)}:{call.lineno}:{_call_target_name(call)}"
+                )
 
     assert not offenders, f"Deprecated use_container_width usage found: {offenders}"
 
@@ -65,13 +74,16 @@ def test_width_keyword_uses_supported_non_boolean_literals() -> None:
                 continue
 
             if isinstance(value, ast.Constant) and isinstance(value.value, bool):
-                boolean_offenders.append(f"{file_path.relative_to(ROOT)}:{call.lineno}")
+                boolean_offenders.append(
+                    f"{file_path.relative_to(ROOT)}:{call.lineno}:{_call_target_name(call)}"
+                )
                 continue
 
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
                 if value.value not in ALLOWED_WIDTH_LITERALS:
                     literal_offenders.append(
-                        f"{file_path.relative_to(ROOT)}:{call.lineno}={value.value!r}"
+                        f"{file_path.relative_to(ROOT)}:{call.lineno}:{_call_target_name(call)}="
+                        f"{value.value!r}"
                     )
 
     assert not boolean_offenders, f"Boolean width arguments found: {boolean_offenders}"
