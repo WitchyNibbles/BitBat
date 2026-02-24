@@ -7,7 +7,15 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bitbat.gui.timeline import get_price_series, get_timeline_data
+from bitbat.gui.timeline import (
+    apply_timeline_filters,
+    build_timeline_overlay_frame,
+    format_timeline_empty_state,
+    get_price_series,
+    get_timeline_data,
+    list_timeline_filter_options,
+    summarize_timeline_insights,
+)
 
 try:
     import plotly  # noqa: F401
@@ -301,6 +309,70 @@ def test_get_timeline_data_routes_by_freq_horizon_pair(tmp_path: Path) -> None:
     assert set(fifteen_min["prediction_status"]) == {"realized_correct"}
 
 
+def test_list_timeline_filter_options_uses_db_pairs(tmp_path: Path) -> None:
+    db_path = tmp_path / "options.db"
+    _create_test_db(db_path)
+
+    freqs, horizons = list_timeline_filter_options(db_path, "1h", "4h")
+
+    assert freqs == ["1h", "4h"]
+    assert horizons == ["4h", "24h"]
+
+
+def test_apply_timeline_filters_default_last_7_days() -> None:
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(
+            [
+                "2024-01-01 00:00:00",
+                "2024-01-08 00:00:00",
+                "2024-01-10 00:00:00",
+            ]
+        ),
+        "predicted_direction": ["up", "down", "flat"],
+        "correct": [1, None, None],
+    })
+
+    filtered = apply_timeline_filters(predictions)
+    assert filtered["timestamp_utc"].tolist() == [
+        pd.Timestamp("2024-01-08 00:00:00"),
+        pd.Timestamp("2024-01-10 00:00:00"),
+    ]
+
+
+def test_apply_timeline_filters_all_keeps_full_set() -> None:
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=4, freq="d"),
+        "predicted_direction": ["up", "down", "up", "flat"],
+        "correct": [1, 0, None, None],
+    })
+
+    filtered = apply_timeline_filters(predictions, date_window="all")
+    assert len(filtered) == 4
+
+
+def test_summarize_timeline_insights_includes_avg_confidence() -> None:
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="h"),
+        "predicted_direction": ["up", "down", "up"],
+        "p_up": [0.8, 0.2, None],
+        "p_down": [0.1, 0.7, None],
+        "correct": [1, 0, None],
+    })
+
+    summary = summarize_timeline_insights(predictions)
+    assert summary["total"] == 3
+    assert summary["average_confidence"] == pytest.approx(75.0)
+    assert summary["up_count"] == 2
+    assert summary["down_count"] == 1
+    assert summary["flat_count"] == 0
+
+
+def test_format_timeline_empty_state_includes_filters() -> None:
+    message = format_timeline_empty_state("1h", "4h", "7d")
+    assert "1h / 4h / 7d" in message
+    assert "No timeline events match the current filters" in message
+
+
 def test_get_price_series(tmp_path: Path) -> None:
     prices_dir = tmp_path / "raw" / "prices"
     prices_dir.mkdir(parents=True)
@@ -392,6 +464,73 @@ def test_build_timeline_figure_status_marker_semantics() -> None:
     assert "Status: Realized (Correct)" in marker_traces[0].hovertemplate
     assert "Status: Realized (Wrong)" in marker_traces[1].hovertemplate
     assert "Status: Pending" in marker_traces[2].hovertemplate
+
+
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_figure_confidence_exact_percent_and_na() -> None:
+    from bitbat.gui.timeline import build_timeline_figure
+
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=2, freq="h"),
+        "predicted_direction": ["up", "down"],
+        "p_up": [0.7234, None],
+        "p_down": [0.1, None],
+        "predicted_return": [0.01, -0.005],
+        "actual_return": [None, None],
+    })
+    prices = pd.DataFrame(
+        {"close": [100.0, 101.0]},
+        index=pd.date_range("2024-01-01", periods=2, freq="h"),
+    )
+
+    fig = build_timeline_figure(predictions, prices)
+    marker_traces = fig.data[1:]
+
+    assert "Confidence: 72.34%" in marker_traces[0].hovertemplate
+    assert "Confidence: n/a" in marker_traces[1].hovertemplate
+
+
+def test_build_timeline_overlay_frame_pending_semantics() -> None:
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="h"),
+        "predicted_direction": ["up", "down", "up"],
+        "predicted_return": [0.01, -0.006, 0.004],
+        "actual_return": [0.008, -0.003, None],
+        "correct": [1, 0, None],
+    })
+
+    overlay = build_timeline_overlay_frame(predictions)
+    assert len(overlay) == 3
+    assert overlay.loc[2, "prediction_status"] == "pending"
+    assert pd.isna(overlay.loc[2, "actual_return"])
+    assert pd.isna(overlay.loc[2, "mismatch_abs"])
+    assert overlay.loc[0, "mismatch_abs"] == pytest.approx(0.002)
+
+
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_figure_with_overlay_traces() -> None:
+    from bitbat.gui.timeline import build_timeline_figure
+
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="h"),
+        "predicted_direction": ["up", "down", "flat"],
+        "predicted_return": [0.01, -0.005, 0.002],
+        "actual_return": [0.008, -0.002, None],
+        "correct": [1, 0, None],
+    })
+    prices = pd.DataFrame(
+        {"close": [100.0, 99.0, 101.0]},
+        index=pd.date_range("2024-01-01", periods=3, freq="h"),
+    )
+
+    fig = build_timeline_figure(predictions, prices, show_overlay=True)
+    names = [trace.name for trace in fig.data if trace.name]
+    assert "Predicted Return" in names
+    assert "Realized Return" in names
+    assert "Mismatch Band" in names
+
+    realized_trace = next(trace for trace in fig.data if trace.name == "Realized Return")
+    assert realized_trace.y[-1] is None
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")

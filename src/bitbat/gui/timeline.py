@@ -22,6 +22,12 @@ _STATUS_STYLES = {
 
 _BOOL_TRUE = {"1", "true", "t", "yes", "y"}
 _BOOL_FALSE = {"0", "false", "f", "no", "n"}
+_DATE_WINDOW_DELTAS = {
+    "24h": pd.Timedelta(hours=24),
+    "7d": pd.Timedelta(days=7),
+    "30d": pd.Timedelta(days=30),
+    "all": None,
+}
 
 _TIMELINE_COLUMNS = [
     "timestamp_utc",
@@ -55,6 +61,13 @@ def _coerce_numeric(df: pd.DataFrame, column: str) -> pd.Series:
     if column not in df.columns:
         return pd.Series([pd.NA] * len(df), index=df.index, dtype="Float64")
     return pd.to_numeric(df[column], errors="coerce").astype("Float64")
+
+
+def _duration_sort_key(value: str) -> float:
+    try:
+        return pd.to_timedelta(value).total_seconds()
+    except Exception:
+        return float("inf")
 
 
 def _coerce_nullable_bool(value: Any) -> bool | None:
@@ -214,11 +227,13 @@ def _build_timeline_query(columns: set[str]) -> str | None:
     )
 
 
-def _format_percent(value: Any, *, signed: bool = False) -> str:
+def _format_percent(value: Any, *, signed: bool = False, decimals: int = 1) -> str:
     if pd.isna(value):
         return "n/a"
     parsed = float(value)
-    return f"{parsed:+.2%}" if signed else f"{parsed:.1%}"
+    if signed:
+        return f"{parsed:+.{decimals}%}"
+    return f"{parsed:.{decimals}%}"
 
 
 def _resolve_marker_price(ts: pd.Timestamp, prices: pd.DataFrame, row: pd.Series) -> float | None:
@@ -262,6 +277,23 @@ def summarize_timeline_status(predictions: pd.DataFrame) -> dict[str, float]:
     }
 
 
+def summarize_timeline_insights(predictions: pd.DataFrame) -> dict[str, float | None]:
+    """Summarize compact timeline insight-strip metrics."""
+    normalized = _normalize_timeline_rows(predictions)
+    status = summarize_timeline_status(normalized)
+
+    confidence = normalized["confidence"].dropna()
+    average_confidence = float(confidence.mean() * 100) if not confidence.empty else None
+
+    return {
+        **status,
+        "average_confidence": average_confidence,
+        "up_count": int(normalized["predicted_direction"].eq("up").sum()),
+        "down_count": int(normalized["predicted_direction"].eq("down").sum()),
+        "flat_count": int(normalized["predicted_direction"].eq("flat").sum()),
+    }
+
+
 def _sanitize_limit(limit: int) -> int:
     parsed = int(limit)
     return max(parsed, 1)
@@ -296,6 +328,108 @@ def get_timeline_data(
     return _normalize_timeline_rows(raw_df)
 
 
+def list_timeline_filter_options(
+    db_path: Path,
+    default_freq: str,
+    default_horizon: str,
+) -> tuple[list[str], list[str]]:
+    """List available freq/horizon filter options from prediction history."""
+    freqs = {default_freq}
+    horizons = {default_horizon}
+
+    if db_path.exists():
+        try:
+            with sqlite3.connect(str(db_path)) as con:
+                columns = _prediction_columns(con)
+                if {"freq", "horizon"}.issubset(columns):
+                    rows = con.execute(
+                        """
+                        SELECT DISTINCT freq, horizon
+                        FROM prediction_outcomes
+                        WHERE freq IS NOT NULL AND horizon IS NOT NULL
+                        """
+                    ).fetchall()
+                    for freq, horizon in rows:
+                        freqs.add(str(freq))
+                        horizons.add(str(horizon))
+        except Exception:
+            pass
+
+    sorted_freqs = sorted(freqs, key=_duration_sort_key)
+    sorted_horizons = sorted(horizons, key=_duration_sort_key)
+    return sorted_freqs, sorted_horizons
+
+
+def apply_timeline_filters(
+    predictions: pd.DataFrame,
+    *,
+    date_window: str = "7d",
+) -> pd.DataFrame:
+    """Apply date-window filter to normalized timeline rows."""
+    normalized = _normalize_timeline_rows(predictions)
+    if normalized.empty:
+        return normalized
+
+    if date_window not in _DATE_WINDOW_DELTAS:
+        date_window = "7d"
+
+    delta = _DATE_WINDOW_DELTAS[date_window]
+    if delta is None:
+        return normalized
+
+    max_ts = normalized["timestamp_utc"].max()
+    min_ts = max_ts - delta
+    return normalized.loc[normalized["timestamp_utc"] >= min_ts].reset_index(drop=True)
+
+
+def format_timeline_empty_state(freq: str, horizon: str, date_window: str) -> str:
+    """Build explicit no-result timeline message for current filter set."""
+    window_label = date_window if date_window in _DATE_WINDOW_DELTAS else "7d"
+    return (
+        "No timeline events match the current filters "
+        f"({freq} / {horizon} / {window_label}). "
+        "Try adjusting freq, horizon, or date window."
+    )
+
+
+def build_timeline_overlay_frame(predictions: pd.DataFrame) -> pd.DataFrame:
+    """Build predicted-vs-realized overlay dataset from normalized rows."""
+    normalized = _normalize_timeline_rows(predictions)
+    if normalized.empty:
+        return pd.DataFrame(
+            columns=[
+                "timestamp_utc",
+                "predicted_return",
+                "actual_return",
+                "prediction_status",
+                "mismatch_abs",
+                "upper_return",
+                "lower_return",
+            ]
+        )
+
+    overlay = normalized.loc[
+        :,
+        ["timestamp_utc", "predicted_return", "actual_return", "prediction_status"],
+    ].copy()
+    overlay["actual_return"] = overlay["actual_return"].where(
+        overlay["prediction_status"].ne("pending"),
+        pd.NA,
+    )
+    overlay["mismatch_abs"] = (overlay["predicted_return"] - overlay["actual_return"]).abs()
+
+    aligned = overlay["actual_return"].notna()
+    overlay["upper_return"] = pd.NA
+    overlay["lower_return"] = pd.NA
+    overlay.loc[aligned, "upper_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].max(
+        axis=1
+    )
+    overlay.loc[aligned, "lower_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].min(
+        axis=1
+    )
+    return overlay
+
+
 def get_price_series(
     data_dir: Path,
     freq: str,
@@ -321,6 +455,8 @@ def get_price_series(
 def build_timeline_figure(
     predictions: pd.DataFrame,
     prices: pd.DataFrame,
+    *,
+    show_overlay: bool = False,
 ) -> object:
     """Build a Plotly figure showing BTC price with prediction markers.
 
@@ -358,7 +494,7 @@ def build_timeline_figure(
         if price_at_ts is None:
             continue
 
-        confidence = _format_percent(row.get("confidence"))
+        confidence = _format_percent(row.get("confidence"), decimals=2)
         predicted_return = _format_percent(row.get("predicted_return"), signed=True)
         actual_return = _format_percent(row.get("actual_return"), signed=True)
 
@@ -386,10 +522,69 @@ def build_timeline_figure(
             )
         )
 
+    if show_overlay:
+        overlay = build_timeline_overlay_frame(normalized)
+        if not overlay.empty:
+            predicted_percent = overlay["predicted_return"].astype("Float64") * 100.0
+            realized_percent = overlay["actual_return"].astype("Float64") * 100.0
+            upper_percent = overlay["upper_return"].astype("Float64") * 100.0
+            lower_percent = overlay["lower_return"].astype("Float64") * 100.0
+
+            fig.add_trace(
+                go.Scatter(
+                    x=overlay["timestamp_utc"],
+                    y=predicted_percent,
+                    mode="lines",
+                    name="Predicted Return",
+                    line={"color": "#22C55E", "width": 2},
+                    yaxis="y2",
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=overlay["timestamp_utc"],
+                    y=realized_percent,
+                    mode="lines",
+                    name="Realized Return",
+                    line={"color": "#F97316", "width": 2},
+                    yaxis="y2",
+                    connectgaps=False,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=overlay["timestamp_utc"],
+                    y=lower_percent,
+                    mode="lines",
+                    line={"color": "rgba(0,0,0,0)", "width": 0},
+                    showlegend=False,
+                    hoverinfo="skip",
+                    yaxis="y2",
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=overlay["timestamp_utc"],
+                    y=upper_percent,
+                    mode="lines",
+                    name="Mismatch Band",
+                    line={"color": "rgba(251,191,36,0.40)", "width": 1},
+                    fill="tonexty",
+                    fillcolor="rgba(251,191,36,0.15)",
+                    yaxis="y2",
+                )
+            )
+
     fig.update_layout(
         title="Prediction Timeline",
         xaxis_title="Time",
         yaxis_title="BTC Price (USD)",
+        yaxis2={
+            "title": "Return (%)",
+            "overlaying": "y",
+            "side": "right",
+            "showgrid": False,
+        },
         height=500,
         template="plotly_dark",
         paper_bgcolor="#0e1117",
