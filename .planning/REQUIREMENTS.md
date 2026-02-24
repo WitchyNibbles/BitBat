@@ -35,9 +35,9 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 
 ### Quality & Verification
 
-- [ ] **QUAL-01**: Automated tests cover DB schema compatibility + monitor stability regressions for D1.
-- [ ] **QUAL-02**: Automated tests cover timeline data/render behavior for D2.
-- [ ] **QUAL-03**: Automated checks prevent reintroduction of `use_container_width` usage for D3.
+- [x] **QUAL-01**: Automated tests cover DB schema compatibility + monitor stability regressions for D1.
+- [x] **QUAL-02**: Automated tests cover timeline data/render behavior for D2.
+- [x] **QUAL-03**: Automated checks prevent reintroduction of `use_container_width` usage for D3.
 
 ### API / Surface Alignment
 
@@ -83,9 +83,9 @@ Deferred to later milestones.
 | GUI-01 | Phase 7 | Complete |
 | GUI-02 | Phase 7 | Complete |
 | GUI-03 | Phase 7 | Complete |
-| QUAL-01 | Phase 8 | Pending |
-| QUAL-02 | Phase 8 | Pending |
-| QUAL-03 | Phase 8 | Pending |
+| QUAL-01 | Phase 8 | Complete |
+| QUAL-02 | Phase 8 | Complete |
+| QUAL-03 | Phase 8 | Complete |
 | API-01 | Phase 4 | Complete |
 | API-02 | Phase 2 | Complete |
 
@@ -96,4 +96,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 7 execution*
+*Last updated: 2026-02-24 after Phase 8 execution*

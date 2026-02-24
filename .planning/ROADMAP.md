@@ -17,7 +17,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - [x] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness. (completed 2026-02-24)
 - [x] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior. (completed 2026-02-24)
 - [x] **Phase 7: Streamlit Compatibility Sweep** - Remove deprecated width API usage globally. (completed 2026-02-24)
-- [ ] **Phase 8: Regression Gates & Release Verification** - Lock in D1/D2/D3 via automated checks and end-to-end verification.
+- [x] **Phase 8: Regression Gates & Release Verification** - Lock in D1/D2/D3 via automated checks and end-to-end verification. (completed 2026-02-24)
 
 ## Phase Details
 
@@ -131,12 +131,12 @@ Plans:
   1. Automated tests cover schema compatibility + monitor stability for D1.
   2. Automated tests cover timeline rendering/data behavior for D2.
   3. Automated checks prevent reintroduction of deprecated Streamlit width APIs for D3.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 08-01: Add/expand D1-focused regression tests.
-- [ ] 08-02: Add/expand D2-focused timeline behavior tests.
-- [ ] 08-03: Add D3 guard checks and run end-to-end acceptance pass.
+- [x] 08-01: Add/expand D1-focused regression tests. (Completed 2026-02-24)
+- [x] 08-02: Add/expand D2-focused timeline behavior tests. (Completed 2026-02-24)
+- [x] 08-03: Add D3 guard checks and run end-to-end acceptance pass. (Completed 2026-02-24)
 
 ## Progress
 
@@ -149,4 +149,4 @@ Plans:
 | 5. Timeline Core Reliability | 3/3 | Complete    | 2026-02-24 |
 | 6. Timeline UX Expansion (T2) | 3/3 | Complete    | 2026-02-24 |
 | 7. Streamlit Compatibility Sweep | 2/2 | Complete    | 2026-02-24 |
-| 8. Regression Gates & Release Verification | 0/3 | Not started | - |
+| 8. Regression Gates & Release Verification | 3/3 | Complete    | 2026-02-24 |
