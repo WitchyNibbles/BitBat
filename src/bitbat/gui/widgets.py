@@ -135,19 +135,18 @@ def get_latest_prediction(db_path: Path) -> dict[str, Any] | None:
     """Return the most recent prediction row, or None."""
     rows = db_query(
         db_path,
-        "SELECT timestamp_utc, predicted_direction, p_up, p_down, model_version, created_at "
+        "SELECT timestamp_utc, predicted_direction, predicted_return, predicted_price, "
+        "model_version, created_at "
         "FROM prediction_outcomes ORDER BY created_at DESC LIMIT 1",
     )
     if not rows:
         return None
-    ts, direction, p_up, p_down, model_ver, created_at = rows[0]
-    confidence = max(float(p_up), float(p_down))
+    ts, direction, predicted_return, predicted_price, model_ver, created_at = rows[0]
     return {
         "timestamp_utc": ts,
         "direction": direction,
-        "p_up": float(p_up),
-        "p_down": float(p_down),
-        "confidence": confidence,
+        "predicted_return": float(predicted_return) if predicted_return is not None else 0.0,
+        "predicted_price": float(predicted_price) if predicted_price is not None else None,
         "model_version": model_ver,
         "created_at": created_at,
     }
@@ -240,16 +239,19 @@ def render_prediction_card(pred: dict[str, Any]) -> None:
     import streamlit as st  # noqa: PLC0415
 
     direction = pred["direction"]
-    confidence = pred["confidence"]
+    predicted_return = pred.get("predicted_return", 0.0)
+    predicted_price = pred.get("predicted_price")
+
+    price_str = f"${predicted_price:,.0f} " if predicted_price is not None else ""
+    sign = "+" if predicted_return >= 0 else ""
+    ret_str = f"({sign}{predicted_return:.2%})"
 
     if direction == "up":
-        st.success(f"📈 **UP** — {confidence:.0%} confidence")
+        st.success(f"Predicted: {price_str}{ret_str}")
     elif direction == "down":
-        st.error(f"📉 **DOWN** — {confidence:.0%} confidence")
+        st.error(f"Predicted: {price_str}{ret_str}")
     else:
-        st.info(f"➡️ **FLAT** — {confidence:.0%} confidence")
-
-    st.progress(min(confidence, 1.0))
+        st.info(f"Predicted: {price_str}{ret_str}")
 
 
 def render_countdown(minutes: int | None) -> None:
