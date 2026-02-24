@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import xgboost as xgb
-from fastapi.testclient import TestClient
+from tests.api.client import SyncASGIClient
 
 from bitbat.api.app import create_app
 from bitbat.api.schemas import (
@@ -106,41 +106,41 @@ def full_env(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture()
-def client(full_env: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(full_env: Path, monkeypatch: pytest.MonkeyPatch) -> SyncASGIClient:
     monkeypatch.chdir(full_env)
-    return TestClient(create_app())
+    return SyncASGIClient(create_app())
 
 
 class TestPhase4Integration:
-    def test_health_ok(self, client: TestClient) -> None:
+    def test_health_ok(self, client: SyncASGIClient) -> None:
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         HealthResponse(**data)  # validates schema
         assert data["status"] == "ok"
 
-    def test_detailed_health_all_ok(self, client: TestClient) -> None:
+    def test_detailed_health_all_ok(self, client: SyncASGIClient) -> None:
         resp = client.get("/health/detailed")
         data = resp.json()
         parsed = DetailedHealthResponse(**data)
         assert parsed.status == "ok"
         assert all(s.status == "ok" for s in parsed.services)
 
-    def test_latest_prediction(self, client: TestClient) -> None:
+    def test_latest_prediction(self, client: SyncASGIClient) -> None:
         resp = client.get("/predictions/latest?freq=1h&horizon=4h")
         assert resp.status_code == 200
         data = resp.json()
         parsed = PredictionResponse(**data)
         assert parsed.model_version == "v1.0"
 
-    def test_prediction_history(self, client: TestClient) -> None:
+    def test_prediction_history(self, client: SyncASGIClient) -> None:
         resp = client.get("/predictions/history?freq=1h&horizon=4h")
         data = resp.json()
         parsed = PredictionListResponse(**data)
         assert parsed.total == 20
         assert len(parsed.predictions) == 20
 
-    def test_prediction_performance(self, client: TestClient) -> None:
+    def test_prediction_performance(self, client: SyncASGIClient) -> None:
         resp = client.get("/predictions/performance?freq=1h&horizon=4h")
         data = resp.json()
         parsed = PerformanceResponse(**data)
@@ -148,13 +148,13 @@ class TestPhase4Integration:
         assert parsed.hit_rate is not None
         assert 0.0 <= parsed.hit_rate <= 1.0
 
-    def test_feature_importance(self, client: TestClient) -> None:
+    def test_feature_importance(self, client: SyncASGIClient) -> None:
         resp = client.get("/analytics/feature-importance?freq=1h&horizon=4h")
         data = resp.json()
         parsed = FeatureImportanceResponse(**data)
         assert len(parsed.features) > 0
 
-    def test_system_status(self, client: TestClient) -> None:
+    def test_system_status(self, client: SyncASGIClient) -> None:
         resp = client.get("/analytics/status?freq=1h&horizon=4h")
         data = resp.json()
         parsed = SystemStatusResponse(**data)
@@ -164,7 +164,7 @@ class TestPhase4Integration:
         assert parsed.active_model_version == "v1.0"
         assert parsed.total_predictions == 20
 
-    def test_prometheus_metrics(self, client: TestClient) -> None:
+    def test_prometheus_metrics(self, client: SyncASGIClient) -> None:
         resp = client.get("/metrics")
         assert resp.status_code == 200
         text = resp.text
@@ -174,7 +174,7 @@ class TestPhase4Integration:
         assert "bitbat_predictions_total_30d" in text
         assert "bitbat_hit_rate_30d" in text
 
-    def test_openapi_schema_available(self, client: TestClient) -> None:
+    def test_openapi_schema_available(self, client: SyncASGIClient) -> None:
         resp = client.get("/openapi.json")
         assert resp.status_code == 200
         schema = resp.json()
@@ -183,7 +183,7 @@ class TestPhase4Integration:
         assert "/predictions/latest" in schema["paths"]
         assert "/metrics" in schema["paths"]
 
-    def test_full_api_roundtrip(self, client: TestClient) -> None:
+    def test_full_api_roundtrip(self, client: SyncASGIClient) -> None:
         """End-to-end: health → predictions → performance → analytics → metrics."""
         # 1. Health
         assert client.get("/health").json()["status"] == "ok"

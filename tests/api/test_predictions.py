@@ -9,16 +9,16 @@ import numpy as np
 import pandas as pd
 import pytest
 import xgboost as xgb
-from fastapi.testclient import TestClient
+from tests.api.client import SyncASGIClient
 
 from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client() -> SyncASGIClient:
     app = create_app()
-    return TestClient(app)
+    return SyncASGIClient(app)
 
 
 @pytest.fixture()
@@ -83,26 +83,26 @@ def model_on_disk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 class TestLatestPrediction:
     def test_404_when_no_db(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/predictions/latest")
         assert resp.status_code == 503
 
-    def test_returns_prediction(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_returns_prediction(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/latest?freq=1h&horizon=4h")
         assert resp.status_code == 200
         data = resp.json()
         assert "predicted_direction" in data
-        assert "p_up" in data
+        assert "predicted_return" in data
 
-    def test_404_wrong_config(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_404_wrong_config(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/latest?freq=1h&horizon=1h")
         assert resp.status_code == 404
 
 
 class TestPredictionHistory:
-    def test_returns_list(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_returns_list(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/history?freq=1h&horizon=4h")
         assert resp.status_code == 200
         data = resp.json()
@@ -110,27 +110,27 @@ class TestPredictionHistory:
         assert isinstance(data["predictions"], list)
         assert data["total"] == 5
 
-    def test_limit_respected(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_limit_respected(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/history?freq=1h&horizon=4h&limit=2")
         data = resp.json()
         assert len(data["predictions"]) == 2
         assert data["total"] == 5
 
-    def test_empty_history(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_empty_history(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/history?freq=4h&horizon=24h")
         data = resp.json()
         assert data["total"] == 0
 
 
 class TestPerformance:
-    def test_returns_metrics(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_returns_metrics(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/performance?freq=1h&horizon=4h")
         assert resp.status_code == 200
         data = resp.json()
         assert "hit_rate" in data
         assert data["realized_predictions"] == 3
 
-    def test_empty_performance(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_empty_performance(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/predictions/performance?freq=4h&horizon=24h")
         data = resp.json()
         assert data["total_predictions"] == 0
@@ -144,20 +144,20 @@ class TestPerformance:
 
 class TestFeatureImportance:
     def test_404_no_model(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/analytics/feature-importance")
         assert resp.status_code == 404
 
-    def test_returns_features(self, client: TestClient, model_on_disk: Path) -> None:
+    def test_returns_features(self, client: SyncASGIClient, model_on_disk: Path) -> None:
         resp = client.get("/analytics/feature-importance?freq=1h&horizon=4h")
         assert resp.status_code == 200
         data = resp.json()
         assert "features" in data
         assert isinstance(data["features"], list)
 
-    def test_top_n_respected(self, client: TestClient, model_on_disk: Path) -> None:
+    def test_top_n_respected(self, client: SyncASGIClient, model_on_disk: Path) -> None:
         resp = client.get("/analytics/feature-importance?freq=1h&horizon=4h&top_n=1")
         data = resp.json()
         assert len(data["features"]) <= 1
@@ -165,7 +165,7 @@ class TestFeatureImportance:
 
 class TestSystemStatus:
     def test_returns_status(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/analytics/status")
@@ -174,7 +174,7 @@ class TestSystemStatus:
         assert "database_ok" in data
         assert "model_exists" in data
 
-    def test_with_db(self, client: TestClient, db_with_predictions: Path) -> None:
+    def test_with_db(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
         resp = client.get("/analytics/status?freq=1h&horizon=4h")
         data = resp.json()
         assert data["database_ok"] is True

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.api.client import SyncASGIClient
 from sqlalchemy import text
 
 from bitbat.api.app import create_app
@@ -15,8 +15,8 @@ from bitbat.autonomous.models import create_database_engine
 
 
 @pytest.fixture()
-def client() -> TestClient:
-    return TestClient(create_app())
+def client() -> SyncASGIClient:
+    return SyncASGIClient(create_app())
 
 
 @pytest.fixture()
@@ -92,42 +92,42 @@ def incompatible_schema_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> P
 
 class TestMetricsEndpoint:
     def test_returns_200(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/metrics")
         assert resp.status_code == 200
 
     def test_content_type_text(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         resp = client.get("/metrics")
         assert "text/plain" in resp.headers["content-type"]
 
     def test_has_uptime_gauge(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         assert "bitbat_uptime_seconds" in text
 
     def test_has_database_gauge(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         assert "bitbat_database_available" in text
 
     def test_has_model_gauge(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
         assert "bitbat_model_available" in text
 
     def test_has_schema_gauges(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
@@ -136,7 +136,7 @@ class TestMetricsEndpoint:
         assert "bitbat_schema_auto_upgrade_possible" in text
 
     def test_prometheus_format(
-        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, client: SyncASGIClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
         text = client.get("/metrics").text
@@ -147,22 +147,22 @@ class TestMetricsEndpoint:
 
 
 class TestMetricsWithData:
-    def test_prediction_counts(self, client: TestClient, db_with_data: Path) -> None:
+    def test_prediction_counts(self, client: SyncASGIClient, db_with_data: Path) -> None:
         text = client.get("/metrics").text
         assert "bitbat_predictions_total_30d" in text
         assert "bitbat_predictions_realized_30d" in text
         assert "bitbat_predictions_correct_30d" in text
 
-    def test_hit_rate_present(self, client: TestClient, db_with_data: Path) -> None:
+    def test_hit_rate_present(self, client: SyncASGIClient, db_with_data: Path) -> None:
         text = client.get("/metrics").text
         assert "bitbat_hit_rate_30d" in text
 
-    def test_database_shows_available(self, client: TestClient, db_with_data: Path) -> None:
+    def test_database_shows_available(self, client: SyncASGIClient, db_with_data: Path) -> None:
         text = client.get("/metrics").text
         # The DB exists, so the gauge should be 1
         assert "bitbat_database_available 1" in text
 
-    def test_schema_shows_compatible(self, client: TestClient, db_with_data: Path) -> None:
+    def test_schema_shows_compatible(self, client: SyncASGIClient, db_with_data: Path) -> None:
         text = client.get("/metrics").text
         assert "bitbat_schema_compatible 1" in text
         assert "bitbat_schema_missing_columns 0" in text
@@ -171,7 +171,7 @@ class TestMetricsWithData:
 class TestMetricsWithIncompatibleSchema:
     def test_schema_reports_incompatible(
         self,
-        client: TestClient,
+        client: SyncASGIClient,
         incompatible_schema_db: Path,
     ) -> None:
         text = client.get("/metrics").text
@@ -181,7 +181,7 @@ class TestMetricsWithIncompatibleSchema:
 
     def test_prediction_gauges_are_not_emitted_when_schema_incompatible(
         self,
-        client: TestClient,
+        client: SyncASGIClient,
         incompatible_schema_db: Path,
     ) -> None:
         text = client.get("/metrics").text

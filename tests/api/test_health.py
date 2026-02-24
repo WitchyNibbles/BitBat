@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.api.client import SyncASGIClient
 from sqlalchemy import text
 
 from bitbat.api.app import create_app
@@ -14,9 +14,9 @@ from bitbat.autonomous.models import create_database_engine
 
 
 @pytest.fixture()
-def client() -> TestClient:
+def client() -> SyncASGIClient:
     app = create_app()
-    return TestClient(app)
+    return SyncASGIClient(app)
 
 
 def _create_legacy_prediction_outcomes(database_url: str) -> None:
@@ -54,36 +54,36 @@ def _schema_service(services: list[dict[str, str]]) -> dict[str, str]:
 
 
 class TestHealthEndpoint:
-    def test_returns_200(self, client: TestClient) -> None:
+    def test_returns_200(self, client: SyncASGIClient) -> None:
         resp = client.get("/health")
         assert resp.status_code == 200
 
-    def test_status_ok(self, client: TestClient) -> None:
+    def test_status_ok(self, client: SyncASGIClient) -> None:
         data = client.get("/health").json()
         assert data["status"] == "ok"
 
-    def test_has_version(self, client: TestClient) -> None:
+    def test_has_version(self, client: SyncASGIClient) -> None:
         data = client.get("/health").json()
         assert "version" in data
         assert isinstance(data["version"], str)
 
-    def test_has_uptime(self, client: TestClient) -> None:
+    def test_has_uptime(self, client: SyncASGIClient) -> None:
         data = client.get("/health").json()
         assert "uptime_seconds" in data
         assert data["uptime_seconds"] >= 0
 
 
 class TestDetailedHealthEndpoint:
-    def test_returns_200(self, client: TestClient) -> None:
+    def test_returns_200(self, client: SyncASGIClient) -> None:
         resp = client.get("/health/detailed")
         assert resp.status_code == 200
 
-    def test_has_services_list(self, client: TestClient) -> None:
+    def test_has_services_list(self, client: SyncASGIClient) -> None:
         data = client.get("/health/detailed").json()
         assert "services" in data
         assert isinstance(data["services"], list)
 
-    def test_services_have_name_and_status(self, client: TestClient) -> None:
+    def test_services_have_name_and_status(self, client: SyncASGIClient) -> None:
         data = client.get("/health/detailed").json()
         for svc in data["services"]:
             assert "name" in svc
@@ -92,7 +92,7 @@ class TestDetailedHealthEndpoint:
 
     def test_schema_readiness_payload_exists(
         self,
-        client: TestClient,
+        client: SyncASGIClient,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -102,18 +102,18 @@ class TestDetailedHealthEndpoint:
         assert data["schema_readiness"]["compatibility_state"] == "unavailable"
         assert data["schema_readiness"]["is_compatible"] is False
 
-    def test_four_services_checked(self, client: TestClient) -> None:
+    def test_four_services_checked(self, client: SyncASGIClient) -> None:
         data = client.get("/health/detailed").json()
         names = {s["name"] for s in data["services"]}
         assert names == {"database", "schema_compatibility", "model", "dataset"}
 
-    def test_overall_status_is_string(self, client: TestClient) -> None:
+    def test_overall_status_is_string(self, client: SyncASGIClient) -> None:
         data = client.get("/health/detailed").json()
         assert data["status"] in ("ok", "degraded", "error")
 
     def test_schema_service_degraded_for_incompatible_schema(
         self,
-        client: TestClient,
+        client: SyncASGIClient,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -135,7 +135,7 @@ class TestDetailedHealthEndpoint:
 
     def test_schema_service_ok_for_compatible_schema(
         self,
-        client: TestClient,
+        client: SyncASGIClient,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
