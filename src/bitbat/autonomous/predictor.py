@@ -15,7 +15,7 @@ from typing import Any
 import pandas as pd
 import xgboost as xgb
 
-from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.db import AutonomousDB, classify_monitor_db_error
 from bitbat.config.loader import get_runtime_config, load_config
 from bitbat.dataset.build import _generate_price_features
 from bitbat.model.infer import predict_bar
@@ -79,8 +79,8 @@ class LivePredictor:
     def __init__(
         self,
         db: AutonomousDB,
-        freq: str = "1h",
-        horizon: str = "4h",
+        freq: str = "5m",
+        horizon: str = "30m",
     ) -> None:
         self.db = db
         self.freq = freq
@@ -100,8 +100,16 @@ class LivePredictor:
         return load_model(model_path)
 
     def _active_model_version(self) -> str:
-        with self.db.session() as session:
-            active = self.db.get_active_model(session, self.freq, self.horizon)
+        try:
+            with self.db.session() as session:
+                active = self.db.get_active_model(session, self.freq, self.horizon)
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="predict.get_active_model",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
         if active is not None:
             return active.version
         # Fall back to a default version tag when no model is registered in DB
@@ -139,14 +147,14 @@ class LivePredictor:
         try:
             config = get_runtime_config() or load_config()
             enable_garch = bool(config.get("enable_garch", False))
-            features = _generate_price_features(prices, enable_garch=enable_garch)
+            features = _generate_price_features(prices, enable_garch=enable_garch, freq=self.freq)
 
             # Join sentiment features if news data exists
             enable_sentiment = bool(config.get("enable_sentiment", True))
             if enable_sentiment:
                 news_path = (
-                    self.data_dir / "raw" / "news" / "cryptocompare_1h"
-                    / "cryptocompare_btc_1h.parquet"
+                    self.data_dir / "raw" / "news" / f"cryptocompare_{self.freq}"
+                    / f"cryptocompare_btc_{self.freq}.parquet"
                 )
                 if news_path.exists():
                     try:
@@ -215,12 +223,20 @@ class LivePredictor:
         latest_ts = aligned.index.max()
 
         # Check for duplicate prediction — don't re-predict the same bar
-        with self.db.session() as session:
-            existing = self.db.get_unrealized_predictions(
-                session=session,
-                freq=self.freq,
-                horizon=self.horizon,
-            )
+        try:
+            with self.db.session() as session:
+                existing = self.db.get_unrealized_predictions(
+                    session=session,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                )
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="predict.fetch_unrealized_predictions",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
         for pred in existing:
             pred_ts = pd.Timestamp(pred.timestamp_utc)
             if pred_ts.tzinfo is not None:
@@ -231,17 +247,14 @@ class LivePredictor:
 
         # Run inference
         feature_row = aligned.loc[latest_ts]
-        prediction = predict_bar(booster, feature_row, timestamp=latest_ts)
+        current_price = float(prices["close"].iloc[-1])
+        prediction = predict_bar(
+            booster, feature_row, timestamp=latest_ts, current_price=current_price
+        )
 
-        p_up = float(prediction["p_up"])
-        p_down = float(prediction["p_down"])
-
-        direction = "up" if p_up >= p_down else "down"
-
-        # Determine if flat (neither probability is dominant)
-        p_flat = max(0.0, 1.0 - p_up - p_down)
-        if p_flat > p_up and p_flat > p_down:
-            direction = "flat"
+        predicted_return = float(prediction["predicted_return"])
+        predicted_price = float(prediction["predicted_price"])
+        direction = str(prediction["predicted_direction"])
 
         model_version = self._active_model_version()
 
@@ -251,31 +264,40 @@ class LivePredictor:
         timestamp_py = timestamp_utc.to_pydatetime()
 
         # Store in autonomous.db
-        with self.db.session() as session:
-            self.db.store_prediction(
-                session=session,
-                timestamp_utc=timestamp_py,
-                predicted_direction=direction,
-                p_up=p_up,
-                p_down=p_down,
-                model_version=model_version,
-                freq=self.freq,
-                horizon=self.horizon,
-            )
+        try:
+            with self.db.session() as session:
+                self.db.store_prediction(
+                    session=session,
+                    timestamp_utc=timestamp_py,
+                    predicted_direction=direction,
+                    model_version=model_version,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                    predicted_return=predicted_return,
+                    predicted_price=predicted_price,
+                )
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="predict.store_prediction",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
 
         logger.info(
-            "Prediction stored: ts=%s direction=%s p_up=%.4f p_down=%.4f model=%s",
+            "Prediction stored: ts=%s direction=%s predicted_return=%.6f"
+            " predicted_price=%.2f model=%s",
             timestamp_py,
             direction,
-            p_up,
-            p_down,
+            predicted_return,
+            predicted_price,
             model_version,
         )
 
         return {
             "timestamp_utc": timestamp_py,
             "predicted_direction": direction,
-            "p_up": p_up,
-            "p_down": p_down,
+            "predicted_return": predicted_return,
+            "predicted_price": predicted_price,
             "model_version": model_version,
         }

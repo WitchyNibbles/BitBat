@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -19,14 +20,114 @@ from .models import (
     init_database,
 )
 from .schema_compat import (
+    SchemaAuditReport,
     SchemaCompatibilityError,
+    audit_schema_compatibility,
     ensure_schema_compatibility,
+    format_missing_columns,
     upgrade_schema_compatibility,
 )
 
 
 def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _schema_remediation_text(database_url: str, *, can_auto_upgrade: bool) -> str:
+    audit_cmd = (
+        "poetry run python scripts/init_autonomous_db.py "
+        f'--database-url "{database_url}" --audit'
+    )
+    if can_auto_upgrade:
+        upgrade_cmd = (
+            "poetry run python scripts/init_autonomous_db.py "
+            f'--database-url "{database_url}" --upgrade'
+        )
+        return f"Run `{audit_cmd}` then `{upgrade_cmd}`."
+    return (
+        f"Run `{audit_cmd}`. Blocking non-additive incompatibilities were detected; "
+        "use `--force` only if table recreation is acceptable."
+    )
+
+
+def _schema_detail_from_report(report: SchemaAuditReport) -> str:
+    missing = format_missing_columns(report) or "unknown"
+    return f"Schema incompatible: missing {missing}"
+
+
+@dataclass(slots=True)
+class MonitorDatabaseError(RuntimeError):
+    """Structured monitor DB failure with actionable diagnostics."""
+
+    step: str
+    detail: str
+    remediation: str
+    error_class: str
+    database_url: str
+
+    def __post_init__(self) -> None:
+        RuntimeError.__init__(
+            self,
+            f"[{self.step}] {self.error_class}: {self.detail} Remediation: {self.remediation}",
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "step": self.step,
+            "detail": self.detail,
+            "remediation": self.remediation,
+            "error_class": self.error_class,
+            "database_url": self.database_url,
+        }
+
+
+def classify_monitor_db_error(
+    exc: Exception,
+    *,
+    step: str,
+    database_url: str,
+    engine: Any | None = None,
+) -> MonitorDatabaseError:
+    """Map raw DB exceptions to actionable monitor diagnostics."""
+    error_class = type(exc).__name__
+    raw_detail = str(exc).strip() or repr(exc)
+    detail = raw_detail
+    remediation = (
+        f"Check database availability at `{database_url}` and inspect monitor logs for context."
+    )
+
+    if isinstance(exc, SchemaCompatibilityError):
+        detail = _schema_detail_from_report(exc.report)
+        remediation = _schema_remediation_text(
+            database_url,
+            can_auto_upgrade=exc.report.can_auto_upgrade,
+        )
+    else:
+        lower = raw_detail.lower()
+        report: SchemaAuditReport | None = None
+        if "no such column" in lower or "prediction_outcomes" in lower:
+            try:
+                report = audit_schema_compatibility(database_url=database_url, engine=engine)
+            except Exception:
+                report = None
+
+            if report is not None and not report.is_compatible:
+                detail = _schema_detail_from_report(report)
+                remediation = _schema_remediation_text(
+                    database_url,
+                    can_auto_upgrade=report.can_auto_upgrade,
+                )
+            elif "no such column" in lower:
+                detail = f"Runtime query failed: {raw_detail}"
+                remediation = _schema_remediation_text(database_url, can_auto_upgrade=True)
+
+    return MonitorDatabaseError(
+        step=step,
+        detail=detail,
+        remediation=remediation,
+        error_class=error_class,
+        database_url=database_url,
+    )
 
 
 class AutonomousDB:
