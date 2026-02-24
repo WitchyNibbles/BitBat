@@ -7,12 +7,14 @@ import time
 from typing import Any
 
 from bitbat.autonomous.alerting import send_alert
+from bitbat.autonomous.continuous_trainer import ContinuousTrainer
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.drift import DriftDetector
 from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.autonomous.predictor import LivePredictor
-from bitbat.autonomous.retrainer import AutoRetrainer
+from bitbat.autonomous.schema_compat import ensure_schema_compatibility
 from bitbat.autonomous.validator import PredictionValidator
+from bitbat.config.loader import get_runtime_config, load_config
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +22,28 @@ logger = logging.getLogger(__name__)
 class MonitoringAgent:
     """Coordinate autonomous monitoring pipeline steps."""
 
-    def __init__(self, db: AutonomousDB, freq: str = "1h", horizon: str = "4h") -> None:
+    def __init__(self, db: AutonomousDB, freq: str = "5m", horizon: str = "30m") -> None:
         self.db = db
         self.freq = freq
         self.horizon = horizon
 
+        self._validate_schema_preflight()
+
+        config = get_runtime_config() or load_config()
+
         self.predictor = LivePredictor(db, freq=freq, horizon=horizon)
         self.validator = PredictionValidator(db, freq=freq, horizon=horizon)
         self.drift_detector = DriftDetector(db, freq=freq, horizon=horizon)
-        self.retrainer = AutoRetrainer(db, freq=freq, horizon=horizon)
+        self.continuous_trainer = ContinuousTrainer(db, freq=freq, horizon=horizon, config=config)
+
+    def _validate_schema_preflight(self) -> None:
+        """Fail fast when runtime-required schema columns are missing."""
+        ensure_schema_compatibility(
+            database_url=self.db.database_url,
+            engine=self.db.engine,
+            auto_upgrade=False,
+            raise_on_error=True,
+        )
 
     def _active_model_version(self) -> str:
         with self.db.session() as session:
@@ -174,32 +189,20 @@ class MonitoringAgent:
         retraining_result: dict[str, Any] | None = None
 
         if drift_detected:
-            if self.drift_detector.is_in_cooldown():
-                warning_message = (
-                    f"Drift detected but retraining in cooldown for {self.freq}/{self.horizon}"
-                )
-                logger.warning("%s: %s", warning_message, drift_reason)
-                send_alert(
-                    "WARNING",
-                    warning_message,
-                    {"reason": drift_reason, "metrics": drift_metrics},
-                )
-            else:
-                retraining_triggered = True
-                send_alert(
-                    "CRITICAL",
-                    "Drift detected - starting retraining",
-                    {"reason": drift_reason, "metrics": drift_metrics},
-                )
-                retraining_result = self.retrainer.retrain(
-                    trigger_reason="drift_detected",
-                    trigger_metrics=drift_metrics,
-                )
+            send_alert(
+                "WARNING",
+                f"Drift detected for {self.freq}/{self.horizon}",
+                {"reason": drift_reason, "metrics": drift_metrics},
+            )
 
-                if retraining_result.get("status") == "completed":
-                    send_alert("SUCCESS", "Auto-retraining completed", retraining_result)
-                else:
-                    send_alert("ERROR", "Auto-retraining failed", retraining_result)
+        # Continuous retraining: retrain on schedule when enough new samples exist
+        if self.continuous_trainer.should_retrain():
+            retraining_triggered = True
+            retraining_result = self.continuous_trainer.retrain()
+            if retraining_result.get("status") == "completed":
+                send_alert("SUCCESS", "Continuous retraining completed", retraining_result)
+            else:
+                send_alert("ERROR", "Continuous retraining failed", retraining_result)
 
         result = {
             "prediction": prediction_result,
@@ -217,7 +220,7 @@ class MonitoringAgent:
         logger.info("Monitoring cycle complete: %s", result)
         return result
 
-    def run_forever(self, interval_seconds: int = 3600) -> None:
+    def run_forever(self, interval_seconds: int = 300) -> None:
         """Run monitoring loop continuously."""
         logger.info("Starting monitoring loop with interval=%ss", interval_seconds)
         while True:

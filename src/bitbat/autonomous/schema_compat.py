@@ -229,6 +229,14 @@ def format_schema_audit(report: SchemaAuditReport) -> str:
     return "\n".join(lines)
 
 
+def format_missing_columns(report: SchemaAuditReport) -> str:
+    """Return compact `table(col1, col2)` text for user-facing error messages."""
+    pairs = []
+    for table_name, columns in report.missing_columns.items():
+        pairs.append(f"{table_name}({', '.join(columns)})")
+    return "; ".join(pairs)
+
+
 def _transaction(connection: Connection):
     if connection.in_transaction():
         return connection.begin_nested()
