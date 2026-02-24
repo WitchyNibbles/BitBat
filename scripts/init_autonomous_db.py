@@ -101,6 +101,14 @@ def main(argv: list[str] | None = None) -> int:
             print("No existing autonomous tables found. Creating baseline schema first.")
             init_database(args.database_url, engine=engine)
         result = upgrade_schema_compatibility(engine=engine)
+        status = result.status
+        print(
+            "Upgrade status: "
+            f"{status['upgrade_state']} "
+            f"(operations={status['operations_applied']}, "
+            f"missing_before={status['missing_columns_before']}, "
+            f"missing_after={status['missing_columns_after']})"
+        )
         print(format_schema_audit(result.report_after))
         if result.actions:
             upgraded = ", ".join(

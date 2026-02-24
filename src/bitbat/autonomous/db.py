@@ -18,7 +18,7 @@ from .models import (
     create_database_engine,
     init_database,
 )
-from .schema_compat import ensure_schema_compatibility
+from .schema_compat import SchemaCompatibilityError, ensure_schema_compatibility, upgrade_schema_compatibility
 
 
 def _utcnow() -> datetime:
@@ -37,13 +37,31 @@ class AutonomousDB:
         self.database_url = database_url
         self.engine = create_database_engine(database_url)
         init_database(database_url, engine=self.engine)
+        self.schema_compatibility_status: dict[str, str | int] = {}
         if auto_upgrade_schema:
-            ensure_schema_compatibility(
+            upgrade_result = upgrade_schema_compatibility(
                 database_url=database_url,
                 engine=self.engine,
-                auto_upgrade=True,
+            )
+            self.schema_compatibility_status = dict(upgrade_result.status)
+            if not upgrade_result.is_compatible:
+                raise SchemaCompatibilityError(
+                    report=upgrade_result.report_after,
+                    database_url=database_url,
+                )
+        else:
+            report = ensure_schema_compatibility(
+                database_url=database_url,
+                engine=self.engine,
+                auto_upgrade=False,
                 raise_on_error=True,
             )
+            self.schema_compatibility_status = {
+                "upgrade_state": "already_compatible",
+                "operations_applied": 0,
+                "missing_columns_before": report.missing_column_count,
+                "missing_columns_after": report.missing_column_count,
+            }
         self._session_factory = sessionmaker(
             bind=self.engine,
             autoflush=True,
