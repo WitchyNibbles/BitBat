@@ -209,6 +209,16 @@ class TestFullSystemIntegration:
         )
         assert rows[0][0] == pytest.approx(0.67)
 
+    def test_primary_workflow_signals_remain_consistent(self, full_db: Path) -> None:
+        status = get_system_status(full_db)
+        prediction = get_latest_prediction(full_db)
+        events = get_recent_events(full_db, limit=5)
+
+        assert status["status"] == "active"
+        assert prediction is not None
+        assert prediction["direction"] == "up"
+        assert any("Monitoring cycle complete" in event["message"] for event in events)
+
 
 # ---------------------------------------------------------------------------
 # Timeline status metrics alignment
