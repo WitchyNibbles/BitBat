@@ -16,7 +16,9 @@ from .models import (
     RetrainingEvent,
     SystemLog,
     create_database_engine,
+    init_database,
 )
+from .schema_compat import ensure_schema_compatibility
 
 
 def _utcnow() -> datetime:
@@ -26,9 +28,22 @@ def _utcnow() -> datetime:
 class AutonomousDB:
     """High-level interface for autonomous system database operations."""
 
-    def __init__(self, database_url: str = "sqlite:///data/autonomous.db") -> None:
+    def __init__(
+        self,
+        database_url: str = "sqlite:///data/autonomous.db",
+        *,
+        auto_upgrade_schema: bool = True,
+    ) -> None:
         self.database_url = database_url
         self.engine = create_database_engine(database_url)
+        init_database(database_url, engine=self.engine)
+        if auto_upgrade_schema:
+            ensure_schema_compatibility(
+                database_url=database_url,
+                engine=self.engine,
+                auto_upgrade=True,
+                raise_on_error=True,
+            )
         self._session_factory = sessionmaker(
             bind=self.engine,
             autoflush=True,
@@ -55,28 +70,25 @@ class AutonomousDB:
         session: Session,
         timestamp_utc: datetime,
         predicted_direction: str,
-        p_up: float,
-        p_down: float,
         model_version: str,
         freq: str,
         horizon: str,
         predicted_return: float | None = None,
+        predicted_price: float | None = None,
+        p_up: float = 0.0,
+        p_down: float = 0.0,
         features_used: dict[str, Any] | None = None,
     ) -> PredictionOutcome:
         """Insert a new prediction row."""
-        if not (0.0 <= p_up <= 1.0 and 0.0 <= p_down <= 1.0):
-            raise ValueError("Probabilities must be in [0, 1].")
-        if p_up + p_down > 1.0 + 1e-9:
-            raise ValueError("p_up + p_down must be <= 1.")
-
         prediction = PredictionOutcome(
             timestamp_utc=timestamp_utc,
             prediction_timestamp=_utcnow(),
             predicted_direction=predicted_direction,
             p_up=p_up,
             p_down=p_down,
-            p_flat=max(0.0, 1.0 - p_up - p_down),
+            p_flat=0.0,
             predicted_return=predicted_return,
+            predicted_price=predicted_price,
             model_version=model_version,
             freq=freq,
             horizon=horizon,

@@ -12,7 +12,11 @@ from sqlalchemy import inspect
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bitbat.autonomous.models import Base, create_database_engine, init_database
-from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_schema_audit
+from bitbat.autonomous.schema_compat import (
+    audit_schema_compatibility,
+    format_schema_audit,
+    upgrade_schema_compatibility,
+)
 
 EXPECTED_TABLES = [
     "prediction_outcomes",
@@ -57,6 +61,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Run non-destructive schema compatibility audit and exit.",
     )
+    parser.add_argument(
+        "--upgrade",
+        action="store_true",
+        help="Apply additive compatibility upgrades to existing schema and exit.",
+    )
     return parser.parse_args(argv)
 
 
@@ -64,6 +73,12 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.audit and args.force:
         print("Cannot combine --audit and --force.")
+        return 2
+    if args.audit and args.upgrade:
+        print("Cannot combine --audit and --upgrade.")
+        return 2
+    if args.force and args.upgrade:
+        print("Cannot combine --force and --upgrade.")
         return 2
 
     _ensure_sqlite_parent(args.database_url)
@@ -81,9 +96,30 @@ def main(argv: list[str] | None = None) -> int:
         print("Rerun with --force to recreate schema if this is a disposable local DB.")
         return 1
 
+    if args.upgrade:
+        if not existing:
+            print("No existing autonomous tables found. Creating baseline schema first.")
+            init_database(args.database_url, engine=engine)
+        result = upgrade_schema_compatibility(engine=engine)
+        print(format_schema_audit(result.report_after))
+        if result.actions:
+            upgraded = ", ".join(
+                f"{action.table_name}.{action.column_name}" for action in result.actions
+            )
+            print(f"Applied additive upgrades: {upgraded}")
+        else:
+            print("No compatibility upgrades were needed.")
+        if result.is_compatible:
+            print("Compatibility status: PASS")
+            return 0
+        print("Compatibility status: FAIL")
+        print("Blocking columns are missing; rerun with --force if recreation is acceptable.")
+        return 1
+
     if existing and not args.force:
         print(f"Found existing autonomous tables: {existing}")
-        print("Rerun with --force to drop and recreate them.")
+        print("Rerun with --audit to inspect compatibility or --upgrade for additive fixes.")
+        print("Use --force only to drop and recreate tables.")
         return 1
 
     if args.force and existing:
