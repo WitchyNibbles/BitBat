@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 ## Current Position
 
 Phase: 5 of 8 (Timeline Core Reliability)
-Plan: 0 of 3 in current phase
-Status: Phase 4 complete; ready to plan next phase
-Last activity: 2026-02-24 - Completed Phase 4 monitor/API semantic alignment
+Plan: 1 of 3 in current phase
+Status: Phase 5 execution in progress (05-01 complete)
+Last activity: 2026-02-24 - Completed 05-01 timeline read-model normalization
 
-Progress: [█████░░░░░] 48%
+Progress: [█████░░░░░] 52%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 11 min
-- Total execution time: 1.9 hours
+- Total execution time: 2.0 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [█████░░░░░] 48%
 | 2 | 2 | 6 min | 3 min |
 | 3 | 3 | 43 min | 14 min |
 | 4 | 2 | 52 min | 26 min |
+| 5 | 1 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 18 min, 34 min, 11 min, 14 min, 18 min
-- Trend: Stable with moderate complexity after Phase 4 semantic alignment completion
+- Last 5 plans: 3 min, 18 min, 34 min, 11 min, 14 min
+- Trend: Improving after Phase 4; baseline timeline normalization landed quickly
 
 *Updated after each plan completion*
 | Phase 01 P01 | 4 min | 3 tasks | 3 files |
@@ -47,6 +48,7 @@ Progress: [█████░░░░░] 48%
 | Phase 03 P03 | 11 min | 3 tasks | 5 files |
 | Phase 04 P01 | 34 min | 3 tasks | 6 files |
 | Phase 04 P02 | 18 min | 3 tasks | 10 files |
+| Phase 05 P01 | 3 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,18 +74,21 @@ Recent decisions affecting current work:
 - [Phase 04]: Validator correctness now prioritizes return-sign agreement to keep realization results semantically aligned.
 - [Phase 04]: Prediction API and widget surfaces now share one return/price semantic contract.
 - [Phase 04]: API tests use ASGI transport wrapper to avoid blocked runtime portal/threadpool behavior.
+- [Phase 05]: Timeline rows are normalized at read-model boundaries into explicit status semantics (`prediction_status`, `is_realized`) for deterministic UI consumption.
+- [Phase 05]: Timeline confidence remains nullable when probability fields are absent to avoid misleading synthetic confidence values.
 
 ### Pending Todos
 
-- Phase 5 planning: normalize timeline read-model behavior for pending vs realized prediction rendering.
+- Phase 5 execution: render pending/realized markers explicitly in timeline figure (05-02).
+- Phase 5 execution: extend phase-level timeline reliability gate coverage (05-03).
 
 ### Blockers/Concerns
 
-- Timeline reliability now depends on Phase 5 read-model/render hardening for mixed pending/realized records.
+- Timeline rendering still needs sparse price fallback and status-first legend/metrics alignment in Quick Start (05-02).
 - Streamlit deprecation cleanup and regression guardrails remain pending in phases 7-8.
 
 ## Session Continuity
 
-Last session: 2026-02-24 14:40
-Stopped at: Completed Phase 4 execution and summaries; next step is Phase 5 planning.
+Last session: 2026-02-24 16:17
+Stopped at: Completed 05-01 summary; next step is execute 05-02 render reliability tasks.
 Resume file: None

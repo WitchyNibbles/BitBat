@@ -90,7 +90,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: Build/upgrade timeline read-model normalization layer.
+- [x] 05-01: Build/upgrade timeline read-model normalization layer. (Completed 2026-02-24)
 - [ ] 05-02: Repair timeline rendering for mixed pending/realized datasets.
 - [ ] 05-03: Validate timeline behavior across representative data fixtures.
 
@@ -146,7 +146,7 @@ Plans:
 | 2. Migration Safety & Startup Readiness | 2/2 | Complete | 2026-02-24 |
 | 3. Monitor Runtime Error Elimination | 3/3 | Complete | 2026-02-24 |
 | 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete    | 2026-02-24 |
-| 5. Timeline Core Reliability | 0/3 | Not started | - |
+| 5. Timeline Core Reliability | 1/3 | In Progress | - |
 | 6. Timeline UX Expansion (T2) | 0/3 | Not started | - |
 | 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |
 | 8. Regression Gates & Release Verification | 0/3 | Not started | - |
