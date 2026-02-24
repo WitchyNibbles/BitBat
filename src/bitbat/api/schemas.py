@@ -19,12 +19,22 @@ class HealthResponse(BaseModel):
 
 class ServiceStatus(BaseModel):
     name: str
-    status: str = Field(description="ok | unavailable | error")
+    status: str = Field(description="ok | degraded | unavailable | error")
+    detail: str | None = None
+
+
+class SchemaReadinessDetails(BaseModel):
+    compatibility_state: str = Field(description="compatible | incompatible | unavailable | error")
+    is_compatible: bool
+    can_auto_upgrade: bool = False
+    missing_columns: dict[str, list[str]] = Field(default_factory=dict)
+    missing_columns_text: str | None = None
     detail: str | None = None
 
 
 class DetailedHealthResponse(HealthResponse):
     services: list[ServiceStatus] = Field(default_factory=list)
+    schema_readiness: SchemaReadinessDetails | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -36,9 +46,8 @@ class PredictionResponse(BaseModel):
     id: int
     timestamp_utc: datetime
     predicted_direction: str
-    p_up: float
-    p_down: float
-    p_flat: float
+    predicted_return: float | None = None
+    predicted_price: float | None = None
     actual_direction: str | None = None
     actual_return: float | None = None
     correct: bool | None = None
@@ -70,6 +79,9 @@ class PerformanceResponse(BaseModel):
     avg_return: float | None = None
     win_streak: int = 0
     lose_streak: int = 0
+    mae: float | None = None
+    rmse: float | None = None
+    directional_accuracy: float | None = None
 
 
 class FeatureImportanceItem(BaseModel):
@@ -89,8 +101,10 @@ class FeatureImportanceResponse(BaseModel):
 
 class SystemStatusResponse(BaseModel):
     database_ok: bool
+    database_present: bool = False
     model_exists: bool
     dataset_exists: bool
+    schema_readiness: SchemaReadinessDetails | None = None
     active_model_version: str | None = None
     total_predictions: int = 0
     last_prediction_time: datetime | None = None
