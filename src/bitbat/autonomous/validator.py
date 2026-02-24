@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.db import AutonomousDB, classify_monitor_db_error
 from bitbat.autonomous.models import PredictionOutcome
 from bitbat.config.loader import get_runtime_config, load_config
 from bitbat.io.fs import read_parquet
@@ -34,24 +34,22 @@ class PredictionValidator:
     def __init__(
         self,
         db: AutonomousDB,
-        freq: str = "1h",
-        horizon: str = "4h",
+        freq: str = "5m",
+        horizon: str = "30m",
         tau: float | None = None,
     ) -> None:
         self.db = db
         self.freq = freq
         self.horizon = horizon
 
-        config = get_runtime_config() or load_config()
-        configured_tau = float(config.get("tau", 0.01))
-        self.tau = configured_tau if tau is None else float(tau)
+        # tau kept for backward compat but unused in main validation path
+        self.tau = 0.0
         self.horizon_delta = self._parse_horizon(horizon)
 
         logger.info(
-            "Initialized validator with freq=%s horizon=%s tau=%.6f",
+            "Initialized validator with freq=%s horizon=%s",
             self.freq,
             self.horizon,
-            self.tau,
         )
 
     def _parse_horizon(self, horizon: str) -> timedelta:
@@ -81,13 +79,21 @@ class PredictionValidator:
         """Return unrealized predictions that have passed the horizon cutoff."""
         cutoff_time = _utcnow() - self.horizon_delta
 
-        with self.db.session() as session:
-            predictions = self.db.get_unrealized_predictions(
-                session=session,
-                freq=self.freq,
-                horizon=self.horizon,
-                cutoff_time=cutoff_time,
-            )
+        try:
+            with self.db.session() as session:
+                predictions = self.db.get_unrealized_predictions(
+                    session=session,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                    cutoff_time=cutoff_time,
+                )
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="validate.fetch_unrealized_predictions",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
 
         logger.info("Found %d predictions ready to validate", len(predictions))
         return predictions
@@ -262,7 +268,14 @@ class PredictionValidator:
 
             actual_return = self.calculate_return(start_price, end_price)
             actual_direction = self.classify_direction(actual_return)
-            correct = prediction.predicted_direction == actual_direction
+
+            # Directional sign match: compare sign of predicted vs actual return
+            if prediction.predicted_return is not None:
+                pred_sign = (prediction.predicted_return > 0) - (prediction.predicted_return < 0)
+                actual_sign = (actual_return > 0) - (actual_return < 0)
+                correct = pred_sign == actual_sign
+            else:
+                correct = prediction.predicted_direction == actual_direction
 
             if abs(actual_return) > 0.5:
                 logger.warning(
@@ -341,9 +354,12 @@ class PredictionValidator:
                         actual_direction=str(result["actual_direction"]),
                     )
             except Exception as exc:
-                logger.error("Error updating prediction %s: %s", prediction.id, exc)
-                errors.append(f"Database error for prediction {prediction.id}: {exc}")
-                continue
+                raise classify_monitor_db_error(
+                    exc,
+                    step="validate.realize_prediction",
+                    database_url=self.db.database_url,
+                    engine=self.db.engine,
+                ) from exc
 
             validated_count += 1
             if bool(result["correct"]):
