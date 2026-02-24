@@ -237,6 +237,7 @@ elif state == "RUNNING":
             build_timeline_figure,
             get_price_series,
             get_timeline_data,
+            summarize_timeline_status,
         )
 
         predictions = get_timeline_data(_DB_PATH, freq, horizon)
@@ -260,25 +261,22 @@ elif state == "RUNNING":
         with c1:
             st.caption("Green = predicted UP | Red = predicted DOWN | Gray = FLAT")
         with c2:
-            st.caption("Bright = correct | Faded = wrong | Medium = pending")
+            st.caption("Status: Pending | Realized (Correct) | Realized (Wrong)")
         with c3:
             st.caption("Auto-refreshes every 60 seconds")
 
         # Summary metrics
-        total = len(predictions)
-        realized = predictions["correct"].notna().sum()
-        correct = (predictions["correct"] == 1).sum()
-        accuracy = (correct / realized * 100) if realized > 0 else 0
+        status_summary = summarize_timeline_status(predictions)
 
         m1, m2, m3, m4 = st.columns(4)
         with m1:
-            st.metric("Total Predictions", total)
+            st.metric("Total Predictions", int(status_summary["total"]))
         with m2:
-            st.metric("Completed", int(realized))
+            st.metric("Completed", int(status_summary["completed"]))
         with m3:
-            st.metric("Correct", int(correct))
+            st.metric("Correct", int(status_summary["correct"]))
         with m4:
-            st.metric("Accuracy", f"{accuracy:.1f}%")
+            st.metric("Accuracy", f"{status_summary['accuracy']:.1f}%")
 
     _live_timeline()
 

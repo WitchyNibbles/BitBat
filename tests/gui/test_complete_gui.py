@@ -247,6 +247,25 @@ class TestTimelineStatusMetrics:
             "accuracy": 0.0,
         }
 
+    def test_timeline_status_summary_normalizes_mixed_correct_encodings(self) -> None:
+        predictions = pd.DataFrame({
+            "timestamp_utc": pd.date_range("2024-02-01", periods=3, freq="h"),
+            "predicted_direction": ["up", "down", "up"],
+            "predicted_return": [0.01, -0.01, 0.005],
+            "predicted_price": [42_000.0, 41_800.0, 42_200.0],
+            "actual_return": [0.012, -0.008, None],
+            "actual_direction": ["up", "down", None],
+            "correct": ["true", "0", None],
+        })
+
+        summary = summarize_timeline_status(predictions)
+
+        assert summary["total"] == 3
+        assert summary["completed"] == 2
+        assert summary["correct"] == 1
+        assert summary["pending"] == 1
+        assert summary["accuracy"] == pytest.approx(50.0)
+
 
 # ---------------------------------------------------------------------------
 # Cross-module: preset → config flow
