@@ -69,31 +69,31 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHE-01 | Unmapped | Pending |
-| SCHE-02 | Unmapped | Pending |
-| SCHE-03 | Unmapped | Pending |
-| MON-01 | Unmapped | Pending |
-| MON-02 | Unmapped | Pending |
-| MON-03 | Unmapped | Pending |
-| TIM-01 | Unmapped | Pending |
-| TIM-02 | Unmapped | Pending |
-| TIM-03 | Unmapped | Pending |
-| TIM-04 | Unmapped | Pending |
-| TIM-05 | Unmapped | Pending |
-| GUI-01 | Unmapped | Pending |
-| GUI-02 | Unmapped | Pending |
-| GUI-03 | Unmapped | Pending |
-| QUAL-01 | Unmapped | Pending |
-| QUAL-02 | Unmapped | Pending |
-| QUAL-03 | Unmapped | Pending |
-| API-01 | Unmapped | Pending |
-| API-02 | Unmapped | Pending |
+| SCHE-01 | Phase 1 | Pending |
+| SCHE-02 | Phase 1 | Pending |
+| SCHE-03 | Phase 2 | Pending |
+| MON-01 | Phase 3 | Pending |
+| MON-02 | Phase 4 | Pending |
+| MON-03 | Phase 3 | Pending |
+| TIM-01 | Phase 5 | Pending |
+| TIM-02 | Phase 5 | Pending |
+| TIM-03 | Phase 6 | Pending |
+| TIM-04 | Phase 6 | Pending |
+| TIM-05 | Phase 6 | Pending |
+| GUI-01 | Phase 7 | Pending |
+| GUI-02 | Phase 7 | Pending |
+| GUI-03 | Phase 7 | Pending |
+| QUAL-01 | Phase 8 | Pending |
+| QUAL-02 | Phase 8 | Pending |
+| QUAL-03 | Phase 8 | Pending |
+| API-01 | Phase 4 | Pending |
+| API-02 | Phase 2 | Pending |
 
 **Coverage:**
 - v1 requirements: 19 total
-- Mapped to phases: 0
-- Unmapped: 19 ⚠️
+- Mapped to phases: 19
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after initial definition*
+*Last updated: 2026-02-24 after roadmap creation*
