@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 5 - Timeline Core Reliability
+**Current focus:** Phase 6 - Timeline UX Expansion (T2)
 
 ## Current Position
 
-Phase: 5 of 8 (Timeline Core Reliability)
-Plan: 1 of 3 in current phase
-Status: Phase 5 execution in progress (05-01 complete)
-Last activity: 2026-02-24 - Completed 05-01 timeline read-model normalization
+Phase: 6 of 8 (Timeline UX Expansion (T2))
+Plan: 0 of 3 in current phase
+Status: Phase 5 complete and verified; ready for Phase 6 planning/execution
+Last activity: 2026-02-24 - Completed Phase 5 timeline reliability plans and verification
 
-Progress: [█████░░░░░] 52%
+Progress: [██████░░░░] 62%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 11 min
-- Total execution time: 2.0 hours
+- Total plans completed: 13
+- Average duration: 10 min
+- Total execution time: 2.4 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [█████░░░░░] 52%
 | 2 | 2 | 6 min | 3 min |
 | 3 | 3 | 43 min | 14 min |
 | 4 | 2 | 52 min | 26 min |
-| 5 | 1 | 3 min | 3 min |
+| 5 | 3 | 27 min | 9 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min, 18 min, 34 min, 11 min, 14 min
-- Trend: Improving after Phase 4; baseline timeline normalization landed quickly
+- Last 5 plans: 10 min, 14 min, 3 min, 18 min, 34 min
+- Trend: Stable delivery with stronger timeline regression gates after Phase 5
 
 *Updated after each plan completion*
 | Phase 01 P01 | 4 min | 3 tasks | 3 files |
@@ -49,6 +49,8 @@ Progress: [█████░░░░░] 52%
 | Phase 04 P01 | 34 min | 3 tasks | 6 files |
 | Phase 04 P02 | 18 min | 3 tasks | 10 files |
 | Phase 05 P01 | 3 min | 3 tasks | 3 files |
+| Phase 05 P02 | 14 min | 3 tasks | 4 files |
+| Phase 05 P03 | 10 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -76,19 +78,19 @@ Recent decisions affecting current work:
 - [Phase 04]: API tests use ASGI transport wrapper to avoid blocked runtime portal/threadpool behavior.
 - [Phase 05]: Timeline rows are normalized at read-model boundaries into explicit status semantics (`prediction_status`, `is_realized`) for deterministic UI consumption.
 - [Phase 05]: Timeline confidence remains nullable when probability fields are absent to avoid misleading synthetic confidence values.
+- [Phase 05]: Marker placement uses bounded nearest-price tolerance before `predicted_price` fallback to prevent stale sparse-price matches.
+- [Phase 05]: Quick Start timeline metrics and phase-level gates now consume normalized status summaries, not raw `correct` null checks.
 
 ### Pending Todos
 
-- Phase 5 execution: render pending/realized markers explicitly in timeline figure (05-02).
-- Phase 5 execution: extend phase-level timeline reliability gate coverage (05-03).
+- None.
 
 ### Blockers/Concerns
 
-- Timeline rendering still needs sparse price fallback and status-first legend/metrics alignment in Quick Start (05-02).
 - Streamlit deprecation cleanup and regression guardrails remain pending in phases 7-8.
 
 ## Session Continuity
 
-Last session: 2026-02-24 16:17
-Stopped at: Completed 05-01 summary; next step is execute 05-02 render reliability tasks.
+Last session: 2026-02-24 15:50
+Stopped at: Completed Phase 5 verification; next step is discuss/plan Phase 6 timeline UX expansion.
 Resume file: None

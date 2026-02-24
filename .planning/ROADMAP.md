@@ -14,7 +14,7 @@ This roadmap stabilizes the existing BitBat runtime first, then improves timelin
 - [x] **Phase 2: Migration Safety & Startup Readiness** - Make upgrades idempotent and enforce preflight checks. (Completed 2026-02-24)
 - [x] **Phase 3: Monitor Runtime Error Elimination** - Remove monitor OperationalError paths and surface critical failures. (Completed 2026-02-24)
 - [x] **Phase 4: Monitor Flow Consistency & API Alignment** - Align monitor prediction flow semantics across surfaces. (completed 2026-02-24)
-- [ ] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness.
+- [x] **Phase 5: Timeline Core Reliability** - Restore stable timeline rendering with pending/realized correctness. (completed 2026-02-24)
 - [ ] **Phase 6: Timeline UX Expansion (T2)** - Add richer confidence/filter/overlay timeline behavior.
 - [ ] **Phase 7: Streamlit Compatibility Sweep** - Remove deprecated width API usage globally.
 - [ ] **Phase 8: Regression Gates & Release Verification** - Lock in D1/D2/D3 via automated checks and end-to-end verification.
@@ -91,8 +91,8 @@ Plans:
 
 Plans:
 - [x] 05-01: Build/upgrade timeline read-model normalization layer. (Completed 2026-02-24)
-- [ ] 05-02: Repair timeline rendering for mixed pending/realized datasets.
-- [ ] 05-03: Validate timeline behavior across representative data fixtures.
+- [x] 05-02: Repair timeline rendering for mixed pending/realized datasets. (Completed 2026-02-24)
+- [x] 05-03: Validate timeline behavior across representative data fixtures. (Completed 2026-02-24)
 
 ### Phase 6: Timeline UX Expansion (T2)
 **Goal**: Add richer timeline analysis context without regressing reliability.
@@ -146,7 +146,7 @@ Plans:
 | 2. Migration Safety & Startup Readiness | 2/2 | Complete | 2026-02-24 |
 | 3. Monitor Runtime Error Elimination | 3/3 | Complete | 2026-02-24 |
 | 4. Monitor Flow Consistency & API Alignment | 2/2 | Complete    | 2026-02-24 |
-| 5. Timeline Core Reliability | 1/3 | In Progress | - |
+| 5. Timeline Core Reliability | 3/3 | Complete    | 2026-02-24 |
 | 6. Timeline UX Expansion (T2) | 0/3 | Not started | - |
 | 7. Streamlit Compatibility Sweep | 0/2 | Not started | - |
 | 8. Regression Gates & Release Verification | 0/3 | Not started | - |

@@ -22,7 +22,7 @@ Requirements for this release. Each maps to exactly one roadmap phase.
 ### Timeline Experience (T2)
 
 - [x] **TIM-01**: Timeline page renders recent and historical prediction records reliably from operational data.
-- [ ] **TIM-02**: Timeline clearly distinguishes pending vs realized predictions and shows realized outcome alignment.
+- [x] **TIM-02**: Timeline clearly distinguishes pending vs realized predictions and shows realized outcome alignment.
 - [ ] **TIM-03**: Timeline exposes confidence and direction context per prediction event.
 - [ ] **TIM-04**: Timeline supports practical filtering (at least freq/horizon/date window) without breaking rendering.
 - [ ] **TIM-05**: Timeline supports improved visualization for predicted vs realized behavior (overlay/comparison view).
@@ -76,7 +76,7 @@ Deferred to later milestones.
 | MON-02 | Phase 4 | Complete |
 | MON-03 | Phase 3 | Complete |
 | TIM-01 | Phase 5 | Complete |
-| TIM-02 | Phase 5 | Pending |
+| TIM-02 | Phase 5 | Complete |
 | TIM-03 | Phase 6 | Pending |
 | TIM-04 | Phase 6 | Pending |
 | TIM-05 | Phase 6 | Pending |
@@ -96,4 +96,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 3 execution*
+*Last updated: 2026-02-24 after Phase 5 execution*
