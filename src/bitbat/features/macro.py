@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from bitbat.timealign.bucket import bars_for_duration
+
 
 def generate_macro_features(
     macro_df: pd.DataFrame,
@@ -43,8 +45,8 @@ def generate_macro_features(
         series = df[col].astype("float64")
         # Daily percentage change (forward-filled, so change appears once/day)
         features[f"macro_{col}_change"] = series.pct_change()
-        # Rolling z-score (30 days ≈ 720 hourly bars)
-        roll_window = 720 if freq == "1h" else 30
+        # Rolling z-score (30 days of bars)
+        roll_window = bars_for_duration("30d", freq)
         roll_mean = series.rolling(window=roll_window, min_periods=roll_window).mean()
         roll_std = series.rolling(window=roll_window, min_periods=roll_window).std()
         features[f"macro_{col}_z"] = (series - roll_mean) / roll_std.replace(0, np.nan)

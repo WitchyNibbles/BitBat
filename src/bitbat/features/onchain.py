@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from bitbat.timealign.bucket import bars_for_duration
+
 
 def generate_onchain_features(
     onchain_df: pd.DataFrame,
@@ -41,7 +43,7 @@ def generate_onchain_features(
     if "hashrate" in df.columns:
         hr = df["hashrate"].astype("float64")
         features["onchain_hashrate_change"] = hr.pct_change()
-        window_14d = 336 if freq == "1h" else 14  # 14 days
+        window_14d = bars_for_duration("14d", freq)
         roll_mean = hr.rolling(window=window_14d, min_periods=window_14d).mean()
         roll_std = hr.rolling(window=window_14d, min_periods=window_14d).std()
         features["onchain_hashrate_z"] = (hr - roll_mean) / roll_std.replace(0, np.nan)
@@ -49,7 +51,7 @@ def generate_onchain_features(
     # Transaction count features
     if "tx_count" in df.columns:
         tx = df["tx_count"].astype("float64")
-        window_14d = 336 if freq == "1h" else 14
+        window_14d = bars_for_duration("14d", freq)
         roll_mean = tx.rolling(window=window_14d, min_periods=window_14d).mean()
         roll_std = tx.rolling(window=window_14d, min_periods=window_14d).std()
         features["onchain_tx_count_z"] = (tx - roll_mean) / roll_std.replace(0, np.nan)
@@ -57,7 +59,7 @@ def generate_onchain_features(
     # Mempool size features (shorter window — more volatile)
     if "mempool_size" in df.columns:
         mp = df["mempool_size"].astype("float64")
-        window_7d = 168 if freq == "1h" else 7  # 7 days
+        window_7d = bars_for_duration("7d", freq)
         roll_mean = mp.rolling(window=window_7d, min_periods=window_7d).mean()
         roll_std = mp.rolling(window=window_7d, min_periods=window_7d).std()
         features["onchain_mempool_z"] = (mp - roll_mean) / roll_std.replace(0, np.nan)

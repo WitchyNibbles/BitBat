@@ -24,9 +24,10 @@ class FoldResult:
     fold_index: int
     train_size: int
     test_size: int
-    accuracy: float
-    logloss: float
-    predictions: pd.DataFrame  # columns: predicted, actual, p_up, p_down, p_flat
+    rmse: float
+    mae: float
+    directional_accuracy: float
+    predictions: pd.DataFrame  # columns: predicted, actual
     net_sharpe: float = 0.0
     gross_sharpe: float = 0.0
     total_costs: float = 0.0
@@ -44,16 +45,22 @@ class WalkForwardResult:
         return len(self.fold_results)
 
     @property
-    def mean_accuracy(self) -> float:
+    def mean_rmse(self) -> float:
         if not self.fold_results:
             return 0.0
-        return float(np.mean([f.accuracy for f in self.fold_results]))
+        return float(np.mean([f.rmse for f in self.fold_results]))
 
     @property
-    def mean_logloss(self) -> float:
+    def mean_mae(self) -> float:
         if not self.fold_results:
             return 0.0
-        return float(np.mean([f.logloss for f in self.fold_results]))
+        return float(np.mean([f.mae for f in self.fold_results]))
+
+    @property
+    def mean_directional_accuracy(self) -> float:
+        if not self.fold_results:
+            return 0.0
+        return float(np.mean([f.directional_accuracy for f in self.fold_results]))
 
     @property
     def all_predictions(self) -> pd.DataFrame:
@@ -66,9 +73,10 @@ class WalkForwardResult:
         """Return a JSON-serialisable summary."""
         result: dict[str, Any] = {
             "n_folds": self.n_folds,
-            "mean_accuracy": round(self.mean_accuracy, 4),
-            "mean_logloss": round(self.mean_logloss, 4),
-            "fold_accuracies": [round(f.accuracy, 4) for f in self.fold_results],
+            "mean_rmse": round(self.mean_rmse, 6),
+            "mean_mae": round(self.mean_mae, 6),
+            "mean_directional_accuracy": round(self.mean_directional_accuracy, 4),
+            "fold_rmses": [round(f.rmse, 6) for f in self.fold_results],
             "fold_sizes": [f.test_size for f in self.fold_results],
             "total_test_samples": sum(f.test_size for f in self.fold_results),
         }
@@ -87,29 +95,25 @@ class WalkForwardResult:
 
 
 class WalkForwardValidator:
-    """Walk-forward backtest: retrain XGBoost on each expanding fold.
+    """Walk-forward backtest: retrain XGBoost regression on each expanding fold.
 
     Parameters
     ----------
     X : pd.DataFrame
         Full feature matrix (DatetimeIndex).
     y : pd.Series
-        Labels aligned to *X* (string values).
+        Continuous forward returns aligned to *X* (float64).
     folds : list[Fold]
         Walk-forward folds from ``dataset.splits.walk_forward``.
     xgb_params : dict
-        XGBoost training parameters (without ``objective``/``num_class``).
+        XGBoost training parameters (without ``objective``).
     num_boost_round : int
         Boosting rounds per fold.
     prices : pd.Series | None
         Close prices aligned to *X* for cost-adjusted backtesting.
     cost_bps : float
         Round-trip transaction cost in basis points.
-    enter_threshold : float
-        Probability threshold for entering positions.
     """
-
-    CLASS_ORDER = ["down", "flat", "up"]
 
     def __init__(
         self,
@@ -118,25 +122,20 @@ class WalkForwardValidator:
         folds: list[Fold],
         *,
         xgb_params: dict[str, Any] | None = None,
-        num_boost_round: int = 50,
+        num_boost_round: int = 100,
         prices: pd.Series | None = None,
         cost_bps: float = 4.0,
-        enter_threshold: float = 0.6,
     ) -> None:
         self.X = X.astype(float)
-        self.y = pd.Series(y).astype("category")
-        self.labels = self.y.cat.codes.to_numpy()
-        self.categories = list(self.y.cat.categories)
-        self.num_class = len(self.categories)
+        self.y = y.astype("float64")
         self.folds = folds
         self.xgb_params = xgb_params or {}
         self.num_boost_round = num_boost_round
         self.prices = prices
         self.cost_bps = cost_bps
-        self.enter_threshold = enter_threshold
 
     def _cost_metrics(
-        self, test_index: pd.Index, probas: np.ndarray
+        self, test_index: pd.Index, predicted_returns: np.ndarray
     ) -> tuple[float, float, float, float]:
         """Run backtest on fold and return (net_sharpe, gross_sharpe, costs, net_return)."""
         if self.prices is None:
@@ -148,23 +147,14 @@ class WalkForwardValidator:
         if len(fold_prices) < 2:
             return 0.0, 0.0, 0.0, 0.0
 
-        up_idx = self.categories.index("up") if "up" in self.categories else -1
-        down_idx = self.categories.index("down") if "down" in self.categories else -1
-        if up_idx < 0 or down_idx < 0:
-            return 0.0, 0.0, 0.0, 0.0
-
-        p_up = pd.Series(probas[:, up_idx], index=test_index)
-        p_down = pd.Series(probas[:, down_idx], index=test_index)
-
-        common = fold_prices.index.intersection(p_up.index)
+        pred_returns = pd.Series(predicted_returns, index=test_index)
+        common = fold_prices.index.intersection(pred_returns.index)
         if len(common) < 2:
             return 0.0, 0.0, 0.0, 0.0
 
         trades, equity = bt_run(
             fold_prices.loc[common],
-            p_up.loc[common],
-            p_down.loc[common],
-            enter=self.enter_threshold,
+            pred_returns.loc[common],
             cost_bps=self.cost_bps,
         )
 
@@ -191,48 +181,44 @@ class WalkForwardValidator:
                 continue
 
             X_tr = self.X.loc[train_mask]
-            y_tr = self.labels[train_mask]
+            y_tr = self.y[train_mask].to_numpy()
             X_te = self.X.loc[test_mask]
-            y_te = self.labels[test_mask]
+            y_te = self.y[test_mask].to_numpy()
 
             dtrain = xgb.DMatrix(X_tr, label=y_tr, feature_names=list(self.X.columns))
             dtest = xgb.DMatrix(X_te, label=y_te, feature_names=list(self.X.columns))
 
             params = {
-                "objective": "multi:softprob",
-                "eval_metric": "mlogloss",
-                "num_class": self.num_class,
+                "objective": "reg:squarederror",
+                "eval_metric": "rmse",
                 **self.xgb_params,
             }
 
             booster = xgb.train(
                 params, dtrain, num_boost_round=self.num_boost_round, verbose_eval=False
             )
-            probas = booster.predict(dtest)
+            predicted = booster.predict(dtest)
 
-            # Accuracy
-            pred_classes = probas.argmax(axis=1)
-            accuracy = float((pred_classes == y_te).mean())
+            # RMSE
+            residuals = y_te - predicted
+            rmse = float(np.sqrt(np.mean(residuals**2)))
 
-            # Logloss
-            eps = 1e-15
-            clipped = np.clip(probas, eps, 1 - eps)
-            logloss = -float(np.mean(np.log(clipped[np.arange(len(y_te)), y_te])))
+            # MAE
+            mae = float(np.mean(np.abs(residuals)))
+
+            # Directional accuracy
+            sign_match = np.sign(y_te) == np.sign(predicted)
+            directional_accuracy = float(np.mean(sign_match))
 
             # Build predictions DataFrame
-            pred_labels = [self.categories[c] for c in pred_classes]
-            actual_labels = [self.categories[c] for c in y_te]
-
             preds_df = pd.DataFrame({
-                "predicted": pred_labels,
-                "actual": actual_labels,
+                "predicted": predicted,
+                "actual": y_te,
             })
-            for ci, cat in enumerate(self.categories):
-                preds_df[f"p_{cat}"] = probas[:, ci]
 
             # Cost-adjusted metrics
             net_sharpe, gross_sharpe, total_costs, net_return = self._cost_metrics(
-                X_te.index, probas
+                X_te.index, predicted
             )
 
             result.fold_results.append(
@@ -240,8 +226,9 @@ class WalkForwardValidator:
                     fold_index=i,
                     train_size=int(train_mask.sum()),
                     test_size=int(test_mask.sum()),
-                    accuracy=accuracy,
-                    logloss=logloss,
+                    rmse=rmse,
+                    mae=mae,
+                    directional_accuracy=directional_accuracy,
                     predictions=preds_df,
                     net_sharpe=net_sharpe,
                     gross_sharpe=gross_sharpe,

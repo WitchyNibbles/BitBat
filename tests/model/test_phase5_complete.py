@@ -34,7 +34,7 @@ def dataset() -> tuple[pd.DataFrame, pd.Series, list[Fold]]:
         },
         index=idx,
     )
-    y = pd.Series(rng.choice(["up", "down", "flat"], size=n), index=idx)
+    y = pd.Series(rng.normal(0, 0.01, n), index=idx)
     folds = [
         Fold(train=idx[:150], test=idx[150:225]),
         Fold(train=idx[:225], test=idx[225:300]),
@@ -48,16 +48,14 @@ def model_dir(tmp_path_factory: pytest.TempPathFactory, dataset: tuple) -> Path:
     X, y, _ = dataset
     root = tmp_path_factory.mktemp("models")
     np.random.default_rng(42)
-    labels = pd.Categorical(y).codes
 
     for horizon in ("1h", "4h", "24h"):
         d = root / f"1h_{horizon}"
         d.mkdir()
-        dtrain = xgb.DMatrix(X, label=labels, feature_names=list(X.columns))
+        dtrain = xgb.DMatrix(X, label=y, feature_names=list(X.columns))
         booster = xgb.train(
             {
-                "objective": "multi:softprob",
-                "num_class": 3,
+                "objective": "reg:squarederror",
                 "max_depth": 2,
                 "seed": hash(horizon) % 10000,
             },
@@ -90,19 +88,18 @@ class TestPhase5Integration:
         )
         result = v.run()
         assert result.n_folds == 2
-        assert 0.0 <= result.mean_accuracy <= 1.0
+        assert 0.0 <= result.mean_directional_accuracy <= 1.0
         preds = result.all_predictions
         assert "predicted" in preds.columns
-        assert "p_up" in preds.columns
 
     def test_ensemble_combines_horizons(self, model_dir: Path, dataset: tuple) -> None:
         X, _, _ = dataset
         ens = MultiHorizonEnsemble(model_dir, freq="1h", horizons=["1h", "4h", "24h"])
         assert len(ens.available_horizons()) == 3
         pred = ens.predict(X.iloc[[0]])
-        assert pred.predicted_direction in ("up", "down", "flat")
+        assert pred.predicted_direction in ("up", "down")
         assert len(pred.horizon_predictions) == 3
-        assert abs(pred.p_up + pred.p_down + pred.p_flat - 1.0) < 1e-6
+        assert isinstance(pred.predicted_return, float)
 
     def test_monte_carlo_on_backtest(self, dataset: tuple, model_dir: Path) -> None:
         X, _, _ = dataset
@@ -110,10 +107,9 @@ class TestPhase5Integration:
         n = len(X)
         idx = X.index
         close = pd.Series(np.cumprod(1 + X["feat_ret_1"].fillna(0)) * 100, index=idx)
-        pu = pd.Series(rng.uniform(0.3, 0.7, n), index=idx)
-        pd_ = pd.Series(rng.uniform(0.2, 0.5, n), index=idx)
+        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
 
-        trades, equity = backtest_run(close, pu, pd_, enter=0.65)
+        trades, equity = backtest_run(close, predicted_returns)
         sim = MonteCarloSimulator(trades["pnl"].values)
         mc = sim.run(n_simulations=100, seed=42)
 
@@ -130,22 +126,19 @@ class TestPhase5Integration:
         # 1. Walk-forward
         wf = WalkForwardValidator(X, y, folds, num_boost_round=5)
         wf_result = wf.run()
-        assert wf_result.mean_accuracy > 0
+        assert wf_result.mean_directional_accuracy > 0
 
         # 2. Ensemble
         ens = MultiHorizonEnsemble(model_dir, freq="1h")
         pred = ens.predict(X.iloc[[0]])
         assert pred.confidence > 0
 
-        # 3. Backtest with ensemble-derived probabilities
-        np.random.default_rng(42)
-        len(X)
+        # 3. Backtest with ensemble-derived predicted returns
         idx = X.index
         close = pd.Series(np.cumprod(1 + X["feat_ret_1"].fillna(0)) * 100, index=idx)
         batch_preds = ens.predict_batch(X)
-        pu = pd.Series([p.p_up for p in batch_preds], index=idx)
-        pd_ = pd.Series([p.p_down for p in batch_preds], index=idx)
-        trades, equity = backtest_run(close, pu, pd_, enter=0.55)
+        predicted_returns = pd.Series([p.predicted_return for p in batch_preds], index=idx)
+        trades, equity = backtest_run(close, predicted_returns)
 
         # 4. Monte Carlo
         sim = MonteCarloSimulator(trades["pnl"].values)

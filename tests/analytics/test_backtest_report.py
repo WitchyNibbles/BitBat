@@ -56,9 +56,8 @@ def engine_report() -> BacktestReport:
     n = 200
     idx = pd.date_range("2024-01-01", periods=n, freq="1h")
     close = pd.Series(np.cumprod(1 + rng.normal(0.0001, 0.005, n)) * 100, index=idx)
-    proba_up = pd.Series(rng.uniform(0.3, 0.8, n), index=idx)
-    proba_down = pd.Series(rng.uniform(0.1, 0.5, n), index=idx)
-    trades, equity = backtest_run(close, proba_up, proba_down, enter=0.65)
+    predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
+    trades, equity = backtest_run(close, predicted_returns)
     return BacktestReport(equity, trades, preset_name="Engine", enter_threshold=0.65)
 
 
@@ -281,9 +280,8 @@ class TestEngineIntegration:
         n = 50
         idx = pd.date_range("2024-01-01", periods=n, freq="1h")
         close = pd.Series(np.cumprod(1 + rng.normal(0, 0.005, n)) * 100, index=idx)
-        pu = pd.Series(rng.uniform(0.3, 0.7, n), index=idx)
-        pd_ = pd.Series(rng.uniform(0.2, 0.6, n), index=idx)
-        trades, equity = backtest_run(close, pu, pd_, enter=0.60, allow_short=True)
+        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
+        trades, equity = backtest_run(close, predicted_returns, allow_short=True)
         r = BacktestReport(equity, trades, allow_short=True)
         assert r.allow_short is True
         df = r.to_dataframe()

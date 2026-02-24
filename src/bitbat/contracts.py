@@ -125,16 +125,19 @@ def ensure_feature_contract(
 
 
 def ensure_predictions_contract(frame: pd.DataFrame) -> pd.DataFrame:
-    """Validate and normalize the predictions parquet contract."""
+    """Validate and normalize the predictions parquet contract.
+
+    Expected columns: timestamp_utc, predicted_return, predicted_price,
+    horizon, freq, model_version, realized_r.
+    """
     expected = [
         "timestamp_utc",
-        "p_up",
-        "p_down",
+        "predicted_return",
+        "predicted_price",
         "horizon",
         "freq",
         "model_version",
         "realized_r",
-        "realized_label",
     ]
     missing = set(expected) - set(frame.columns)
     if missing:
@@ -142,13 +145,16 @@ def ensure_predictions_contract(frame: pd.DataFrame) -> pd.DataFrame:
 
     validated = frame.copy()
     validated["timestamp_utc"] = _ensure_datetime(validated["timestamp_utc"], "timestamp_utc")
-    validated["p_up"] = pd.to_numeric(validated["p_up"], errors="raise").astype("float64")
-    validated["p_down"] = pd.to_numeric(validated["p_down"], errors="raise").astype("float64")
+    validated["predicted_return"] = pd.to_numeric(
+        validated["predicted_return"], errors="raise"
+    ).astype("float64")
+    validated["predicted_price"] = pd.to_numeric(
+        validated["predicted_price"], errors="coerce"
+    ).astype("float64")
     validated["horizon"] = validated["horizon"].astype("string")
     validated["freq"] = validated["freq"].astype("string")
     validated["model_version"] = validated["model_version"].astype("string")
     validated["realized_r"] = pd.to_numeric(validated["realized_r"], errors="coerce").astype(
         "float64"
     )
-    validated["realized_label"] = validated["realized_label"].astype("string")
     return validated[expected]

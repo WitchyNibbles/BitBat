@@ -58,10 +58,11 @@ class PredictionOutcome(Base):
     timestamp_utc = mapped_column(DateTime, nullable=False)
     prediction_timestamp = mapped_column(DateTime, nullable=False)
     predicted_direction = mapped_column(String(10), nullable=False)
-    p_up = mapped_column(Float, nullable=False)
-    p_down = mapped_column(Float, nullable=False)
+    p_up = mapped_column(Float, nullable=True)
+    p_down = mapped_column(Float, nullable=True)
     p_flat = mapped_column(Float, nullable=True)
     predicted_return = mapped_column(Float, nullable=True)
+    predicted_price = mapped_column(Float, nullable=True)
     actual_return = mapped_column(Float, nullable=True)
     actual_direction = mapped_column(String(10), nullable=True)
     correct = mapped_column(Boolean, nullable=True)
@@ -155,7 +156,8 @@ class RetrainingEvent(Base):
     __tablename__ = "retraining_events"
     __table_args__ = (
         CheckConstraint(
-            "trigger_reason IN ('drift_detected', 'scheduled', 'manual', 'poor_performance')",
+            "trigger_reason IN "
+            "('drift_detected', 'scheduled', 'manual', 'poor_performance', 'continuous')",
             name="ck_trigger_reason",
         ),
         CheckConstraint(
@@ -220,6 +222,9 @@ class PerformanceSnapshot(Base):
     win_streak = mapped_column(Integer, nullable=True)
     lose_streak = mapped_column(Integer, nullable=True)
     calibration_score = mapped_column(Float, nullable=True)
+    mae = mapped_column(Float, nullable=True)
+    rmse = mapped_column(Float, nullable=True)
+    directional_accuracy = mapped_column(Float, nullable=True)
     created_at = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     def to_dict(self) -> dict[str, Any]:
@@ -240,6 +245,9 @@ class PerformanceSnapshot(Base):
             "win_streak": self.win_streak,
             "lose_streak": self.lose_streak,
             "calibration_score": self.calibration_score,
+            "mae": self.mae,
+            "rmse": self.rmse,
+            "directional_accuracy": self.directional_accuracy,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

@@ -9,154 +9,72 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    balanced_accuracy_score,
-    confusion_matrix,
-    matthews_corrcoef,
-    precision_recall_curve,
-    precision_recall_fscore_support,
-)
 
 
-def classification_metrics(
-    y_true: pd.Series,
-    proba: np.ndarray,
-    *,
-    threshold: float = 0.6,
-    class_labels: list[str] | None = None,
+def regression_metrics(
+    y_true: pd.Series | np.ndarray,
+    y_pred: pd.Series | np.ndarray,
 ) -> dict[str, Any]:
-    """Compute classification metrics from class probabilities.
+    """Compute regression metrics from true and predicted returns.
 
-    Writes `metrics/classification_metrics.json` and
-    `metrics/confusion_matrix.png` as side effects.
+    Writes `metrics/regression_metrics.json` and
+    `metrics/prediction_scatter.png` as side effects.
 
     Args:
-        y_true: Ground-truth labels for each sample.
-        proba: Array of predicted class probabilities.
-        threshold: Minimum confidence required to accept a prediction.
-        class_labels: Optional explicit class ordering to align `proba`.
+        y_true: Ground-truth forward returns for each sample.
+        y_pred: Predicted forward returns.
 
     Returns:
-        Mapping of balanced accuracy, MCC, per-class metrics, PR curves, and
-        additional diagnostics.
+        Mapping of MAE, RMSE, R-squared, directional accuracy, and correlation.
     """
-    if proba.ndim != 2:
-        raise ValueError(
-            "Probability array must be 2-dimensional with shape (n_samples, n_classes)."
-        )
+    y_t = np.asarray(y_true, dtype="float64")
+    y_p = np.asarray(y_pred, dtype="float64")
 
-    classes = class_labels or list(y_true.unique())
-    classes = sorted(classes)
-    class_to_idx = {cls: i for i, cls in enumerate(classes)}
+    if y_t.shape != y_p.shape:
+        raise ValueError("y_true and y_pred must have the same shape.")
 
-    y_encoded = y_true.map(class_to_idx)
-    if y_encoded.isna().any():
-        raise ValueError("y_true contains labels not present in class_labels.")
+    residuals = y_t - y_p
+    mae = float(np.mean(np.abs(residuals)))
+    rmse = float(np.sqrt(np.mean(residuals**2)))
 
-    top_class = proba.argmax(axis=1)
-    confidence = proba.max(axis=1)
-    preds = np.where(confidence >= threshold, top_class, -1)
+    ss_res = float(np.sum(residuals**2))
+    ss_tot = float(np.sum((y_t - np.mean(y_t)) ** 2))
+    r2 = 1.0 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
 
-    valid_mask = preds != -1
-    filtered_preds = preds[valid_mask]
-    filtered_true = y_encoded.to_numpy()[valid_mask]
+    # Directional accuracy: sign match
+    sign_match = np.sign(y_t) == np.sign(y_p)
+    directional_accuracy = float(np.mean(sign_match))
 
-    if filtered_preds.size == 0:
-        raise ValueError("All predictions below threshold; adjust threshold or check model output.")
-
-    balanced_acc = balanced_accuracy_score(filtered_true, filtered_preds)
-    mcc = matthews_corrcoef(filtered_true, filtered_preds)
-
-    pr_curves = {}
-    pr_aucs: list[float] = []
-    for idx, label in enumerate(classes):
-        precision, recall, _ = precision_recall_curve((y_encoded == idx).astype(int), proba[:, idx])
-        if recall[0] > recall[-1]:
-            precision = precision[::-1]
-            recall = recall[::-1]
-        pr_auc = np.trapezoid(precision, recall)
-        pr_curves[label] = {
-            "precision": precision.tolist(),
-            "recall": recall.tolist(),
-            "auc": float(pr_auc),
-        }
-        pr_aucs.append(float(pr_auc))
-
-    precision, recall, _, _ = precision_recall_fscore_support(
-        filtered_true,
-        filtered_preds,
-        labels=list(range(len(classes))),
-        zero_division=0,
+    # Correlation
+    correlation = (
+        float(np.corrcoef(y_t, y_p)[0, 1])
+        if y_t.std() > 0 and y_p.std() > 0
+        else 0.0
     )
 
-    class_counts = y_true.value_counts(normalize=True).to_dict()
-    class_balance = {str(label): float(class_counts.get(label, 0.0)) for label in classes}
-    average_pr_auc = float(np.mean(pr_aucs)) if pr_aucs else 0.0
-
     metrics = {
-        "balanced_accuracy": float(balanced_acc),
-        "mcc": float(mcc),
-        "per_class": {
-            label: {
-                "precision": float(precision[idx]),
-                "recall": float(recall[idx]),
-            }
-            for idx, label in enumerate(classes)
-        },
-        "pr_curves": pr_curves,
-        "threshold": threshold,
-        "average_pr_auc": average_pr_auc,
-        "class_balance": class_balance,
+        "mae": mae,
+        "rmse": rmse,
+        "r2": float(r2),
+        "directional_accuracy": directional_accuracy,
+        "correlation": correlation,
+        "n_samples": int(len(y_t)),
     }
 
-    cm = confusion_matrix(filtered_true, filtered_preds, labels=list(range(len(classes))))
+    # Scatter plot
     fig, ax = plt.subplots(figsize=(6, 5))
-    im = ax.imshow(cm, cmap="Blues")
-    ax.set_xticks(range(len(classes)))
-    ax.set_yticks(range(len(classes)))
-    ax.set_xticklabels(classes)
-    ax.set_yticklabels(classes)
-    plt.colorbar(im, ax=ax)
-    plt.title("Confusion Matrix")
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-
-    for (i, j), value in np.ndenumerate(cm):
-        ax.text(j, i, str(int(value)), ha="center", va="center", color="black")
+    ax.scatter(y_t, y_p, alpha=0.3, s=10)
+    lims = [min(y_t.min(), y_p.min()), max(y_t.max(), y_p.max())]
+    ax.plot(lims, lims, "r--", linewidth=1)
+    ax.set_xlabel("Actual Return")
+    ax.set_ylabel("Predicted Return")
+    ax.set_title(f"Predicted vs Actual (R²={r2:.3f})")
 
     metrics_dir = Path("metrics")
     metrics_dir.mkdir(parents=True, exist_ok=True)
-    metrics_path = metrics_dir / "classification_metrics.json"
-
-    if metrics_path.exists():
-        try:
-            previous = json.loads(metrics_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            previous = {}
-        prev_auc = previous.get("average_pr_auc")
-        prev_balance = previous.get("class_balance") or {}
-        if isinstance(prev_auc, int | float):
-            auc_delta = average_pr_auc - float(prev_auc)
-            if auc_delta > 0.10:
-                balance_similar = True
-                for label in classes:
-                    prev_rate = float(prev_balance.get(str(label), 0.0))
-                    new_rate = class_balance.get(str(label), 0.0)
-                    if abs(prev_rate - new_rate) > 0.01:
-                        balance_similar = False
-                        break
-                if balance_similar:
-                    print(
-                        "[metrics-warning] PR-AUC jumped by more than 10 points while "
-                        "class balance remained stable. Double-check for leakage.",
-                        flush=True,
-                    )
-
-    metrics_path.write_text(
-        json.dumps(metrics, indent=2),
-        encoding="utf-8",
-    )
-    fig_path = metrics_dir / "confusion_matrix.png"
+    metrics_path = metrics_dir / "regression_metrics.json"
+    metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    fig_path = metrics_dir / "prediction_scatter.png"
     fig.savefig(fig_path, bbox_inches="tight")
     plt.close(fig)
 

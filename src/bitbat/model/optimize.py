@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 
 
 class HyperparamOptimizer:
-    """Optuna-based hyperparameter search for the XGBoost classifier.
+    """Optuna-based hyperparameter search for the XGBoost regressor.
 
     Parameters
     ----------
     X : pd.DataFrame
         Full feature matrix.
     y : pd.Series
-        Labels aligned to *X* (string values: ``"up"``, ``"down"``, ``"flat"``).
+        Continuous forward returns aligned to *X* (float64).
     folds : list[Fold]
         Walk-forward cross-validation folds (from ``dataset.splits.walk_forward``).
     seed : int
@@ -44,14 +44,12 @@ class HyperparamOptimizer:
         seed: int = 42,
     ) -> None:
         self.X = X.astype(float)
-        self.y = pd.Series(y).astype("category")
-        self.labels = self.y.cat.codes.to_numpy()
-        self.num_class = len(self.y.cat.categories)
+        self.y = y.astype("float64").to_numpy()
         self.folds = folds
         self.seed = seed
 
     def _cv_score(self, params: dict[str, Any]) -> float:
-        """Run walk-forward CV with *params* and return mean log-loss."""
+        """Run walk-forward CV with *params* and return mean RMSE."""
         fold_scores: list[float] = []
 
         for fold in self.folds:
@@ -62,18 +60,17 @@ class HyperparamOptimizer:
                 continue
 
             X_tr = self.X.loc[train_mask]
-            y_tr = self.labels[train_mask]
+            y_tr = self.y[train_mask]
             X_te = self.X.loc[test_mask]
-            y_te = self.labels[test_mask]
+            y_te = self.y[test_mask]
 
             dtrain = xgb.DMatrix(X_tr, label=y_tr, feature_names=list(self.X.columns))
             dtest = xgb.DMatrix(X_te, label=y_te, feature_names=list(self.X.columns))
 
-            num_rounds = params.pop("num_boost_round", 50)
+            num_rounds = params.pop("num_boost_round", 100)
             full_params = {
-                "objective": "multi:softprob",
-                "eval_metric": "mlogloss",
-                "num_class": self.num_class,
+                "objective": "reg:squarederror",
+                "eval_metric": "rmse",
                 "seed": self.seed,
                 **params,
             }
@@ -85,18 +82,14 @@ class HyperparamOptimizer:
                 verbose_eval=False,
             )
 
-            # Extract best logloss from eval results
             preds = booster.predict(dtest)
-            # Manual mlogloss
-            eps = 1e-15
-            preds = np.clip(preds, eps, 1 - eps)
-            logloss = -np.mean(np.log(preds[np.arange(len(y_te)), y_te]))
-            fold_scores.append(float(logloss))
+            rmse = float(np.sqrt(np.mean((y_te - preds) ** 2)))
+            fold_scores.append(rmse)
 
         return float(np.mean(fold_scores)) if fold_scores else 999.0
 
     def _objective(self, trial: optuna.Trial) -> float:
-        """Optuna objective function — minimize CV log-loss."""
+        """Optuna objective function — minimize CV RMSE."""
         params = {
             "eta": trial.suggest_float("eta", 0.01, 0.3, log=True),
             "max_depth": trial.suggest_int("max_depth", 2, 10),
@@ -137,7 +130,7 @@ class HyperparamOptimizer:
 
         best = study.best_trial
         logger.info(
-            "Optuna finished: best logloss=%.4f after %d trials",
+            "Optuna finished: best RMSE=%.6f after %d trials",
             best.value,
             len(study.trials),
         )
@@ -172,7 +165,7 @@ class OptimizationResult:
         not a valid ``xgb.train`` parameter).
         """
         params = dict(self.best_params)
-        num_rounds = int(params.pop("num_boost_round", 50))
+        num_rounds = int(params.pop("num_boost_round", 100))
         return params, num_rounds
 
     def summary(self) -> dict[str, Any]:

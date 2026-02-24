@@ -61,7 +61,6 @@ def one_click_train(
         preset = get_preset(preset_name)
         freq = preset.freq
         horizon = preset.horizon
-        tau = preset.tau
 
         config = get_runtime_config() or load_config()
         data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
@@ -110,7 +109,8 @@ def one_click_train(
             logger.warning("News ingest failed (%s) — continuing without sentiment", exc)
             enable_sentiment = False
 
-        candidate = data_dir / "raw" / "news" / "cryptocompare_1h" / "cryptocompare_btc_1h.parquet"
+        news_subdir = f"cryptocompare_{freq}"
+        candidate = data_dir / "raw" / "news" / news_subdir / "cryptocompare_btc_1h.parquet"
         if candidate.exists():
             news_path = candidate
         else:
@@ -147,7 +147,6 @@ def one_click_train(
             news_parquet=news_path,
             freq=freq,
             horizon=horizon,
-            tau=tau,
             start=str(first_date.date()),
             end=str(last_date.date()),
             enable_sentiment=enable_sentiment,

@@ -6,9 +6,20 @@ from collections.abc import Iterable
 
 import pandas as pd
 
+from bitbat.timealign.bucket import bars_for_duration
 
-def lagged_returns(close: pd.Series, lags: Iterable[int] | range = range(1, 25)) -> pd.DataFrame:
+
+def lagged_returns(
+    close: pd.Series,
+    lags: Iterable[int] | range | None = None,
+    *,
+    freq: str | None = None,
+    lookback: str = "24h",
+) -> pd.DataFrame:
     """Compute lagged percent returns for the provided close prices."""
+    if lags is None:
+        n_lags = bars_for_duration(lookback, freq) if freq is not None else 24
+        lags = range(1, n_lags + 1)
     close_series = pd.Series(close, dtype="float64")
     features = {
         f"return_lag_{lag}": close_series.pct_change(periods=lag, fill_method=None) for lag in lags
@@ -16,8 +27,12 @@ def lagged_returns(close: pd.Series, lags: Iterable[int] | range = range(1, 25))
     return pd.DataFrame(features, index=close_series.index)
 
 
-def rolling_std(close: pd.Series, window: int = 24) -> pd.Series:
+def rolling_std(
+    close: pd.Series, window: int | None = None, *, freq: str | None = None
+) -> pd.Series:
     """Rolling standard deviation of percent returns."""
+    if window is None:
+        window = bars_for_duration("24h", freq) if freq else 24
     close_series = pd.Series(close, dtype="float64")
     returns = close_series.pct_change(fill_method=None)
     std = returns.rolling(window=window, min_periods=window).std()
@@ -25,8 +40,12 @@ def rolling_std(close: pd.Series, window: int = 24) -> pd.Series:
     return std
 
 
-def rolling_z(series: pd.Series, window: int) -> pd.Series:
+def rolling_z(
+    series: pd.Series, window: int | None = None, *, freq: str | None = None
+) -> pd.Series:
     """Compute rolling z-score over the given window."""
+    if window is None:
+        window = bars_for_duration("24h", freq) if freq else 24
     data = pd.Series(series, dtype="float64")
     mean = data.rolling(window=window, min_periods=window).mean()
     std = data.rolling(window=window, min_periods=window).std()
@@ -35,8 +54,10 @@ def rolling_z(series: pd.Series, window: int) -> pd.Series:
     return z
 
 
-def atr(df: pd.DataFrame, window: int = 14) -> pd.Series:
+def atr(df: pd.DataFrame, window: int | None = None, *, freq: str | None = None) -> pd.Series:
     """Average True Range over the specified window."""
+    if window is None:
+        window = bars_for_duration("14h", freq) if freq else 14
     required = {"high", "low", "close"}
     missing = required - set(df.columns)
     if missing:
@@ -61,8 +82,10 @@ def atr(df: pd.DataFrame, window: int = 14) -> pd.Series:
     return atr_series
 
 
-def rsi(close: pd.Series, window: int = 14) -> pd.Series:
+def rsi(close: pd.Series, window: int | None = None, *, freq: str | None = None) -> pd.Series:
     """Relative Strength Index using Wilder's smoothing."""
+    if window is None:
+        window = bars_for_duration("14h", freq) if freq else 14
     close_series = pd.Series(close, dtype="float64")
     delta = close_series.diff()
     gain = delta.clip(lower=0)

@@ -17,10 +17,10 @@ from bitbat.features.price import (
     obv,
     rolling_std,
     rolling_z,
+    rsi,
 )
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.labeling.returns import forward_return
-from bitbat.labeling.targets import classify
 from bitbat.timealign.calendar import ensure_utc
 
 logger = logging.getLogger(__name__)
@@ -31,13 +31,13 @@ class DatasetMeta:
     columns: list[str]
     freq: str
     horizon: str
-    tau: float
     start: str
     end: str
     rows: int
-    positives: int
-    negatives: int
-    flats: int
+    target_mean: float
+    target_std: float
+    target_min: float
+    target_max: float
     seed: int | None
     version: str
 
@@ -51,20 +51,26 @@ def _generate_price_features(
     prices: pd.DataFrame,
     *,
     enable_garch: bool = False,
+    freq: str | None = None,
 ) -> pd.DataFrame:
     close = prices["close"]
-    features = lagged_returns(close)
-    features["rolling_std_24"] = rolling_std(close)
-    features["rolling_z_24"] = rolling_z(close, 24)
-    features = features.join(atr(prices, 14), how="left")
+    features = lagged_returns(close, freq=freq)
+    std_result = rolling_std(close, freq=freq)
+    features[std_result.name] = std_result
+    z_result = rolling_z(close, freq=freq)
+    features[z_result.name] = z_result
+    features = features.join(atr(prices, freq=freq), how="left")
     features = features.join(macd(close), how="left")
     features["obv"] = obv(close, prices["volume"])
+
+    rsi_result = rsi(close, freq=freq)
+    features[rsi_result.name] = rsi_result
 
     if enable_garch:
         try:
             from bitbat.features.volatility import garch_features
 
-            vol_feats = garch_features(close)
+            vol_feats = garch_features(close, freq=freq)
             features = features.join(vol_feats, how="left")
         except ImportError:
             logger.warning("arch library not installed; skipping GARCH features")
@@ -112,10 +118,10 @@ def build_xy(
     news_parquet: str | Path | None,
     freq: str,
     horizon: str,
-    tau: float,
     start: str,
     end: str,
     *,
+    tau: float | None = None,
     enable_sentiment: bool = True,
     enable_garch: bool = False,
     macro_parquet: str | Path | None = None,
@@ -124,18 +130,20 @@ def build_xy(
     seed: int | None = None,
     version: str | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, DatasetMeta]:
-    """Build the primary dataset (features + labels) used for model training.
+    """Build the primary dataset (features + regression targets).
 
     This is the main dataset builder in the pipeline. It assembles price
     features (and optional sentiment, GARCH, macro, and on-chain features),
-    aligns labels, enforces the feature contract, and writes the resulting
-    dataset + metadata to disk.
+    computes continuous forward returns as the regression target, enforces
+    the feature contract, and writes the resulting dataset + metadata to disk.
+
+    The ``tau`` parameter is accepted for backward compatibility but ignored.
     """
     prices = _load_parquet(prices_parquet)
 
     prices = ensure_utc(prices, "timestamp_utc").set_index("timestamp_utc").sort_index()
 
-    price_features = _generate_price_features(prices, enable_garch=enable_garch)
+    price_features = _generate_price_features(prices, enable_garch=enable_garch, freq=freq)
 
     if enable_sentiment:
         if news_parquet is None:
@@ -169,28 +177,24 @@ def build_xy(
 
     y_returns = forward_return(prices["close"].to_frame(), horizon)
     y_returns = y_returns.loc[features.index]
-    labels = classify(y_returns, tau)
 
-    valid_mask = labels.notna()
+    valid_mask = y_returns.notna()
     features = features.loc[valid_mask]
-    labels = labels.loc[valid_mask]
     y_returns = y_returns.loc[valid_mask]
 
     first_idx = features.index.min()
     idx_start = max(pd.Timestamp(start), first_idx)
     idx_end = pd.Timestamp(end)
     features = features.loc[idx_start:idx_end]
-    labels = labels.loc[idx_start:idx_end]
     y_returns = y_returns.loc[idx_start:idx_end]
 
     dataset = features.copy()
     dataset["timestamp_utc"] = dataset.index
-    dataset["label"] = labels.astype("string")
     dataset["r_forward"] = y_returns.astype("float64")
     dataset = dataset.reset_index(drop=True)
     dataset = ensure_feature_contract(
         dataset,
-        require_label=True,
+        require_label=False,
         require_forward_return=True,
         require_features_full=enable_sentiment,
     )
@@ -199,19 +203,19 @@ def build_xy(
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     indexed_dataset = dataset.set_index("timestamp_utc")
     X = indexed_dataset[feature_cols]
-    y = indexed_dataset["label"]
+    y = indexed_dataset["r_forward"].astype("float64")
 
     meta = DatasetMeta(
         columns=list(X.columns),
         freq=freq,
         horizon=horizon,
-        tau=tau,
         start=start,
         end=end,
         rows=len(X),
-        positives=int((y == "up").sum()),
-        negatives=int((y == "down").sum()),
-        flats=int((y == "flat").sum()),
+        target_mean=float(y.mean()),
+        target_std=float(y.std()),
+        target_min=float(y.min()),
+        target_max=float(y.max()),
         seed=seed,
         version=version or "unknown",
     )

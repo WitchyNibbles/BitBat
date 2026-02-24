@@ -21,7 +21,7 @@ def _utcnow() -> datetime:
 class DriftDetector:
     """Evaluate recent prediction quality and detect performance drift."""
 
-    def __init__(self, db: AutonomousDB, freq: str = "1h", horizon: str = "4h") -> None:
+    def __init__(self, db: AutonomousDB, freq: str = "5m", horizon: str = "30m") -> None:
         self.db = db
         self.freq = freq
         self.horizon = horizon
@@ -33,8 +33,11 @@ class DriftDetector:
 
         self.window_days = int(drift_cfg.get("window_days", 30))
         self.min_predictions_required = int(drift_cfg.get("min_predictions_required", 30))
-        self.hit_rate_drop_threshold = float(drift_cfg.get("hit_rate_drop_threshold", 0.05))
-        self.sharpe_threshold = float(drift_cfg.get("sharpe_threshold", 0.0))
+        self.mae_threshold = float(drift_cfg.get("mae_threshold", 0.01))
+        self.directional_accuracy_threshold = float(
+            drift_cfg.get("directional_accuracy_threshold", 0.50)
+        )
+        self.rmse_increase_threshold = float(drift_cfg.get("rmse_increase_threshold", 1.5))
         self.cooldown_hours = int(retrain_cfg.get("cooldown_hours", 24))
 
     def get_baseline_metrics(self) -> dict[str, Any]:
@@ -96,36 +99,25 @@ class DriftDetector:
             logger.info(reason)
             return (False, reason, metrics)
 
-        hit_rate = float(metrics["hit_rate"])
-        sharpe_ratio = float(metrics["sharpe_ratio"])
+        mae = float(metrics.get("mae", 0.0))
+        directional_accuracy = float(metrics.get("directional_accuracy", 1.0))
         lose_streak = int(metrics["lose_streak"])
-        baseline_hit_rate = float(metrics["baseline_hit_rate"])
-        high_conf_count = int(float(metrics["high_confidence_count"]))
-        high_conf_accuracy = float(metrics["high_confidence_accuracy"])
 
         reasons: list[str] = []
 
-        hit_rate_drop = baseline_hit_rate - hit_rate
-        if hit_rate < 0.55 and hit_rate_drop > self.hit_rate_drop_threshold:
+        if mae > self.mae_threshold:
             reasons.append(
-                "Hit-rate degradation: "
-                f"{hit_rate:.2%} vs baseline {baseline_hit_rate:.2%} "
-                f"(drop {hit_rate_drop:.2%})"
+                f"MAE exceeds threshold: {mae:.6f} > {self.mae_threshold:.6f}"
             )
 
-        if sharpe_ratio < self.sharpe_threshold:
+        if directional_accuracy < self.directional_accuracy_threshold:
             reasons.append(
-                f"Sharpe ratio below threshold: {sharpe_ratio:.3f} < {self.sharpe_threshold:.3f}"
+                f"Directional accuracy below threshold: "
+                f"{directional_accuracy:.2%} < {self.directional_accuracy_threshold:.2%}"
             )
 
         if lose_streak >= 10:
             reasons.append(f"Losing streak too long: {lose_streak}")
-
-        if high_conf_count >= 10 and high_conf_accuracy < 0.60:
-            reasons.append(
-                "Calibration failure: high-confidence accuracy "
-                f"{high_conf_accuracy:.2%} on {high_conf_count} samples"
-            )
 
         if not reasons:
             return (False, "No drift detected", metrics)

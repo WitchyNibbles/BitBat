@@ -17,7 +17,12 @@ def _sharpe(returns: pd.Series, annualization: float = 252.0) -> float:
     return float(np.sqrt(annualization) * returns.mean() / returns.std())
 
 
-def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict[str, float]:
+def summary(
+    equity_curve: pd.Series,
+    trades: pd.DataFrame | None = None,
+    predicted_returns: pd.Series | None = None,
+    actual_returns: pd.Series | None = None,
+) -> dict[str, float]:
     """Compute backtest metrics and persist summary artifacts.
 
     This function writes JSON metrics, an equity curve plot, and (optionally)
@@ -28,10 +33,15 @@ def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict
         equity_curve: Equity curve indexed by timestamp.
         trades: Optional trades DataFrame with ``position``, ``costs``,
             ``gross_pnl``, and ``pnl`` columns.
+        predicted_returns: Optional series of predicted returns (aligned with
+            ``actual_returns``). When both are provided, MAE and correlation
+            are included in the output.
+        actual_returns: Optional series of actual returns.
 
     Returns:
         Dictionary containing net/gross sharpe, max drawdown, hit rate,
-        average return, turnover, and total costs.
+        average return, turnover, total costs, and optionally prediction_mae
+        and prediction_correlation.
     """
     returns = equity_curve.pct_change().fillna(0.0)
     net_sharpe = _sharpe(returns)
@@ -56,7 +66,7 @@ def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict
         if "gross_pnl" in trades.columns:
             gross_sharpe = _sharpe(trades["gross_pnl"])
 
-    metrics = {
+    metrics: dict[str, float] = {
         "sharpe": float(net_sharpe),
         "net_sharpe": float(net_sharpe),
         "gross_sharpe": float(gross_sharpe),
@@ -67,6 +77,17 @@ def summary(equity_curve: pd.Series, trades: pd.DataFrame | None = None) -> dict
         "total_costs": float(total_costs),
         "turnover": float(turnover),
     }
+
+    if predicted_returns is not None and actual_returns is not None:
+        # Align on shared index and drop NaNs
+        aligned = pd.DataFrame(
+            {"pred": predicted_returns, "actual": actual_returns}
+        ).dropna()
+        if len(aligned) > 0:
+            errors = aligned["pred"] - aligned["actual"]
+            metrics["prediction_mae"] = float(errors.abs().mean())
+            corr = aligned["pred"].corr(aligned["actual"])
+            metrics["prediction_correlation"] = float(corr) if pd.notna(corr) else 0.0
 
     metrics_dir = Path("metrics")
     metrics_dir.mkdir(parents=True, exist_ok=True)

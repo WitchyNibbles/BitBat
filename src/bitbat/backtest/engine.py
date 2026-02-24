@@ -8,45 +8,28 @@ import pandas as pd
 
 def run(
     prices: pd.Series,
-    proba_up: pd.Series | np.ndarray,
-    proba_down: pd.Series | np.ndarray,
+    predicted_returns: pd.Series | np.ndarray,
     *,
-    enter: float = 0.6,
-    allow_short: bool = False,
+    min_signal: float = 0.0005,
+    allow_short: bool = True,
     cost_bps: float = 4.0,
+    scale_factor: float = 0.01,
 ) -> tuple[pd.DataFrame, pd.Series]:
-    """Run a probability-threshold backtest and return trades plus equity.
+    """Run a regression-based backtest and return trades plus equity.
 
-    The strategy enters long when ``proba_up`` exceeds ``enter`` and, if
-    ``allow_short`` is enabled, enters short when ``proba_down`` exceeds the
-    same threshold. Otherwise it holds the previous position. Transaction costs
-    are applied on position changes in basis points (round-trip).
-
-    Args:
-        prices: Close prices indexed by timestamp.
-        proba_up: Probability of an upward move, aligned to ``prices``.
-        proba_down: Probability of a downward move, aligned to ``prices``.
-        enter: Entry threshold for probabilities.
-        allow_short: Whether short positions are allowed.
-        cost_bps: Round-trip transaction cost in basis points.
-
-    Returns:
-        A tuple of ``(trades, equity_curve)`` where ``trades`` contains the
-        close price, position, returns, and PnL series, and ``equity_curve`` is
-        the cumulative equity starting at 1.0.
+    Position sizing is proportional to predicted return magnitude:
+    ``position = clamp(predicted_return / scale_factor, -1, 1)``.
+    Predictions smaller than ``min_signal`` are treated as flat.
     """
     close = pd.Series(prices, dtype="float64")
-    up = pd.Series(proba_up, index=close.index, dtype="float64")
-    down = pd.Series(proba_down, index=close.index, dtype="float64")
+    pred = pd.Series(predicted_returns, index=close.index, dtype="float64")
 
-    position = np.zeros(len(close))
-    for i in range(len(close)):
-        if up.iloc[i] >= enter:
-            position[i] = 1.0
-        elif allow_short and down.iloc[i] >= enter:
-            position[i] = -1.0
-        else:
-            position[i] = position[i - 1] if i > 0 else 0.0
+    raw_position = pred / scale_factor
+    position = np.clip(raw_position, -1.0, 1.0)
+    position = position.where(pred.abs() >= min_signal, 0.0)
+
+    if not allow_short:
+        position = position.clip(lower=0.0)
 
     position_series = pd.Series(position, index=close.index, name="position")
     returns = close.pct_change().fillna(0.0)
@@ -56,7 +39,6 @@ def run(
 
     pnl = position_series.shift(1).fillna(0.0) * returns - costs
     equity_curve = (1 + pnl).cumprod()
-
     gross_pnl = position_series.shift(1).fillna(0.0) * returns
 
     trades = pd.DataFrame(
@@ -71,5 +53,4 @@ def run(
         index=close.index,
     )
     equity_curve.name = "equity"
-
     return trades, equity_curve

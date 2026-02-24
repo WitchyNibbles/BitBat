@@ -1,10 +1,9 @@
 data_dir: "data"
-freq: "1h"
-horizon: "4h"
+freq: "5m"
+horizon: "30m"
 enter_threshold: 0.6
 allow_short: false
 cost_bps: 4
-tau: 0.0015
 price_source: "yfinance"
 news_source: "cryptocompare"
 enable_sentiment: true
@@ -15,6 +14,14 @@ fred_api_key: ""
 news_throttle_seconds: 10.0
 news_retry_limit: 30
 seed: 42
+feature_lookback: "24h"
+
+# Continuous training configuration
+continuous_training:
+  enabled: true
+  retrain_interval_seconds: 1800
+  min_new_samples: 6
+  rolling_window_bars: 17280
 
 # Autonomous System Configuration
 autonomous:
@@ -22,14 +29,15 @@ autonomous:
   database_url: "sqlite:///data/autonomous.db"
 
   # Monitoring intervals (seconds)
-  validation_interval: 3600
+  validation_interval: 300
   performance_snapshot_interval: 86400
 
   # Drift detection thresholds
   drift_detection:
     min_predictions_required: 30
-    hit_rate_drop_threshold: 0.05
-    sharpe_threshold: -0.5
+    mae_threshold: 0.01
+    directional_accuracy_threshold: 0.50
+    rmse_increase_threshold: 1.5
     window_days: 30
 
   # Retraining settings

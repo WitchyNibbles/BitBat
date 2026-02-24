@@ -101,12 +101,15 @@ class PerformanceMetrics:
         for pred in self.realized:
             if pred.correct is None:
                 continue
+            # In regression mode p_up/p_down may be None; skip calibration.
+            if pred.p_up is None and pred.p_down is None:
+                continue
             p_flat = (
                 float(pred.p_flat)
                 if pred.p_flat is not None
-                else max(0.0, 1.0 - float(pred.p_up) - float(pred.p_down))
+                else max(0.0, 1.0 - float(pred.p_up or 0.0) - float(pred.p_down or 0.0))
             )
-            confidence = max(float(pred.p_up), float(pred.p_down), p_flat)
+            confidence = max(float(pred.p_up or 0.0), float(pred.p_down or 0.0), p_flat)
             rows.append((confidence, bool(pred.correct)))
 
         if not rows:
@@ -134,6 +137,52 @@ class PerformanceMetrics:
             "mean_confidence": mean_conf,
             "calibration_error": abs(mean_conf - accuracy),
         }
+
+    def _predicted_returns(self) -> np.ndarray:
+        """Return predicted_return values for realized predictions that have it."""
+        return np.array(
+            [
+                float(pred.predicted_return)
+                for pred in self.realized
+                if pred.predicted_return is not None
+            ],
+            dtype="float64",
+        )
+
+    def _actual_returns_for_predicted(self) -> np.ndarray:
+        """Return actual_return values paired with predictions that have predicted_return."""
+        return np.array(
+            [
+                float(pred.actual_return)
+                for pred in self.realized
+                if pred.predicted_return is not None
+            ],
+            dtype="float64",
+        )
+
+    def mae(self) -> float:
+        """Mean absolute error between predicted_return and actual_return."""
+        predicted = self._predicted_returns()
+        actual = self._actual_returns_for_predicted()
+        if predicted.size == 0:
+            return 0.0
+        return float(np.mean(np.abs(predicted - actual)))
+
+    def rmse(self) -> float:
+        """Root mean squared error between predicted_return and actual_return."""
+        predicted = self._predicted_returns()
+        actual = self._actual_returns_for_predicted()
+        if predicted.size == 0:
+            return 0.0
+        return float(np.sqrt(np.mean((predicted - actual) ** 2)))
+
+    def directional_accuracy(self) -> float:
+        """Fraction where sign(predicted_return) == sign(actual_return)."""
+        predicted = self._predicted_returns()
+        actual = self._actual_returns_for_predicted()
+        if predicted.size == 0:
+            return 0.0
+        return float(np.mean(np.sign(predicted) == np.sign(actual)))
 
     def max_drawdown(self) -> float:
         """Return maximum drawdown on cumulative return path."""
@@ -167,4 +216,7 @@ class PerformanceMetrics:
             "calibration_mean_confidence": calibration["mean_confidence"],
             "calibration_error": calibration["calibration_error"],
             "calibration_score": calibration["high_confidence_accuracy"],
+            "mae": self.mae(),
+            "rmse": self.rmse(),
+            "directional_accuracy": self.directional_accuracy(),
         }

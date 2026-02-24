@@ -19,7 +19,9 @@ def test_feature_contract_requires_feat_prefix() -> None:
     })
 
     with pytest.raises(ContractError):
-        ensure_feature_contract(frame, require_label=False, require_forward_return=False)
+        ensure_feature_contract(
+            frame, require_label=False, require_forward_return=False
+        )
 
 
 def test_feature_contract_happy_path() -> None:
@@ -36,7 +38,9 @@ def test_feature_contract_happy_path() -> None:
         require_forward_return=True,
         require_features_full=False,
     )
-    assert list(validated.columns) == ["timestamp_utc", "feat_a", "label", "r_forward"]
+    assert list(validated.columns) == [
+        "timestamp_utc", "feat_a", "label", "r_forward",
+    ]
 
 
 def test_feature_contract_full_requires_sentiment() -> None:
@@ -57,24 +61,22 @@ def test_feature_contract_full_requires_sentiment() -> None:
 def test_predictions_contract_normalises_types() -> None:
     frame = pd.DataFrame({
         "timestamp_utc": [datetime(2024, 1, 1, 12, 0, 0)],
-        "p_up": ["0.7"],
-        "p_down": [0.2],
-        "horizon": ["4h"],
-        "freq": ["1h"],
+        "predicted_return": ["0.003"],
+        "predicted_price": [97500.0],
+        "horizon": ["30m"],
+        "freq": ["5m"],
         "model_version": ["0.1"],
         "realized_r": [None],
-        "realized_label": [None],
     })
 
     validated = ensure_predictions_contract(frame)
     assert list(validated.columns) == [
         "timestamp_utc",
-        "p_up",
-        "p_down",
+        "predicted_return",
+        "predicted_price",
         "horizon",
         "freq",
         "model_version",
         "realized_r",
-        "realized_label",
     ]
     assert validated["timestamp_utc"].dt.tz is None

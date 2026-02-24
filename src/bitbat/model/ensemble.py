@@ -1,6 +1,6 @@
 """
 Multi-horizon ensemble — combine predictions from multiple horizons
-to produce a more robust directional signal.
+to produce a more robust return signal.
 """
 
 from __future__ import annotations
@@ -18,9 +18,7 @@ class HorizonPrediction:
     """Prediction from a single horizon model."""
 
     horizon: str
-    p_up: float
-    p_down: float
-    p_flat: float
+    predicted_return: float
     predicted_direction: str
     weight: float = 1.0
 
@@ -29,9 +27,7 @@ class HorizonPrediction:
 class EnsemblePrediction:
     """Weighted-average ensemble prediction from multiple horizons."""
 
-    p_up: float
-    p_down: float
-    p_flat: float
+    predicted_return: float
     predicted_direction: str
     confidence: float
     horizon_predictions: list[HorizonPrediction]
@@ -39,16 +35,14 @@ class EnsemblePrediction:
     def summary(self) -> dict[str, Any]:
         return {
             "predicted_direction": self.predicted_direction,
+            "predicted_return": round(self.predicted_return, 6),
             "confidence": round(self.confidence, 4),
-            "p_up": round(self.p_up, 4),
-            "p_down": round(self.p_down, 4),
-            "p_flat": round(self.p_flat, 4),
             "horizons_used": len(self.horizon_predictions),
             "per_horizon": [
                 {
                     "horizon": hp.horizon,
                     "direction": hp.predicted_direction,
-                    "p_up": round(hp.p_up, 4),
+                    "predicted_return": round(hp.predicted_return, 6),
                     "weight": round(hp.weight, 2),
                 }
                 for hp in self.horizon_predictions
@@ -67,23 +61,21 @@ class MultiHorizonEnsemble:
     freq : str
         Bar frequency (shared across all horizons).
     horizons : list[str]
-        Horizons to include (e.g. ``["1h", "4h", "24h"]``).
+        Horizons to include (e.g. ``["15m", "30m", "1h"]``).
     weights : dict[str, float] | None
         Per-horizon weights.  If ``None``, equal weighting is used.
     """
 
-    CLASS_ORDER = ["down", "flat", "up"]
-
     def __init__(
         self,
         model_dir: Path | str,
-        freq: str = "1h",
+        freq: str = "5m",
         horizons: list[str] | None = None,
         weights: dict[str, float] | None = None,
     ) -> None:
         self.model_dir = Path(model_dir)
         self.freq = freq
-        self.horizons = horizons or ["1h", "4h", "24h"]
+        self.horizons = horizons or ["15m", "30m", "1h"]
         self.weights = weights or {h: 1.0 for h in self.horizons}
         self._boosters: dict[str, xgb.Booster] = {}
 
@@ -115,7 +107,7 @@ class MultiHorizonEnsemble:
 
         Returns
         -------
-        EnsemblePrediction with weighted probabilities and per-horizon details.
+        EnsemblePrediction with weighted predicted return and per-horizon details.
 
         Raises
         ------
@@ -130,19 +122,14 @@ class MultiHorizonEnsemble:
                 continue
 
             dmatrix = xgb.DMatrix(features.astype(float), feature_names=list(features.columns))
-            probas = booster.predict(dmatrix)[0]
-
-            # Map to class order: [p_down, p_flat, p_up]
-            p_down, p_flat, p_up = float(probas[0]), float(probas[1]), float(probas[2])
-            direction = self.CLASS_ORDER[int(probas.argmax())]
+            predicted_return = float(booster.predict(dmatrix)[0])
+            direction = "up" if predicted_return > 0 else "down"
             w = self.weights.get(horizon, 1.0)
 
             horizon_preds.append(
                 HorizonPrediction(
                     horizon=horizon,
-                    p_up=p_up,
-                    p_down=p_down,
-                    p_flat=p_flat,
+                    predicted_return=predicted_return,
                     predicted_direction=direction,
                     weight=w,
                 )
@@ -151,20 +138,19 @@ class MultiHorizonEnsemble:
         if not horizon_preds:
             raise ValueError("No models available for any requested horizon")
 
-        # Weighted average
+        # Weighted average of predicted returns
         total_weight = sum(hp.weight for hp in horizon_preds)
-        p_up = sum(hp.p_up * hp.weight for hp in horizon_preds) / total_weight
-        p_down = sum(hp.p_down * hp.weight for hp in horizon_preds) / total_weight
-        p_flat = sum(hp.p_flat * hp.weight for hp in horizon_preds) / total_weight
+        predicted_return = sum(
+            hp.predicted_return * hp.weight for hp in horizon_preds
+        ) / total_weight
 
-        probs = {"up": p_up, "down": p_down, "flat": p_flat}
-        direction = max(probs, key=probs.get)  # type: ignore[arg-type]
-        confidence = max(probs.values())
+        direction = "up" if predicted_return > 0 else "down"
+        # Confidence: agreement among horizons (fraction pointing same direction)
+        agree_count = sum(1 for hp in horizon_preds if hp.predicted_direction == direction)
+        confidence = agree_count / len(horizon_preds)
 
         return EnsemblePrediction(
-            p_up=p_up,
-            p_down=p_down,
-            p_flat=p_flat,
+            predicted_return=predicted_return,
             predicted_direction=direction,
             confidence=confidence,
             horizon_predictions=horizon_preds,

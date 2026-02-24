@@ -13,7 +13,10 @@ from bitbat.dataset.build import build_xy
 
 def _make_prices(start: datetime, periods: int = 60) -> pd.DataFrame:
     timestamps = [start + timedelta(hours=i) for i in range(periods)]
-    close = np.linspace(100, 120, periods) + np.random.default_rng(0).normal(0, 1, periods)
+    close = (
+        np.linspace(100, 120, periods)
+        + np.random.default_rng(0).normal(0, 1, periods)
+    )
     high = close + np.random.default_rng(1).normal(1, 0.5, periods)
     low = close - np.random.default_rng(2).normal(1, 0.5, periods)
     volume = np.random.default_rng(3).integers(100, 200, periods)
@@ -41,7 +44,9 @@ def _make_news(start: datetime, periods: int = 60) -> pd.DataFrame:
     })
 
 
-def test_build_xy_shapes_and_outputs(tmp_path: Path, monkeypatch: Any) -> None:
+def test_build_xy_shapes_and_outputs(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
     start = datetime(2024, 1, 1)
     prices = _make_prices(start)
     news = _make_news(start)
@@ -59,7 +64,6 @@ def test_build_xy_shapes_and_outputs(tmp_path: Path, monkeypatch: Any) -> None:
         news_parquet=news_path,
         freq="1h",
         horizon="2h",
-        tau=0.01,
         start="2024-01-01 05:00:00",
         end="2024-01-03 00:00:00",
     )
@@ -68,13 +72,16 @@ def test_build_xy_shapes_and_outputs(tmp_path: Path, monkeypatch: Any) -> None:
     assert len(X) == len(y)
     assert X.isna().sum().max() == 0
     assert all(column.startswith("feat_") for column in X.columns)
-    assert set(y.unique()).issubset({"up", "down", "flat"})
+    # y should be float64 forward returns (regression)
+    assert y.dtype == np.float64
 
     dataset_path = output_dir / "features" / "1h_2h" / "dataset.parquet"
     assert dataset_path.exists()
     dataset = pd.read_parquet(dataset_path)
-    assert {"timestamp_utc", "label", "r_forward"}.issubset(dataset.columns)
-    feature_columns = [column for column in dataset.columns if column.startswith("feat_")]
+    assert "r_forward" in dataset.columns
+    feature_columns = [
+        column for column in dataset.columns if column.startswith("feat_")
+    ]
     assert feature_columns
     assert all(column.startswith("feat_") for column in feature_columns)
 
@@ -83,6 +90,8 @@ def test_build_xy_shapes_and_outputs(tmp_path: Path, monkeypatch: Any) -> None:
     saved_meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert saved_meta["freq"] == "1h"
     assert saved_meta["horizon"] == "2h"
-    assert saved_meta["tau"] == 0.01
     assert saved_meta["seed"] is None
     assert saved_meta["version"] == "unknown"
+    # New regression meta fields
+    assert "target_mean" in saved_meta
+    assert "target_std" in saved_meta

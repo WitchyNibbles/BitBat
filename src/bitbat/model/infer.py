@@ -24,18 +24,19 @@ def predict_bar(
     features_row: pd.Series,
     timestamp: Any | None = None,
     *,
-    class_order: list[str] | None = None,
+    current_price: float | None = None,
 ) -> dict[str, Any]:
-    """Predict probability of up/down move for a single bar.
+    """Predict return magnitude for a single bar.
 
     Args:
         model: Trained XGBoost booster or a path to a saved booster.
         features_row: Feature values for a single time step.
         timestamp: Optional timestamp to attach to the output payload.
-        class_order: Optional explicit class ordering for probability alignment.
+        current_price: Current close price used to compute predicted_price.
 
     Returns:
-        Dictionary with timestamp and per-direction probabilities.
+        Dictionary with timestamp, predicted_return, predicted_price,
+        and predicted_direction.
     """
     booster = _ensure_model(model)
 
@@ -49,15 +50,17 @@ def predict_bar(
 
     feature_names = list(features_row.index)
     dmatrix = xgb.DMatrix(features_row.to_frame().T, feature_names=feature_names)
-    proba = booster.predict(dmatrix)[0]
+    predicted_return = float(booster.predict(dmatrix)[0])
 
-    classes = class_order or ["down", "flat", "up"]
-    if len(proba) != len(classes):
-        raise ValueError("Mismatch between predicted probabilities and class labels.")
+    predicted_price = None
+    if current_price is not None:
+        predicted_price = current_price * (1 + predicted_return)
 
-    mapping = dict(zip(classes, proba, strict=False))
+    predicted_direction = "up" if predicted_return > 0 else "down"
+
     return {
         "timestamp": timestamp,
-        "p_up": float(mapping.get("up", 0.0)),
-        "p_down": float(mapping.get("down", 0.0)),
+        "predicted_return": predicted_return,
+        "predicted_price": predicted_price,
+        "predicted_direction": predicted_direction,
     }

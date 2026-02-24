@@ -14,6 +14,6 @@ def test_load_default_config() -> None:
     config = load_config(config_path)
 
     assert config["data_dir"] == "data"
-    assert config["freq"] == "1h"
-    assert config["horizon"] == "4h"
+    assert config["freq"] == "5m"
+    assert config["horizon"] == "30m"
     assert config["autonomous"]["enabled"] is True

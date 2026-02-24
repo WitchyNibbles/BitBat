@@ -12,18 +12,16 @@ def fit_xgb(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     *,
-    class_weights: bool = True,
     seed: int = 42,
 ) -> tuple[xgb.Booster, dict[str, float]]:
-    """Train an XGBoost multi-class classifier and persist it to disk.
+    """Train an XGBoost regression model and persist it to disk.
 
     Persists the trained booster to `models/{freq}_{horizon}/xgb.json` when
     `X_train` includes the `freq` and `horizon` attributes on `.attrs`.
 
     Args:
         X_train: Feature matrix for training, using numeric columns.
-        y_train: Target labels aligned to `X_train`.
-        class_weights: Whether to apply inverse-frequency class weights.
+        y_train: Continuous forward returns (float64) aligned to `X_train`.
         seed: Random seed for model training.
 
     Returns:
@@ -35,31 +33,21 @@ def fit_xgb(
         raise TypeError("y_train must be a pandas Series.")
 
     X = X_train.astype(float)
-    y = pd.Series(y_train).astype("category")
-    labels = y.cat.codes.to_numpy()
-    num_class = len(y.cat.categories)
+    y = y_train.astype("float64").to_numpy()
 
-    weights = None
-    if class_weights:
-        counts = y.value_counts()
-        total = len(y)
-        weights_map = {cat: total / (len(counts) * count) for cat, count in counts.items()}
-        weights = y.map(weights_map).to_numpy()
-
-    dtrain = xgb.DMatrix(X, label=labels, weight=weights, feature_names=list(X.columns))
+    dtrain = xgb.DMatrix(X, label=y, feature_names=list(X.columns))
 
     params = {
-        "objective": "multi:softprob",
-        "eval_metric": "mlogloss",
-        "num_class": num_class,
+        "objective": "reg:squarederror",
+        "eval_metric": "rmse",
         "seed": seed,
-        "eta": 0.1,
+        "eta": 0.05,
         "max_depth": 6,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
     }
 
-    booster = xgb.train(params, dtrain, num_boost_round=50)
+    booster = xgb.train(params, dtrain, num_boost_round=100)
 
     raw_importance = booster.get_score(importance_type="gain")
     importance: dict[str, float] = {

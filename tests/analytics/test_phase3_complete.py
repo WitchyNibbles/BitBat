@@ -146,9 +146,8 @@ class TestPhase3Integration:
         rng = np.random.default_rng(42)
         idx = df.index[:n]
         close = pd.Series(np.cumprod(1 + df["feat_ret_1"].fillna(0)) * 100, index=idx)
-        pu = pd.Series(rng.uniform(0.3, 0.7, n), index=idx)
-        pd_ = pd.Series(rng.uniform(0.2, 0.5, n), index=idx)
-        trades, equity = backtest_run(close, pu, pd_, enter=0.65)
+        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
+        trades, equity = backtest_run(close, predicted_returns)
         assert len(equity) == n
         assert "position" in trades.columns
 
@@ -158,9 +157,8 @@ class TestPhase3Integration:
         rng = np.random.default_rng(1)
         idx = df.index
         close = pd.Series(np.cumprod(1 + df["feat_ret_1"].fillna(0)) * 100, index=idx)
-        pu = pd.Series(rng.uniform(0.3, 0.7, n), index=idx)
-        pd_ = pd.Series(rng.uniform(0.2, 0.5, n), index=idx)
-        trades, equity = backtest_run(close, pu, pd_, enter=0.65)
+        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
+        trades, equity = backtest_run(close, predicted_returns)
         report = BacktestReport(equity, trades, preset_name="Integration")
         m = report.metrics()
         assert "sharpe" in m
@@ -174,15 +172,14 @@ class TestPhase3Integration:
         rng = np.random.default_rng(42)
         idx = df.index
         close = pd.Series(np.cumprod(1 + df["feat_ret_1"].fillna(0)) * 100, index=idx)
-        pu = pd.Series(rng.uniform(0.3, 0.7, n), index=idx)
-        pd_ = pd.Series(rng.uniform(0.2, 0.5, n), index=idx)
+        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
 
-        thresholds = [0.75, 0.65, 0.55]
+        signals = [0.005, 0.002, 0.001]
         names = ["Conservative", "Balanced", "Aggressive"]
         reports = []
-        for thr, name in zip(thresholds, names, strict=False):
-            t, eq = backtest_run(close, pu, pd_, enter=thr)
-            reports.append(BacktestReport(eq, t, preset_name=name, enter_threshold=thr))
+        for sig, name in zip(signals, names, strict=False):
+            t, eq = backtest_run(close, predicted_returns, min_signal=sig)
+            reports.append(BacktestReport(eq, t, preset_name=name, enter_threshold=sig))
 
         comparison = compare_scenarios(reports)
         assert len(comparison) == 3
@@ -207,9 +204,8 @@ class TestPhase3Integration:
         n = len(df)
         idx = df.index
         close = pd.Series(np.cumprod(1 + df["feat_ret_1"].fillna(0)) * 100, index=idx)
-        pu = pd.Series(rng.uniform(0.4, 0.8, n), index=idx)
-        pd_ = pd.Series(rng.uniform(0.1, 0.5, n), index=idx)
-        trades, equity = backtest_run(close, pu, pd_, enter=0.65)
+        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
+        trades, equity = backtest_run(close, predicted_returns)
 
         # 4. Report
         report = BacktestReport(equity, trades, preset_name="Smoke Test")

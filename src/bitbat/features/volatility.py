@@ -11,7 +11,9 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def garch_features(close: pd.Series, window: int = 168) -> pd.DataFrame:
+def garch_features(
+    close: pd.Series, window: int | None = None, *, freq: str | None = None
+) -> pd.DataFrame:
     """Generate GARCH(1,1) conditional volatility features.
 
     Fits a GARCH(1,1) model on log returns and extracts the conditional
@@ -30,6 +32,12 @@ def garch_features(close: pd.Series, window: int = 168) -> pd.DataFrame:
     -------
     DataFrame with columns ``garch_vol``, ``vol_regime``, ``vol_ratio``.
     """
+    if window is None:
+        if freq is not None:
+            from bitbat.timealign.bucket import bars_for_duration
+            window = bars_for_duration("48h", freq)
+        else:
+            window = 168
     close_series = pd.Series(close, dtype="float64")
     log_returns = np.log(close_series / close_series.shift(1)).dropna()
 
