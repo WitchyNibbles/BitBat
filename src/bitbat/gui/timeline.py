@@ -487,6 +487,68 @@ def build_timeline_overlay_frame(predictions: pd.DataFrame) -> pd.DataFrame:
     return overlay
 
 
+def _add_overlay_traces(
+    fig: Any,
+    overlay: pd.DataFrame,
+    *,
+    yaxis: str,
+) -> None:
+    predicted_percent = overlay["predicted_return"].astype("Float64") * 100.0
+    realized_percent = overlay["actual_return"].astype("Float64") * 100.0
+    upper_percent = overlay["upper_return"].astype("Float64") * 100.0
+    lower_percent = overlay["lower_return"].astype("Float64") * 100.0
+
+    axis_kwargs = {"yaxis": yaxis} if yaxis != "y" else {}
+    fig.add_trace(
+        {
+            "type": "scatter",
+            "x": overlay["timestamp_utc"],
+            "y": predicted_percent,
+            "mode": "lines",
+            "name": "Predicted Return",
+            "line": {"color": "#22C55E", "width": 2},
+            **axis_kwargs,
+        }
+    )
+    fig.add_trace(
+        {
+            "type": "scatter",
+            "x": overlay["timestamp_utc"],
+            "y": realized_percent,
+            "mode": "lines",
+            "name": "Realized Return",
+            "line": {"color": "#F97316", "width": 2},
+            "connectgaps": False,
+            **axis_kwargs,
+        }
+    )
+    fig.add_trace(
+        {
+            "type": "scatter",
+            "x": overlay["timestamp_utc"],
+            "y": lower_percent,
+            "mode": "lines",
+            "line": {"color": "rgba(0,0,0,0)", "width": 0},
+            "showlegend": False,
+            "hoverinfo": "skip",
+            **axis_kwargs,
+        }
+    )
+    fig.add_trace(
+        {
+            "type": "scatter",
+            "x": overlay["timestamp_utc"],
+            "y": upper_percent,
+            "mode": "lines",
+            "name": "Mismatch Band",
+            "line": {"color": "rgba(251,191,36,0.40)", "width": 1},
+            "fill": "tonexty",
+            "fillcolor": "rgba(251,191,36,0.15)",
+            **axis_kwargs,
+        }
+    )
+
+
 def get_price_series(
     data_dir: Path,
     freq: str,
@@ -600,55 +662,7 @@ def build_timeline_figure(
     if show_overlay:
         overlay = build_timeline_overlay_frame(normalized)
         if not overlay.empty:
-            predicted_percent = overlay["predicted_return"].astype("Float64") * 100.0
-            realized_percent = overlay["actual_return"].astype("Float64") * 100.0
-            upper_percent = overlay["upper_return"].astype("Float64") * 100.0
-            lower_percent = overlay["lower_return"].astype("Float64") * 100.0
-
-            fig.add_trace(
-                go.Scatter(
-                    x=overlay["timestamp_utc"],
-                    y=predicted_percent,
-                    mode="lines",
-                    name="Predicted Return",
-                    line={"color": "#22C55E", "width": 2},
-                    yaxis="y2",
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=overlay["timestamp_utc"],
-                    y=realized_percent,
-                    mode="lines",
-                    name="Realized Return",
-                    line={"color": "#F97316", "width": 2},
-                    yaxis="y2",
-                    connectgaps=False,
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=overlay["timestamp_utc"],
-                    y=lower_percent,
-                    mode="lines",
-                    line={"color": "rgba(0,0,0,0)", "width": 0},
-                    showlegend=False,
-                    hoverinfo="skip",
-                    yaxis="y2",
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=overlay["timestamp_utc"],
-                    y=upper_percent,
-                    mode="lines",
-                    name="Mismatch Band",
-                    line={"color": "rgba(251,191,36,0.40)", "width": 1},
-                    fill="tonexty",
-                    fillcolor="rgba(251,191,36,0.15)",
-                    yaxis="y2",
-                )
-            )
+            _add_overlay_traces(fig, overlay, yaxis="y2")
 
     fig.update_layout(
         title="Prediction Timeline",
@@ -663,6 +677,44 @@ def build_timeline_figure(
             "showgrid": False,
         },
         height=520,
+        template="plotly_dark",
+        paper_bgcolor="#0e1117",
+        plot_bgcolor="#1a1f2e",
+        legend={
+            "font": {"color": "white", "size": 11},
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "left",
+            "x": 0.0,
+        },
+    )
+
+    return fig
+
+
+def build_timeline_comparison_figure(predictions: pd.DataFrame) -> object:
+    """Build a focused comparison figure for predicted vs realized returns.
+
+    This is an opt-in companion view used by the dashboard to keep the primary
+    timeline readable while still exposing return comparison analytics.
+    """
+    import plotly.graph_objects as go
+
+    normalized = _normalize_timeline_rows(predictions)
+    overlay = build_timeline_overlay_frame(normalized)
+
+    fig = go.Figure()
+    if not overlay.empty:
+        _add_overlay_traces(fig, overlay, yaxis="y")
+
+    fig.update_layout(
+        title="Predicted vs Realized Return Comparison",
+        xaxis_title="Time",
+        yaxis_title="Return (%)",
+        xaxis={"gridcolor": "rgba(148,163,184,0.16)"},
+        yaxis={"gridcolor": "rgba(148,163,184,0.16)"},
+        height=330,
         template="plotly_dark",
         paper_bgcolor="#0e1117",
         plot_bgcolor="#1a1f2e",
