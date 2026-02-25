@@ -21,6 +21,7 @@ from bitbat.features.price import (
 )
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.labeling.returns import forward_return
+from bitbat.timealign.asof import align_features_asof
 from bitbat.timealign.calendar import ensure_utc
 
 logger = logging.getLogger(__name__)
@@ -88,12 +89,19 @@ def _join_auxiliary_features(
     freq: str = "1h",
 ) -> pd.DataFrame:
     """Join macro and on-chain features into the main feature frame."""
+    target_index = features.index
+
     if macro_parquet is not None:
         try:
             from bitbat.features.macro import generate_macro_features
 
             macro_raw = _load_parquet(macro_parquet)
             macro_feats = generate_macro_features(macro_raw, freq=freq)
+            macro_feats = align_features_asof(
+                target_index,
+                macro_feats,
+                source_name="macro",
+            )
             features = features.join(macro_feats, how="left")
             logger.info("Joined %d macro feature columns", len(macro_feats.columns))
         except Exception:
@@ -105,6 +113,11 @@ def _join_auxiliary_features(
 
             onchain_raw = _load_parquet(onchain_parquet)
             onchain_feats = generate_onchain_features(onchain_raw, freq=freq)
+            onchain_feats = align_features_asof(
+                target_index,
+                onchain_feats,
+                source_name="onchain",
+            )
             features = features.join(onchain_feats, how="left")
             logger.info("Joined %d on-chain feature columns", len(onchain_feats.columns))
         except Exception:
@@ -154,6 +167,11 @@ def build_xy(
             news_df=news,
             bar_df=prices.reset_index()[["timestamp_utc"]],
             freq=freq,
+        )
+        sentiment_features = align_features_asof(
+            price_features.index,
+            sentiment_features,
+            source_name="sentiment",
         )
         features = price_features.join(sentiment_features, how="left")
     else:
