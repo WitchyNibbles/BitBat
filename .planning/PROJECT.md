@@ -2,22 +2,13 @@
 
 ## Current State
 
-- **Shipped version:** v1.0 (2026-02-25 final closure)
-- **Milestone result:** D1/D2/D3 delivered and verified, post-audit timeline readability gaps closed
+- **Shipped version:** v1.1 (2026-02-25)
+- **Milestone result:** UI-first simplification shipped with a five-view supported surface, retirement-safe legacy routes, and regression/smoke release gates.
 - **Release acceptance command:** `make test-release`
-
-## Current Milestone: v1.1 UI-First Simplification
-
-**Goal:** Reduce BitBat to the views that are actively used and harden the UI by removing/retiring broken surfaces.
-
-**Target features:**
-- Keep only `Quick Start`, `Settings`, `Performance`, `About`, and `System` as supported views.
-- Retire non-used/broken views (`Alerts`, `Analytics`, `History`, `Backtest`, `Pipeline`) from primary navigation.
-- Ensure removed or legacy routes fail gracefully with user-facing guidance rather than tracebacks.
 
 ## What This Is
 
-BitBat is a local-first BTC prediction application with CLI, API, autonomous monitoring, and a Streamlit dashboard. v1.0 stabilized monitoring + schema behavior, repaired and expanded the timeline experience, and standardized Streamlit compatibility guardrails for repeatable release verification.
+BitBat is a local-first BTC prediction platform with CLI, API, autonomous monitoring, and a Streamlit dashboard. After v1.1, the primary operator UI is intentionally reduced to reliable core views with retired advanced paths guarded behind user-facing guidance.
 
 ## Core Value
 
@@ -27,45 +18,57 @@ A reliable prediction system where operators can trust that monitoring runs with
 
 ### Validated
 
-- ✓ SCHE-01/02/03: Runtime schema compatibility, startup preflight, and idempotent upgrades are in place.
-- ✓ MON-01/02/03: Monitor DB runtime stability and actionable fault diagnostics are enforced.
-- ✓ TIM-01/02/03/04/05: Timeline reliability and UX expansion are delivered and regression-covered.
-- ✓ GUI-01/02/03: Deprecated `use_container_width` usage removed and compatibility checks enforced.
-- ✓ QUAL-01/02/03: D1/D2/D3 release gates implemented with canonical acceptance workflow.
-- ✓ API-01/02: API/readiness surfaces are aligned with runtime schema/timeline semantics.
+- ✓ SCHE-01/02/03: Runtime schema compatibility, startup preflight, and idempotent upgrades.
+- ✓ MON-01/02/03: Monitor runtime fault handling and diagnostics.
+- ✓ TIM-01/02/03/04/05: Timeline reliability, UX expansion, readability, and comparison clarity.
+- ✓ GUI-01/02/03: Streamlit compatibility and width-contract hardening.
+- ✓ API-01/02: API/readiness alignment with runtime semantics.
+- ✓ QUAL-01/02/03: D1/D2/D3 release verification contracts.
+- ✓ UIF-01/02/03: Supported Streamlit surface constrained to Quick Start, Settings, Performance, About, and System.
+- ✓ STAB-01/02/03: Runtime crash paths removed (`confidence`, pipeline import, backtest indexing).
+- ✓ RET-01/02: Retired-page UX and supported-surface guidance aligned.
+- ✓ QUAL-04/05/06: Simplified UI contract, crash-signature guards, and supported-view smoke coverage release-wired.
 
-### Active (v1.1 Scope)
+### Active (Next Milestone Planning Queue)
 
-- [ ] Streamlit navigation and entry points expose only the five supported views.
-- [ ] Broken views no longer crash runtime (`KeyError: confidence`, pipeline import error, backtest indexing error).
-- [ ] Legacy/non-supported view access is handled safely (retired page notice or redirect).
-- [ ] UI copy and internal links no longer reference retired pages.
-- [ ] Regression tests enforce the simplified UI surface contract.
+- [ ] ANLY-01: Evaluate whether any advanced analytics surfaces should be reintroduced based on validated demand.
+- [ ] ANLY-02: Reintroduce backtest workflows only with robust dataset/model/runtime guards.
+- [ ] ANLY-03: Rebuild pipeline UX against current modeling/evaluation APIs if advanced workflows return.
+- [ ] OPER-01: Evaluate optional non-SQLite backend path for higher concurrency environments.
 
 ### Out of Scope
 
-- Full dashboard redesign across all pages.
+- Full dashboard redesign.
 - Major model strategy replacement.
-- Multi-tenant auth/permissions redesign.
+- Reintroducing advanced views without explicit operator demand and verification contracts.
 
 ## Context
 
-v1.0 was delivered through 9 phases (24 plans, 72 tasks), including a post-audit closure phase for timeline readability and comparison clarity. The runtime now has explicit schema/readiness contracts, timeline semantics/readability are regression-tested, and Streamlit compatibility regressions are prevented by automated checks.
+v1.1 completed in 3 phases (10-12), 8 plans, and 24 tasks. The runtime surface is now intentionally minimal, retired advanced routes fail safely, and release acceptance includes dedicated phase-level coverage for supported-surface, stability, and smoke behavior.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Treat this as brownfield stabilization plus targeted enhancement (scope C) | Existing app surfaces were valuable but unstable in critical paths | ✓ Shipped in v1.0 |
-| Timeline target is T2 (improve, not just restore) | Timeline quality was central to operator usability | ✓ Shipped in v1.0 |
-| Done criteria are D1/D2/D3 | Technical acceptance gates needed to be explicit and verifiable | ✓ Enforced by phase gates + `make test-release` |
-| Prioritize DB/runtime correctness before visual polish | Reliability blockers had to be eliminated before UX expansion | ✓ Executed in phase order 1→8 |
+| Done criteria are D1/D2/D3 | Technical acceptance gates needed to be explicit and verifiable | ✓ Enforced by canonical `make test-release` |
+| Prioritize UI-first simplification for v1.1 | Operator value concentrated in five views; advanced views were broken | ✓ Shipped in v1.1 |
+| Retire Backtest/Pipeline routes instead of patching brittle imports in place | Fastest safe path to remove user-facing tracebacks while preserving future rebuild option | ✓ Shipped in v1.1 |
+| Lock milestone behavior with dedicated phase gates plus release wiring | Prevent regressions when future work touches Streamlit/runtime contracts | ✓ Shipped in v1.1 |
 
 ## Next Milestone Goals
 
-1. Ship a stable, minimal UI surface aligned with actual operator usage.
-2. Remove dependence on currently broken advanced pages from normal runtime.
-3. Lock simplified behavior with regression gates before considering advanced-page reintroduction.
+1. Define v1.2 requirements from real operator workflows and current usage evidence.
+2. Decide whether advanced interfaces should remain retired or return behind explicit contracts.
+3. Preserve D1/D2/D3 release acceptance as the non-negotiable shipping gate.
+
+<details>
+<summary>Archived v1.1 kickoff notes</summary>
+
+- Goal: reduce BitBat to actively used views and retire broken surfaces safely.
+- Targeted runtime failures: missing `confidence`, pipeline import failure, backtest indexing crash.
+
+</details>
 
 ---
-*Last updated: 2026-02-25 after starting v1.1 milestone*
+*Last updated: 2026-02-25 after completing v1.1 milestone*
