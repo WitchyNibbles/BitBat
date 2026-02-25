@@ -86,3 +86,13 @@ def test_phase11_retired_backtest_and_pipeline_are_safe_shells() -> None:
     assert "xgboost" not in pipeline_source
     assert "backtest_run" not in backtest_source
     assert "too many indices for array" not in backtest_source
+
+
+def test_phase11_known_failure_signatures_are_explicitly_blocked() -> None:
+    app_source = (STREAMLIT_DIR / "app.py").read_text(encoding="utf-8")
+    backtest_source = (RETIRED_DIR / "8_🎯_Backtest.py").read_text(encoding="utf-8")
+    pipeline_source = (RETIRED_DIR / "9_🔬_Pipeline.py").read_text(encoding="utf-8")
+
+    assert 'latest_pred["confidence"]' not in app_source
+    assert "classification_metrics" not in pipeline_source
+    assert "backtest_run" not in backtest_source
