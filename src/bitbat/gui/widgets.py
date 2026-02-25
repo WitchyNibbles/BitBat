@@ -31,6 +31,34 @@ def db_query(db_path: Path, sql: str, params: tuple = ()) -> list:
         return []
 
 
+def _table_columns(db_path: Path, table: str) -> set[str]:
+    """Return available column names for a table, or an empty set."""
+    rows = db_query(db_path, f"PRAGMA table_info({table})")  # noqa: S608
+    columns: set[str] = set()
+    for row in rows:
+        if len(row) > 1:
+            columns.add(str(row[1]))
+    return columns
+
+
+def _to_float(value: Any) -> float | None:
+    """Convert common numeric inputs to float when possible."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _first_available_column(columns: set[str], candidates: tuple[str, ...]) -> str | None:
+    """Pick the first column name that exists in the table."""
+    for candidate in candidates:
+        if candidate in columns:
+            return candidate
+    return None
+
+
 def _parse_timestamp(value: Any) -> datetime | None:
     """Parse common DB/file timestamp values into naive UTC datetimes."""
     if value is None:
@@ -133,22 +161,76 @@ def get_system_status(db_path: Path) -> dict[str, Any]:
 
 def get_latest_prediction(db_path: Path) -> dict[str, Any] | None:
     """Return the most recent prediction row, or None."""
-    rows = db_query(
-        db_path,
-        "SELECT timestamp_utc, predicted_direction, predicted_return, predicted_price, "
-        "model_version, created_at "
-        "FROM prediction_outcomes ORDER BY created_at DESC LIMIT 1",
+    columns = _table_columns(db_path, "prediction_outcomes")
+    if not columns:
+        return None
+
+    field_candidates: dict[str, tuple[str, ...]] = {
+        "timestamp_utc": ("timestamp_utc", "prediction_timestamp"),
+        "predicted_direction": ("predicted_direction",),
+        "predicted_return": ("predicted_return",),
+        "predicted_price": ("predicted_price",),
+        "model_version": ("model_version",),
+        "created_at": ("created_at", "prediction_timestamp", "timestamp_utc"),
+        "p_up": ("p_up",),
+        "p_down": ("p_down",),
+        "confidence_raw": ("confidence",),
+    }
+
+    expressions: list[str] = []
+    for alias, candidates in field_candidates.items():
+        selected = _first_available_column(columns, candidates)
+        if selected is None:
+            expressions.append(f"NULL AS {alias}")
+        else:
+            expressions.append(f"{selected} AS {alias}")
+
+    order_column = _first_available_column(
+        columns,
+        ("created_at", "timestamp_utc", "prediction_timestamp", "id"),
     )
+
+    sql = "SELECT " + ", ".join(expressions) + " FROM prediction_outcomes"
+    if order_column is not None:
+        sql += f" ORDER BY {order_column} DESC"
+    sql += " LIMIT 1"
+
+    rows = db_query(db_path, sql)
     if not rows:
         return None
-    ts, direction, predicted_return, predicted_price, model_ver, created_at = rows[0]
+    (
+        ts,
+        direction,
+        predicted_return,
+        predicted_price,
+        model_ver,
+        created_at,
+        p_up,
+        p_down,
+        confidence_raw,
+    ) = rows[0]
+
+    p_up_value = _to_float(p_up)
+    p_down_value = _to_float(p_down)
+    confidence = _to_float(confidence_raw)
+    if confidence is None:
+        candidates = [value for value in (p_up_value, p_down_value) if value is not None]
+        if candidates:
+            confidence = max(candidates)
+
+    predicted_return_value = _to_float(predicted_return)
+    predicted_price_value = _to_float(predicted_price)
+
     return {
         "timestamp_utc": ts,
-        "direction": direction,
-        "predicted_return": float(predicted_return) if predicted_return is not None else 0.0,
-        "predicted_price": float(predicted_price) if predicted_price is not None else None,
+        "direction": direction or "flat",
+        "predicted_return": predicted_return_value if predicted_return_value is not None else 0.0,
+        "predicted_price": predicted_price_value,
         "model_version": model_ver,
-        "created_at": created_at,
+        "created_at": created_at or ts,
+        "p_up": p_up_value,
+        "p_down": p_down_value,
+        "confidence": confidence,
     }
 
 
