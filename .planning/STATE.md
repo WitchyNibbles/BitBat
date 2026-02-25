@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 13 execution prep for leakage-safe data and label contract upgrades
+**Current focus:** Phase 13 execution (plans 13-01 and 13-02 complete; 13-03 next)
 
 ## Current Position
 
 Milestone: v1.2 (BTC Prediction Accuracy Evolution)
-Phase: 13-data-and-label-contract-upgrade (planned)
-Status: Phase 13 plans created and verified; ready for execution
-Last activity: 2026-02-25 - Planned Phase 13 from deep research and created executable plan set
+Phase: 13-data-and-label-contract-upgrade (executing)
+Status: Phase 13 in progress with 2/3 plans complete (DATA-01 and DATA-02 delivered)
+Last activity: 2026-02-25 - Executed plan 13-02 and updated shared return/direction label contract
 
 Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 
@@ -21,7 +21,7 @@ Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 - Planned phases: 4 (13-16)
 - Planned requirements: 11
 - Plans: 3 (Phase 13)
-- Tasks: 0 (execution not started)
+- Tasks: 6 complete (plans 13-01 and 13-02)
 - Source context: `deep-research-report.md`
 
 ## Accumulated Context
@@ -35,11 +35,13 @@ Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 - Simplified UI behavior is release-wired by dedicated phase-level regression and smoke suites.
 - v1.2 will prioritize leakage control, retraining cadence, and walk-forward rigor over immediate high-complexity model changes.
 - Tree-ensemble baselines are the first accuracy benchmark before considering transformer or graph model expansion.
+- As-of alignment with no-future-match enforcement is now a dataset-level invariant (DATA-01).
+- Return targets (`r_forward`) and direction labels now share one horizon-aware labeling path (DATA-02).
 
 ### Pending Todos
 
-- Execute Phase 13 (`$gsd-execute-phase 13`).
-- Verify Phase 13 outcome against DATA-01/DATA-02/LABL-01 requirements.
+- Execute remaining Phase 13 plan (`13-03`) for optional triple-barrier label mode (LABL-01).
+- Verify completed Phase 13 outcome against DATA-01/DATA-02/LABL-01 requirements.
 - Keep v1.2 model promotion tied to out-of-sample and drawdown-safe gates.
 
 ### Blockers/Concerns
@@ -49,5 +51,5 @@ Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: phase 13 planning complete
+Stopped at: phase 13 plan 13-02 complete
 Resume with: `$gsd-execute-phase 13`
