@@ -1,7 +1,7 @@
 # Requirements: BitBat UI-First Simplification
 
 **Defined:** 2026-02-25
-**Status:** Drafted for v1.1 milestone
+**Status:** v1.1 in progress (Phase 10 complete, Phases 11-12 pending)
 **Core Value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
 
 ## v1.1 Requirements
@@ -10,9 +10,9 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Supported UI Surface
 
-- [ ] **UIF-01**: Streamlit sidebar navigation exposes only these supported views: Quick Start, Settings, Performance, About, and System.
-- [ ] **UIF-02**: Home page quick actions and internal links route only to supported views.
-- [ ] **UIF-03**: Non-supported pages (`Alerts`, `Analytics`, `History`, `Backtest`, `Pipeline`) are removed from the normal runtime surface.
+- [x] **UIF-01**: Streamlit sidebar navigation exposes only these supported views: Quick Start, Settings, Performance, About, and System.
+- [x] **UIF-02**: Home page quick actions and internal links route only to supported views.
+- [x] **UIF-03**: Non-supported pages (`Alerts`, `Analytics`, `History`, `Backtest`, `Pipeline`) are removed from the normal runtime surface.
 
 ### Runtime Stability
 
@@ -23,7 +23,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 ### Retired View UX
 
 - [ ] **RET-01**: Accessing a retired page path yields a user-friendly retirement notice or redirect, not a traceback.
-- [ ] **RET-02**: About/help copy references only the supported view set and current navigation model.
+- [x] **RET-02**: About/help copy references only the supported view set and current navigation model.
 
 ### Quality & Verification
 
@@ -59,10 +59,10 @@ Explicitly excluded for v1.1 to prevent scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UIF-01 | Phase 10 | Pending |
-| UIF-02 | Phase 10 | Pending |
-| UIF-03 | Phase 10 | Pending |
-| RET-02 | Phase 10 | Pending |
+| UIF-01 | Phase 10 | Complete |
+| UIF-02 | Phase 10 | Complete |
+| UIF-03 | Phase 10 | Complete |
+| RET-02 | Phase 10 | Complete |
 | STAB-01 | Phase 11 | Pending |
 | STAB-02 | Phase 11 | Pending |
 | STAB-03 | Phase 11 | Pending |
@@ -78,4 +78,4 @@ Explicitly excluded for v1.1 to prevent scope creep.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after v1.1 initialization*
+*Last updated: 2026-02-25 after Phase 10 completion*

@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** v1.1 UI-first simplification milestone setup
+**Current focus:** Phase 11 planning for runtime stability and retirement guards
 
 ## Current Position
 
 Milestone: v1.1 (UI-First Simplification)
-Phase: 10-supported-surface-pruning (planned)
-Status: Requirements and roadmap approved, ready to plan Phase 10
-Last activity: 2026-02-25 - Created v1.1 requirements and roadmap from UI-first simplification scope
+Phase: 11-runtime-stability-and-retirement-guards (next)
+Status: Phase 10 complete and verified; ready to plan/execute Phase 11
+Last activity: 2026-02-25 - Completed Phase 10 supported-surface pruning and verification
 
-Progress: [░░░░░░░░░░] 0% for v1.1 (ready for phase planning)
+Progress: [███░░░░░░░] 33% for v1.1 (1/3 phases complete)
 
 ## Milestone Metrics
 
-- Phases: 9
-- Plans: 24
-- Tasks: 72
+- Phases: 10
+- Plans: 27
+- Tasks: 81
 - Commit range: `cd1d1ab^..HEAD`
 - Change volume: Updated through Phase 9 timeline readability closure
 
@@ -34,11 +34,12 @@ Progress: [░░░░░░░░░░] 0% for v1.1 (ready for phase planning
 - Streamlit width compatibility is enforced with test-based guardrails.
 - `make test-release` is the canonical acceptance command for D1/D2/D3.
 - Timeline readability defaults and opt-in comparison behavior are now verified by dedicated Phase 9 gates.
+- Streamlit runtime surface is now intentionally limited to Quick Start, Settings, Performance, About, and System.
 
 ### Pending Todos
 
-- Plan Phase 10 (`$gsd-plan-phase 10`).
-- Decide implementation path for retired views (hide-only vs explicit retirement notice routes).
+- Plan and execute Phase 11 (`$gsd-plan-phase 11` / `$gsd-execute-phase 11`).
+- Implement runtime crash hardening for app/backtest/pipeline legacy failure signatures.
 
 ### Blockers/Concerns
 
@@ -46,6 +47,6 @@ Progress: [░░░░░░░░░░] 0% for v1.1 (ready for phase planning
 
 ## Session Continuity
 
-Last session: 2026-02-25 17:12
-Stopped at: v1.1 roadmap creation and phase sequence definition
-Resume with: `$gsd-plan-phase 10`
+Last session: 2026-02-25 17:28
+Stopped at: Phase 10 execution complete with release-contract gate wiring
+Resume with: `$gsd-plan-phase 11`

@@ -11,7 +11,8 @@
 **Goal:** Keep BitBat focused on the five actively used views and remove non-core pages from normal navigation.
 **Depends on:** v1.0 verified baseline
 **Requirements:** [UIF-01, UIF-02, UIF-03, RET-02]
-**Plans:** 3 planned
+**Plans:** 3/3 plans complete
+**Status:** Complete (verified 2026-02-25 in `.planning/phases/10-supported-surface-pruning/10-VERIFICATION.md`)
 
 Success criteria:
 1. Sidebar and page discovery expose only Quick Start, Settings, Performance, About, and System.
@@ -46,10 +47,10 @@ Success criteria:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 10. Supported Surface Pruning | v1.1 | 0/3 | Not started | - |
+| 10. Supported Surface Pruning | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 11. Runtime Stability and Retirement Guards | v1.1 | 0/3 | Not started | - |
 | 12. Simplified UI Regression Gates | v1.1 | 0/2 | Not started | - |
 
 ## Next
 
-- Start execution with `$gsd-plan-phase 10` (or `$gsd-discuss-phase 10` first).
+- Continue with `$gsd-plan-phase 11` (or `$gsd-discuss-phase 11` first).
