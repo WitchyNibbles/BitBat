@@ -168,9 +168,12 @@ def test_phase6_timeline_ux_end_to_end_overlay_and_filters(tmp_path: Path) -> No
     assert "Realized Return" in names
     assert "Mismatch Band" in names
 
-    marker_hover = [trace.hovertemplate for trace in fig.data if trace.mode == "markers"]
-    assert any("Confidence: n/a" in hover for hover in marker_hover)
-    assert any("Confidence: 76.00%" in hover for hover in marker_hover)
+    marker_traces = {
+        trace.name: trace for trace in fig.data if getattr(trace, "mode", None) == "markers"
+    }
+    assert marker_traces["UP - Pending"].customdata[0][0] == "n/a"
+    assert marker_traces["UP - Realized (Correct)"].customdata[0][0] == "76.00%"
+    assert "Confidence: %{customdata[0]}" in marker_traces["UP - Pending"].hovertemplate
 
 
 def test_phase6_timeline_ux_no_result_filter_message(tmp_path: Path) -> None:

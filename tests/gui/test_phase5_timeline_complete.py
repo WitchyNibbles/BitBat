@@ -140,10 +140,12 @@ def test_phase5_timeline_reliability_end_to_end(tmp_path: Path) -> None:
     fig = build_timeline_figure(predictions, prices)
 
     assert len(fig.data) == 4  # 1 price line + 3 markers
-    marker_traces = fig.data[1:]
-    assert marker_traces[0].y[0] == pytest.approx(43_050.0)
-    assert marker_traces[1].y[0] == pytest.approx(42_900.0)
-    assert marker_traces[2].y[0] == pytest.approx(43_150.0)
+    marker_traces = {
+        trace.name: trace for trace in fig.data if getattr(trace, "mode", None) == "markers"
+    }
+    assert marker_traces["UP - Realized (Correct)"].y[0] == pytest.approx(43_050.0)
+    assert marker_traces["DOWN - Realized (Wrong)"].y[0] == pytest.approx(42_900.0)
+    assert marker_traces["UP - Pending"].y[0] == pytest.approx(43_150.0)
 
     summary = summarize_timeline_status(predictions)
     assert summary == {
