@@ -477,6 +477,12 @@ class TestRetiredLegacyRouteNoticeGuards:
         assert "fit_xgb" not in source
         assert "xgboost" not in source
 
+    def test_retired_notice_helper_contains_operator_guidance_copy(self) -> None:
+        source = Path("streamlit/retired_pages/_retired_notice.py").read_text(encoding="utf-8")
+
+        assert "retired in v1.1" in source
+        assert "supported pages" in source
+
 
 # ---------------------------------------------------------------------------
 # SESSION 3 composite: validate all 3 sessions together

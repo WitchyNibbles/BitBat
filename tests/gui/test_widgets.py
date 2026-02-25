@@ -251,6 +251,16 @@ class TestGetLatestPrediction:
         assert pred["predicted_price"] is None
         assert pred["confidence"] is None
 
+    def test_legacy_prediction_payload_keeps_confidence_key_shape(
+        self, legacy_prediction_db: Path
+    ) -> None:
+        pred = get_latest_prediction(legacy_prediction_db)
+
+        assert pred is not None
+        assert "confidence" in pred
+        assert "created_at" in pred
+        assert pred["created_at"] == pred["timestamp_utc"]
+
 
 # ---------------------------------------------------------------------------
 # get_recent_events
