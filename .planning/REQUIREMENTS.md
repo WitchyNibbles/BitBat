@@ -1,7 +1,7 @@
 # Requirements: BitBat UI-First Simplification
 
 **Defined:** 2026-02-25
-**Status:** v1.1 in progress (Phase 10 complete, Phases 11-12 pending)
+**Status:** v1.1 in progress (Phases 10-11 complete, Phase 12 pending)
 **Core Value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
 
 ## v1.1 Requirements
@@ -16,13 +16,13 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Runtime Stability
 
-- [ ] **STAB-01**: The home app handles missing prediction fields (including `confidence`) without raising `KeyError`.
-- [ ] **STAB-02**: Normal UI startup path does not crash from pipeline-only imports (including `classification_metrics` import failures).
-- [ ] **STAB-03**: Users cannot encounter the current backtest indexing runtime crash from the standard UI flow.
+- [x] **STAB-01**: The home app handles missing prediction fields (including `confidence`) without raising `KeyError`.
+- [x] **STAB-02**: Normal UI startup path does not crash from pipeline-only imports (including `classification_metrics` import failures).
+- [x] **STAB-03**: Users cannot encounter the current backtest indexing runtime crash from the standard UI flow.
 
 ### Retired View UX
 
-- [ ] **RET-01**: Accessing a retired page path yields a user-friendly retirement notice or redirect, not a traceback.
+- [x] **RET-01**: Accessing a retired page path yields a user-friendly retirement notice or redirect, not a traceback.
 - [x] **RET-02**: About/help copy references only the supported view set and current navigation model.
 
 ### Quality & Verification
@@ -63,10 +63,10 @@ Explicitly excluded for v1.1 to prevent scope creep.
 | UIF-02 | Phase 10 | Complete |
 | UIF-03 | Phase 10 | Complete |
 | RET-02 | Phase 10 | Complete |
-| STAB-01 | Phase 11 | Pending |
-| STAB-02 | Phase 11 | Pending |
-| STAB-03 | Phase 11 | Pending |
-| RET-01 | Phase 11 | Pending |
+| STAB-01 | Phase 11 | Complete |
+| STAB-02 | Phase 11 | Complete |
+| STAB-03 | Phase 11 | Complete |
+| RET-01 | Phase 11 | Complete |
 | QUAL-04 | Phase 12 | Pending |
 | QUAL-05 | Phase 12 | Pending |
 | QUAL-06 | Phase 12 | Pending |
@@ -78,4 +78,4 @@ Explicitly excluded for v1.1 to prevent scope creep.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after Phase 10 completion*
+*Last updated: 2026-02-25 after Phase 11 completion*

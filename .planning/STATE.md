@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 11 planning for runtime stability and retirement guards
+**Current focus:** Phase 12 planning for simplified UI regression gates
 
 ## Current Position
 
 Milestone: v1.1 (UI-First Simplification)
-Phase: 11-runtime-stability-and-retirement-guards (next)
-Status: Phase 10 complete and verified; ready to plan/execute Phase 11
-Last activity: 2026-02-25 - Completed Phase 10 supported-surface pruning and verification
+Phase: 12-simplified-ui-regression-gates (next)
+Status: Phase 11 complete and verified; ready to plan/execute Phase 12
+Last activity: 2026-02-25 - Completed Phase 11 runtime stability and retirement guards
 
-Progress: [███░░░░░░░] 33% for v1.1 (1/3 phases complete)
+Progress: [███████░░░] 67% for v1.1 (2/3 phases complete)
 
 ## Milestone Metrics
 
-- Phases: 10
-- Plans: 27
-- Tasks: 81
+- Phases: 11
+- Plans: 30
+- Tasks: 90
 - Commit range: `cd1d1ab^..HEAD`
-- Change volume: Updated through Phase 9 timeline readability closure
+- Change volume: Updated through Phase 11 runtime hardening and retirement guards
 
 ## Accumulated Context
 
@@ -35,18 +35,20 @@ Progress: [███░░░░░░░] 33% for v1.1 (1/3 phases complete)
 - `make test-release` is the canonical acceptance command for D1/D2/D3.
 - Timeline readability defaults and opt-in comparison behavior are now verified by dedicated Phase 9 gates.
 - Streamlit runtime surface is now intentionally limited to Quick Start, Settings, Performance, About, and System.
+- Home dashboard prediction rendering now tolerates partial rows (including missing confidence).
+- Legacy Backtest/Pipeline routes are retirement-guarded and redirect users to supported pages.
 
 ### Pending Todos
 
-- Plan and execute Phase 11 (`$gsd-plan-phase 11` / `$gsd-execute-phase 11`).
-- Implement runtime crash hardening for app/backtest/pipeline legacy failure signatures.
+- Plan and execute Phase 12 (`$gsd-plan-phase 12` / `$gsd-execute-phase 12`).
+- Lock Phase 11 runtime-hardening contracts into final simplified UI regression gates.
 
 ### Blockers/Concerns
 
-- Current runtime includes broken non-core views (`app`, `backtest`, `pipeline`) that must be retired or hardened in v1.1.
+- None active for Phase 11 scope; next risk is preserving regression-gate quality in Phase 12.
 
 ## Session Continuity
 
-Last session: 2026-02-25 17:28
-Stopped at: Phase 10 execution complete with release-contract gate wiring
-Resume with: `$gsd-plan-phase 11`
+Last session: 2026-02-25 19:08
+Stopped at: Phase 11 execution complete with verification and release wiring
+Resume with: `$gsd-plan-phase 12`

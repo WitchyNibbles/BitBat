@@ -24,7 +24,8 @@ Success criteria:
 **Goal:** Remove current crash paths from app startup and legacy route access behavior.
 **Depends on:** Phase 10
 **Requirements:** [STAB-01, STAB-02, STAB-03, RET-01]
-**Plans:** 3 planned
+**Plans:** 3/3 plans complete
+**Status:** Complete (verified 2026-02-25 in `.planning/phases/11-runtime-stability-and-retirement-guards/11-VERIFICATION.md`)
 
 Success criteria:
 1. `streamlit/app.py` no longer raises `KeyError: 'confidence'` when data is partial.
@@ -48,9 +49,9 @@ Success criteria:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 10. Supported Surface Pruning | v1.1 | 3/3 | Complete | 2026-02-25 |
-| 11. Runtime Stability and Retirement Guards | v1.1 | 0/3 | Not started | - |
+| 11. Runtime Stability and Retirement Guards | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 12. Simplified UI Regression Gates | v1.1 | 0/2 | Not started | - |
 
 ## Next
 
-- Continue with `$gsd-plan-phase 11` (or `$gsd-discuss-phase 11` first).
+- Continue with `$gsd-plan-phase 12` (or `$gsd-discuss-phase 12` first).
