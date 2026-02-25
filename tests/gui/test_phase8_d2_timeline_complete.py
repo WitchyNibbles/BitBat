@@ -30,6 +30,7 @@ D2_CANONICAL_SUITES = [
     "tests/gui/test_complete_gui.py",
     "tests/gui/test_phase5_timeline_complete.py",
     "tests/gui/test_phase6_timeline_ux_complete.py",
+    "tests/gui/test_phase9_timeline_readability_complete.py",
     "tests/gui/test_phase8_d2_timeline_complete.py",
 ]
 
@@ -180,14 +181,15 @@ def test_phase8_d2_release_gate_end_to_end_overlay_and_filter_semantics(tmp_path
     assert "Realized Return" in names
     assert "Mismatch Band" in names
 
-    marker_traces = [trace for trace in fig.data if getattr(trace, "mode", None) == "markers"]
-    assert marker_traces[0].y[0] == pytest.approx(43_180.0)
-    assert marker_traces[1].y[0] == pytest.approx(43_050.0)
-    assert marker_traces[2].y[0] == pytest.approx(43_260.0)
+    marker_traces = {
+        trace.name: trace for trace in fig.data if getattr(trace, "mode", None) == "markers"
+    }
+    assert marker_traces["UP - Realized (Correct)"].y[0] == pytest.approx(43_180.0)
+    assert marker_traces["DOWN - Realized (Wrong)"].y[0] == pytest.approx(43_050.0)
+    assert marker_traces["UP - Pending"].y[0] == pytest.approx(43_260.0)
 
-    hover_templates = [trace.hovertemplate for trace in marker_traces]
-    assert any("Confidence: 78.00%" in hover for hover in hover_templates)
-    assert any("Confidence: n/a" in hover for hover in hover_templates)
+    assert marker_traces["UP - Realized (Correct)"].customdata[0][0] == "78.00%"
+    assert marker_traces["UP - Pending"].customdata[0][0] == "n/a"
 
 
 def test_phase8_d2_release_gate_no_result_filter_message_is_explicit(tmp_path: Path) -> None:

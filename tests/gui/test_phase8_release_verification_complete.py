@@ -54,6 +54,7 @@ def test_phase8_release_depends_on_canonical_d1_and_d2_suite_contracts() -> None
     assert "tests/test_cli.py" in d1_gate.D1_CANONICAL_SUITE
     assert "tests/gui/test_phase8_d2_timeline_complete.py" in d2_gate.D2_CANONICAL_SUITES
     assert "tests/gui/test_phase6_timeline_ux_complete.py" in d2_gate.D2_CANONICAL_SUITES
+    assert "tests/gui/test_phase9_timeline_readability_complete.py" in d2_gate.D2_CANONICAL_SUITES
 
 
 def test_phase8_release_runtime_streamlit_contract_has_no_deprecated_width_keyword() -> None:
