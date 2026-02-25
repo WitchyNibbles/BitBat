@@ -105,3 +105,64 @@ def test_build_xy_shapes_and_outputs(
     # New regression meta fields
     assert "target_mean" in saved_meta
     assert "target_std" in saved_meta
+
+
+def test_build_xy_triple_barrier_label_mode_compatibility(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    start = datetime(2024, 1, 1)
+    prices = _make_prices(start)
+    news = _make_news(start)
+
+    prices_path = tmp_path / "prices.parquet"
+    news_path = tmp_path / "news.parquet"
+    prices.to_parquet(prices_path)
+    news.to_parquet(news_path)
+
+    monkeypatch.chdir(tmp_path)
+
+    output_default = tmp_path / "data_default"
+    output_barrier = tmp_path / "data_barrier"
+
+    X_default, y_default, _ = build_xy(
+        prices_parquet=prices_path,
+        news_parquet=news_path,
+        freq="1h",
+        horizon="2h",
+        start="2024-01-01 05:00:00",
+        end="2024-01-03 00:00:00",
+        output_root=output_default,
+        label_mode="return_direction",
+    )
+
+    X_barrier, y_barrier, _ = build_xy(
+        prices_parquet=prices_path,
+        news_parquet=news_path,
+        freq="1h",
+        horizon="2h",
+        start="2024-01-01 05:00:00",
+        end="2024-01-03 00:00:00",
+        output_root=output_barrier,
+        label_mode="triple_barrier",
+        barrier_take_profit=0.01,
+        barrier_stop_loss=0.01,
+    )
+
+    assert not X_default.empty
+    assert not X_barrier.empty
+    assert list(X_default.columns) == list(X_barrier.columns)
+    assert y_default.dtype == np.float64
+    assert y_barrier.dtype == np.float64
+
+    default_dataset = pd.read_parquet(
+        output_default / "features" / "1h_2h" / "dataset.parquet"
+    )
+    barrier_dataset = pd.read_parquet(
+        output_barrier / "features" / "1h_2h" / "dataset.parquet"
+    )
+
+    assert set(default_dataset["label"].unique()).issubset({"up", "down", "flat"})
+    assert set(barrier_dataset["label"].unique()).issubset(
+        {"take_profit", "stop_loss", "timeout"}
+    )

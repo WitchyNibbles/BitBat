@@ -21,6 +21,7 @@ from bitbat.features.price import (
 )
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.labeling.targets import direction_from_prices
+from bitbat.labeling.triple_barrier import triple_barrier
 from bitbat.timealign.asof import align_features_asof
 from bitbat.timealign.calendar import ensure_utc
 
@@ -32,6 +33,7 @@ class DatasetMeta:
     columns: list[str]
     freq: str
     horizon: str
+    label_mode: str
     start: str
     end: str
     rows: int
@@ -139,6 +141,9 @@ def build_xy(
     enable_garch: bool = False,
     macro_parquet: str | Path | None = None,
     onchain_parquet: str | Path | None = None,
+    label_mode: str = "return_direction",
+    barrier_take_profit: float | None = None,
+    barrier_stop_loss: float | None = None,
     output_root: str | Path | None = None,
     seed: int | None = None,
     version: str | None = None,
@@ -147,9 +152,9 @@ def build_xy(
 
     This is the main dataset builder in the pipeline. It assembles price
     features (and optional sentiment, GARCH, macro, and on-chain features),
-    computes continuous forward returns and direction labels from one
-    canonical horizon path, enforces
-    the feature contract, and writes the resulting dataset + metadata to disk.
+    computes targets from one canonical label path (default return+direction,
+    optional triple-barrier), enforces the feature contract, and writes the
+    resulting dataset + metadata to disk.
     """
     prices = _load_parquet(prices_parquet)
 
@@ -192,13 +197,34 @@ def build_xy(
     }
     features = features.rename(columns=rename_mapping)
 
-    label_frame = direction_from_prices(
-        prices["close"].to_frame(),
-        horizon=horizon,
-        tau=0.0 if tau is None else tau,
-        return_name="r_forward",
-        label_name="label",
-    )
+    resolved_label_mode = str(label_mode).strip().lower()
+    if resolved_label_mode in {"return_direction", "direction"}:
+        label_frame = direction_from_prices(
+            prices["close"].to_frame(),
+            horizon=horizon,
+            tau=0.0 if tau is None else tau,
+            return_name="r_forward",
+            label_name="label",
+        )
+        contract_label_mode = "direction"
+    elif resolved_label_mode == "triple_barrier":
+        tp = barrier_take_profit if barrier_take_profit is not None else (tau or 0.01)
+        sl = barrier_stop_loss if barrier_stop_loss is not None else tp
+        label_frame = triple_barrier(
+            prices["close"].to_frame(),
+            horizon=horizon,
+            take_profit=tp,
+            stop_loss=sl,
+            return_name="r_forward",
+            label_name="label",
+        )
+        contract_label_mode = "triple_barrier"
+    else:
+        raise ValueError(
+            f"Unsupported label_mode '{label_mode}'. "
+            "Use 'return_direction' or 'triple_barrier'."
+        )
+
     label_frame = label_frame.loc[features.index]
 
     valid_mask = label_frame["r_forward"].notna() & label_frame["label"].notna()
@@ -223,6 +249,7 @@ def build_xy(
         require_label=True,
         require_forward_return=True,
         require_features_full=enable_sentiment,
+        label_mode=contract_label_mode,
     )
     dataset = dataset.sort_values("timestamp_utc")
 
@@ -235,6 +262,7 @@ def build_xy(
         columns=list(X.columns),
         freq=freq,
         horizon=horizon,
+        label_mode=resolved_label_mode,
         start=start,
         end=end,
         rows=len(X),

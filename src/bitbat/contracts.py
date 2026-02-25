@@ -82,6 +82,7 @@ def ensure_feature_contract(
     require_label: bool,
     require_forward_return: bool,
     require_features_full: bool = False,
+    label_mode: str = "direction",
 ) -> pd.DataFrame:
     """Validate and normalize the feature parquet contract."""
     if "timestamp_utc" not in frame.columns:
@@ -118,10 +119,21 @@ def ensure_feature_contract(
         validated["label"] = validated["label"].astype("string")
         if validated["label"].isna().any():
             raise ContractError("Feature frame labels must be non-null.")
-        allowed_labels = {"up", "down", "flat"}
+        resolved_label_mode = str(label_mode).strip().lower()
+        if resolved_label_mode in {"direction", "return_direction"}:
+            allowed_labels = {"up", "down", "flat"}
+        elif resolved_label_mode == "triple_barrier":
+            allowed_labels = {"take_profit", "stop_loss", "timeout"}
+        else:
+            raise ContractError(
+                "Unsupported feature label_mode. Use 'direction' or 'triple_barrier'."
+            )
         invalid_labels = validated.loc[~validated["label"].isin(allowed_labels), "label"]
         if not invalid_labels.empty:
-            raise ContractError("Feature frame labels must be one of: up, down, flat.")
+            ordered_labels = ", ".join(sorted(allowed_labels))
+            raise ContractError(
+                f"Feature frame labels must be one of: {ordered_labels}."
+            )
         ordered.append("label")
 
     if require_forward_return:
