@@ -116,12 +116,20 @@ def ensure_feature_contract(
         if "label" not in validated.columns:
             raise ContractError("Feature frame missing 'label'.")
         validated["label"] = validated["label"].astype("string")
+        if validated["label"].isna().any():
+            raise ContractError("Feature frame labels must be non-null.")
+        allowed_labels = {"up", "down", "flat"}
+        invalid_labels = validated.loc[~validated["label"].isin(allowed_labels), "label"]
+        if not invalid_labels.empty:
+            raise ContractError("Feature frame labels must be one of: up, down, flat.")
         ordered.append("label")
 
     if require_forward_return:
         if "r_forward" not in validated.columns:
             raise ContractError("Feature frame missing 'r_forward'.")
         validated["r_forward"] = validated["r_forward"].astype("float64")
+        if require_label and validated["r_forward"].isna().any():
+            raise ContractError("Feature frame forward returns must be non-null when labels required.")
         if "r_forward" not in ordered:
             ordered.append("r_forward")
 

@@ -78,7 +78,15 @@ def test_build_xy_shapes_and_outputs(
     dataset_path = output_dir / "features" / "1h_2h" / "dataset.parquet"
     assert dataset_path.exists()
     dataset = pd.read_parquet(dataset_path)
+    assert "label" in dataset.columns
     assert "r_forward" in dataset.columns
+    assert dataset["label"].isna().sum() == 0
+    expected_labels = np.where(
+        dataset["r_forward"] > 0.0,
+        "up",
+        np.where(dataset["r_forward"] < 0.0, "down", "flat"),
+    )
+    assert (dataset["label"].to_numpy() == expected_labels).all()
     assert dataset["timestamp_utc"].is_monotonic_increasing
     assert dataset["timestamp_utc"].is_unique
     feature_columns = [

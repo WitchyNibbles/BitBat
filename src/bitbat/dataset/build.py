@@ -20,7 +20,7 @@ from bitbat.features.price import (
     rsi,
 )
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
-from bitbat.labeling.returns import forward_return
+from bitbat.labeling.targets import direction_from_prices
 from bitbat.timealign.asof import align_features_asof
 from bitbat.timealign.calendar import ensure_utc
 
@@ -147,10 +147,9 @@ def build_xy(
 
     This is the main dataset builder in the pipeline. It assembles price
     features (and optional sentiment, GARCH, macro, and on-chain features),
-    computes continuous forward returns as the regression target, enforces
+    computes continuous forward returns and direction labels from one
+    canonical horizon path, enforces
     the feature contract, and writes the resulting dataset + metadata to disk.
-
-    The ``tau`` parameter is accepted for backward compatibility but ignored.
     """
     prices = _load_parquet(prices_parquet)
 
@@ -193,26 +192,35 @@ def build_xy(
     }
     features = features.rename(columns=rename_mapping)
 
-    y_returns = forward_return(prices["close"].to_frame(), horizon)
-    y_returns = y_returns.loc[features.index]
+    label_frame = direction_from_prices(
+        prices["close"].to_frame(),
+        horizon=horizon,
+        tau=0.0 if tau is None else tau,
+        return_name="r_forward",
+        label_name="label",
+    )
+    label_frame = label_frame.loc[features.index]
 
-    valid_mask = y_returns.notna()
+    valid_mask = label_frame["r_forward"].notna() & label_frame["label"].notna()
     features = features.loc[valid_mask]
-    y_returns = y_returns.loc[valid_mask]
+    y_returns = label_frame.loc[valid_mask, "r_forward"].astype("float64")
+    y_direction = label_frame.loc[valid_mask, "label"].astype("string")
 
     first_idx = features.index.min()
     idx_start = max(pd.Timestamp(start), first_idx)
     idx_end = pd.Timestamp(end)
     features = features.loc[idx_start:idx_end]
     y_returns = y_returns.loc[idx_start:idx_end]
+    y_direction = y_direction.loc[idx_start:idx_end]
 
     dataset = features.copy()
     dataset["timestamp_utc"] = dataset.index
+    dataset["label"] = y_direction
     dataset["r_forward"] = y_returns.astype("float64")
     dataset = dataset.reset_index(drop=True)
     dataset = ensure_feature_contract(
         dataset,
-        require_label=False,
+        require_label=True,
         require_forward_return=True,
         require_features_full=enable_sentiment,
     )
