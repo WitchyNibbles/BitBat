@@ -85,7 +85,7 @@ def _render_home() -> None:
     with stat3:
         st.metric("News Data", ingest_status["news"])
     with stat4:
-        mins = minutes_until_next_prediction(latest_pred["created_at"] if latest_pred else None)
+        mins = minutes_until_next_prediction(latest_pred.get("created_at") if latest_pred else None)
         if mins is not None:
             render_countdown(mins)
         else:
@@ -99,18 +99,21 @@ def _render_home() -> None:
     if latest_pred:
         pred_col, meter_col = st.columns([2, 1])
         with pred_col:
-            direction = latest_pred["direction"]
-            confidence = latest_pred["confidence"]
+            direction = latest_pred.get("direction", "flat")
+            confidence = latest_pred.get("confidence")
             if direction == "up":
                 st.success("### 📈 Bitcoin will likely go **UP**")
             elif direction == "down":
                 st.error("### 📉 Bitcoin will likely go **DOWN**")
             else:
                 st.info("### ➡️ Bitcoin will likely stay **FLAT**")
-            st.markdown(f"**Confidence:** {confidence:.0%}")
+            if confidence is None:
+                st.markdown("**Confidence:** n/a")
+            else:
+                st.markdown(f"**Confidence:** {confidence:.0%}")
             st.caption(
-                f"Forecast for: {latest_pred['timestamp_utc']}  |  "
-                f"Model: {latest_pred['model_version']}"
+                f"Forecast for: {latest_pred.get('timestamp_utc', 'unknown')}  |  "
+                f"Model: {latest_pred.get('model_version', 'unknown')}"
             )
 
         with meter_col:
