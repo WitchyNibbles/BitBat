@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Define next milestone scope
+**Current focus:** Phase 9 gap closure planning (timeline readability and overlay clarity)
 
 ## Current Position
 
 Milestone: v1.0 (Reliability and Timeline Evolution)
-Phase: none active (v1.0 archived)
-Status: All v1.0 phases complete and archived to milestone records
-Last activity: 2026-02-24 - Archived v1.0 roadmap/requirements and tagged milestone
+Phase: 09-timeline-readability-overlay-clarity (planned)
+Status: Post-audit gap closure phase added after milestone audit found TIM-03/TIM-05 gaps
+Last activity: 2026-02-25 - Added Phase 9 gap-closure planning artifacts
 
-Progress: [██████████] 100% for v1.0
+Progress: [████████░░] 90% for v1.0 (pending Phase 9 closure)
 
 ## Milestone Metrics
 
@@ -36,14 +36,15 @@ Progress: [██████████] 100% for v1.0
 
 ### Pending Todos
 
-- None.
+- Plan Phase 9 (`$gsd-plan-phase 9`) for timeline readability/overlay clarity fixes.
+- Re-audit milestone after Phase 9 completion (`$gsd-audit-milestone`).
 
 ### Blockers/Concerns
 
-- No milestone blockers. Optional follow-up: run `$gsd-cleanup` if phase directories should be archived now.
+- Milestone audit reports unsatisfied TIM-03 and TIM-05 under current live timeline composition.
 
 ## Session Continuity
 
-Last session: 2026-02-24 18:40
-Stopped at: v1.0 milestone archived and tagged
-Resume with: `$gsd-new-milestone`
+Last session: 2026-02-25 14:47
+Stopped at: Gap closure phase added for timeline readability and overlay clarity
+Resume with: `$gsd-plan-phase 9`
