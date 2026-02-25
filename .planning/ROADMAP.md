@@ -12,8 +12,8 @@
 **Goal:** Move BitBat prediction inputs/targets to leakage-safe as-of features and return-first labels.
 **Depends on:** v1.1 verified baseline
 **Requirements:** [DATA-01, DATA-02, LABL-01]
-**Plans:** 2/3 plans executed
-**Status:** In Progress
+**Plans:** 3/3 plans complete
+**Status:** Complete
 
 Success criteria:
 1. Dataset assembly enforces as-of timestamp alignment across all feature sources and rejects future leakage.
@@ -64,11 +64,11 @@ Success criteria:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. Data and Label Contract Upgrade | v1.2 | 2/3 | In Progress | - |
+| 13. Data and Label Contract Upgrade | v1.2 | 3/3 | Complete | 2026-02-25 |
 | 14. Baseline Models and Retraining Cadence | v1.2 | 0/0 | Not started | - |
 | 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/0 | Not started | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |
 
 ## Next
 
-- Execute planned work with `$gsd-execute-phase 13`.
+- Plan Phase 14 with `$gsd-plan-phase 14`.

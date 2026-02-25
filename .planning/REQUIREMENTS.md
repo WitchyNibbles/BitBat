@@ -12,7 +12,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 - [x] **DATA-01**: BTC training features are built with strict as-of timestamp alignment so no feature row can reference future information.
 - [x] **DATA-02**: Default prediction targets are return-based (configurable horizons) with direction labels derived from the same horizon definitions.
-- [ ] **LABL-01**: Triple-barrier event labels can be generated as an optional dataset mode for trading-aligned experiments.
+- [x] **LABL-01**: Triple-barrier event labels can be generated as an optional dataset mode for trading-aligned experiments.
 
 ### Model Baselines and Retraining
 
@@ -58,7 +58,7 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 |-------------|-------|--------|
 | DATA-01 | Phase 13 | Complete |
 | DATA-02 | Phase 13 | Complete |
-| LABL-01 | Phase 13 | Pending |
+| LABL-01 | Phase 13 | Complete |
 | MODL-01 | Phase 14 | Pending |
 | MODL-02 | Phase 14 | Pending |
 | MODL-03 | Phase 14 | Pending |
@@ -75,4 +75,4 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after v1.2 milestone initialization*
+*Last updated: 2026-02-25 after Phase 13 execution (DATA-01/DATA-02/LABL-01 complete)*
