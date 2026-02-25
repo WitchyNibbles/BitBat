@@ -258,6 +258,63 @@ def _resolve_marker_price(ts: pd.Timestamp, prices: pd.DataFrame, row: pd.Series
     return None
 
 
+def _marker_trace_name(direction: str, status_label: str) -> str:
+    direction_label = direction.upper()
+    return f"{direction_label} - {status_label}"
+
+
+def _build_marker_frame(
+    predictions: pd.DataFrame,
+    prices: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for _, row in predictions.iterrows():
+        ts = pd.Timestamp(row["timestamp_utc"])
+        price_at_ts = _resolve_marker_price(ts, prices, row)
+        if price_at_ts is None:
+            continue
+
+        direction = str(row.get("predicted_direction", "flat"))
+        if direction not in _DIRECTION_STYLES:
+            direction = "flat"
+
+        status = str(row.get("prediction_status", "pending"))
+        if status not in _STATUS_STYLES:
+            status = "pending"
+
+        status_label = _STATUS_STYLES[status]["label"]
+        rows.append(
+            {
+                "timestamp_utc": ts,
+                "marker_price": price_at_ts,
+                "predicted_direction": direction,
+                "prediction_status": status,
+                "trace_name": _marker_trace_name(direction, status_label),
+                "confidence_text": _format_percent(row.get("confidence"), decimals=2),
+                "predicted_return_text": _format_percent(row.get("predicted_return"), signed=True),
+                "actual_return_text": _format_percent(row.get("actual_return"), signed=True),
+                "status_label": status_label,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "timestamp_utc",
+                "marker_price",
+                "predicted_direction",
+                "prediction_status",
+                "trace_name",
+                "confidence_text",
+                "predicted_return_text",
+                "actual_return_text",
+                "status_label",
+            ]
+        )
+
+    return pd.DataFrame(rows).sort_values("timestamp_utc").reset_index(drop=True)
+
+
 def summarize_timeline_status(predictions: pd.DataFrame) -> dict[str, float]:
     """Summarize total/completed/correct/pending counts from normalized status fields."""
     normalized = _normalize_timeline_rows(predictions)
@@ -484,39 +541,57 @@ def build_timeline_figure(
             )
         )
 
-    # Prediction markers
-    for _, row in normalized.iterrows():
-        ts = pd.Timestamp(row["timestamp_utc"])
-        direction_style = _DIRECTION_STYLES.get(row["predicted_direction"], _DIRECTION_STYLES["flat"])
-        status_style = _STATUS_STYLES.get(row["prediction_status"], _STATUS_STYLES["pending"])
-
-        price_at_ts = _resolve_marker_price(ts, marker_prices, row)
-        if price_at_ts is None:
+    # Prediction markers grouped by direction/status to avoid one-trace-per-point clutter.
+    marker_frame = _build_marker_frame(normalized, marker_prices)
+    marker_order = (
+        ("up", "realized_correct"),
+        ("up", "realized_wrong"),
+        ("up", "pending"),
+        ("down", "realized_correct"),
+        ("down", "realized_wrong"),
+        ("down", "pending"),
+        ("flat", "realized_correct"),
+        ("flat", "realized_wrong"),
+        ("flat", "pending"),
+    )
+    for direction, status in marker_order:
+        grouped = marker_frame.loc[
+            marker_frame["predicted_direction"].eq(direction)
+            & marker_frame["prediction_status"].eq(status)
+        ]
+        if grouped.empty:
             continue
 
-        confidence = _format_percent(row.get("confidence"), decimals=2)
-        predicted_return = _format_percent(row.get("predicted_return"), signed=True)
-        actual_return = _format_percent(row.get("actual_return"), signed=True)
+        direction_style = _DIRECTION_STYLES[direction]
+        status_style = _STATUS_STYLES[status]
 
         fig.add_trace(
             go.Scatter(
-                x=[ts],
-                y=[price_at_ts],
+                x=grouped["timestamp_utc"],
+                y=grouped["marker_price"],
                 mode="markers",
+                name=grouped["trace_name"].iloc[0],
                 marker={
                     "color": direction_style["color"],
                     "size": status_style["size"],
                     "symbol": direction_style["symbol"],
                     "opacity": status_style["opacity"],
                 },
-                showlegend=False,
+                customdata=grouped[
+                    [
+                        "confidence_text",
+                        "predicted_return_text",
+                        "actual_return_text",
+                        "status_label",
+                    ]
+                ],
                 hovertemplate=(
-                    f"<b>{ts:%Y-%m-%d %H:%M}</b><br>"
-                    f"Prediction: {row['predicted_direction']}<br>"
-                    f"Confidence: {confidence}<br>"
-                    f"Predicted Return: {predicted_return}<br>"
-                    f"Actual Return: {actual_return}<br>"
-                    f"Status: {status_style['label']}"
+                    "<b>%{x|%Y-%m-%d %H:%M}</b><br>"
+                    f"Prediction: {direction}<br>"
+                    "Confidence: %{customdata[0]}<br>"
+                    "Predicted Return: %{customdata[1]}<br>"
+                    "Actual Return: %{customdata[2]}<br>"
+                    "Status: %{customdata[3]}"
                     "<extra></extra>"
                 ),
             )
