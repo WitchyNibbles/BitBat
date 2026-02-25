@@ -487,14 +487,24 @@ def test_build_timeline_figure_status_marker_semantics() -> None:
     )
 
     fig = build_timeline_figure(predictions, prices)
-    marker_traces = fig.data[1:]
+    marker_traces = {
+        trace.name: trace for trace in fig.data if getattr(trace, "mode", "") == "markers"
+    }
 
-    assert len(marker_traces) == 3
-    assert [trace.marker.opacity for trace in marker_traces] == [1.0, 0.4, 0.75]
-    assert [trace.marker.size for trace in marker_traces] == [14, 12, 10]
-    assert "Status: Realized (Correct)" in marker_traces[0].hovertemplate
-    assert "Status: Realized (Wrong)" in marker_traces[1].hovertemplate
-    assert "Status: Pending" in marker_traces[2].hovertemplate
+    assert set(marker_traces.keys()) == {
+        "UP - Realized (Correct)",
+        "DOWN - Realized (Wrong)",
+        "UP - Pending",
+    }
+    assert marker_traces["UP - Realized (Correct)"].marker.opacity == 1.0
+    assert marker_traces["DOWN - Realized (Wrong)"].marker.opacity == 0.4
+    assert marker_traces["UP - Pending"].marker.opacity == 0.75
+    assert marker_traces["UP - Realized (Correct)"].marker.size == 14
+    assert marker_traces["DOWN - Realized (Wrong)"].marker.size == 12
+    assert marker_traces["UP - Pending"].marker.size == 10
+    assert marker_traces["UP - Realized (Correct)"].customdata[0][3] == "Realized (Correct)"
+    assert marker_traces["DOWN - Realized (Wrong)"].customdata[0][3] == "Realized (Wrong)"
+    assert marker_traces["UP - Pending"].customdata[0][3] == "Pending"
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
@@ -515,10 +525,12 @@ def test_build_timeline_figure_confidence_exact_percent_and_na() -> None:
     )
 
     fig = build_timeline_figure(predictions, prices)
-    marker_traces = fig.data[1:]
+    marker_traces = {
+        trace.name: trace for trace in fig.data if getattr(trace, "mode", "") == "markers"
+    }
 
-    assert "Confidence: 72.34%" in marker_traces[0].hovertemplate
-    assert "Confidence: n/a" in marker_traces[1].hovertemplate
+    assert marker_traces["UP - Pending"].customdata[0][0] == "72.34%"
+    assert marker_traces["DOWN - Pending"].customdata[0][0] == "n/a"
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
@@ -538,9 +550,9 @@ def test_build_timeline_figure_confidence_does_not_affect_marker_size() -> None:
     )
 
     fig = build_timeline_figure(predictions, prices)
-    marker_traces = fig.data[1:]
-    assert len(marker_traces) == 2
-    assert marker_traces[0].marker.size == marker_traces[1].marker.size == 14
+    marker_traces = [trace for trace in fig.data if getattr(trace, "mode", "") == "markers"]
+    assert len(marker_traces) == 1
+    assert marker_traces[0].marker.size == 14
 
 
 def test_build_timeline_overlay_frame_pending_semantics() -> None:
@@ -558,6 +570,33 @@ def test_build_timeline_overlay_frame_pending_semantics() -> None:
     assert pd.isna(overlay.loc[2, "actual_return"])
     assert pd.isna(overlay.loc[2, "mismatch_abs"])
     assert overlay.loc[0, "mismatch_abs"] == pytest.approx(0.002)
+
+
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_figure_readability_dense_data_uses_grouped_marker_traces() -> None:
+    from bitbat.gui.timeline import build_timeline_figure
+
+    ts = pd.date_range("2024-01-01", periods=36, freq="h")
+    predictions = pd.DataFrame({
+        "timestamp_utc": ts,
+        "predicted_direction": ["up", "down", "flat"] * 12,
+        "correct": [True, False, None] * 12,
+        "p_up": [0.8, 0.2, None] * 12,
+        "p_down": [0.1, 0.7, None] * 12,
+        "predicted_return": [0.004, -0.005, 0.0] * 12,
+    })
+    prices = pd.DataFrame(
+        {"close": [40_000 + idx * 10 for idx in range(len(ts))]},
+        index=ts,
+    )
+
+    fig = build_timeline_figure(predictions, prices)
+    marker_traces = [trace for trace in fig.data if getattr(trace, "mode", "") == "markers"]
+    total_points = sum(len(trace.x) for trace in marker_traces)
+
+    assert total_points == len(predictions)
+    assert len(marker_traces) <= 9
+    assert len(marker_traces) < len(predictions)
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
@@ -603,8 +642,10 @@ def test_build_timeline_figure_uses_predicted_price_fallback_for_sparse_prices()
     )
 
     fig = build_timeline_figure(predictions, prices)
-    marker_traces = fig.data[1:]
+    marker_traces = {
+        trace.name: trace for trace in fig.data if getattr(trace, "mode", "") == "markers"
+    }
 
     assert len(marker_traces) == 2
-    assert marker_traces[0].y[0] == pytest.approx(39_900.0)
-    assert marker_traces[1].y[0] == pytest.approx(40_250.0)
+    assert marker_traces["UP - Pending"].y[0] == pytest.approx(39_900.0)
+    assert marker_traces["DOWN - Pending"].y[0] == pytest.approx(40_250.0)
