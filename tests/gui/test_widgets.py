@@ -94,15 +94,43 @@ def populated_db(tmp_path: Path) -> Path:
 
         INSERT INTO prediction_outcomes
             (timestamp_utc, prediction_timestamp, predicted_direction,
+             p_up, p_down,
              predicted_return, predicted_price,
              model_version, freq, horizon, created_at)
         VALUES
             (datetime('now'), datetime('now'), 'up',
+             0.73, 0.27,
              0.003, 97500.0,
              'v1.0', '5m', '30m', datetime('now'));
 
         INSERT INTO system_logs (created_at, level, message)
         VALUES (datetime('now'), 'INFO', 'Monitoring cycle complete');
+        """
+    )
+    con.commit()
+    con.close()
+    return db
+
+
+@pytest.fixture()
+def legacy_prediction_db(tmp_path: Path) -> Path:
+    """DB with legacy prediction schema missing confidence/probability columns."""
+    db = tmp_path / "legacy_prediction.db"
+    con = sqlite3.connect(str(db))
+    con.executescript(
+        """
+        CREATE TABLE prediction_outcomes (
+            id INTEGER PRIMARY KEY,
+            timestamp_utc TEXT,
+            predicted_direction TEXT,
+            predicted_return REAL,
+            model_version TEXT
+        );
+
+        INSERT INTO prediction_outcomes
+            (timestamp_utc, predicted_direction, predicted_return, model_version)
+        VALUES
+            (datetime('now'), 'down', -0.004, 'legacy-v0.9');
         """
     )
     con.commit()
@@ -205,6 +233,23 @@ class TestGetLatestPrediction:
         assert pred["predicted_return"] == pytest.approx(0.003)
         assert pred["predicted_price"] == pytest.approx(97500.0)
         assert pred["model_version"] == "v1.0"
+
+    def test_derives_confidence_from_probability_columns(self, populated_db: Path) -> None:
+        pred = get_latest_prediction(populated_db)
+        assert pred is not None
+        assert pred["p_up"] == pytest.approx(0.73)
+        assert pred["p_down"] == pytest.approx(0.27)
+        assert pred["confidence"] == pytest.approx(0.73)
+
+    def test_handles_legacy_prediction_schema_without_confidence_columns(
+        self, legacy_prediction_db: Path
+    ) -> None:
+        pred = get_latest_prediction(legacy_prediction_db)
+        assert pred is not None
+        assert pred["direction"] == "down"
+        assert pred["predicted_return"] == pytest.approx(-0.004)
+        assert pred["predicted_price"] is None
+        assert pred["confidence"] is None
 
 
 # ---------------------------------------------------------------------------

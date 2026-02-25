@@ -233,6 +233,27 @@ class TestFullSystemIntegration:
         assert prediction["model_version"] == "v1.0"
         assert isinstance(prediction["predicted_return"], float)
 
+    def test_primary_workflow_prediction_payload_includes_confidence_when_available(
+        self, full_db: Path
+    ) -> None:
+        prediction = get_latest_prediction(full_db)
+
+        assert prediction is not None
+        assert prediction["confidence"] == pytest.approx(0.73)
+
+
+class TestHomePredictionRenderGuards:
+    def test_app_source_uses_safe_confidence_accessor(self) -> None:
+        app_source = Path("streamlit/app.py").read_text(encoding="utf-8")
+
+        assert 'latest_pred.get("confidence")' in app_source
+        assert 'latest_pred["confidence"]' not in app_source
+
+    def test_app_source_has_confidence_fallback_copy(self) -> None:
+        app_source = Path("streamlit/app.py").read_text(encoding="utf-8")
+
+        assert "**Confidence:** n/a" in app_source
+
 
 # ---------------------------------------------------------------------------
 # Timeline status metrics alignment
