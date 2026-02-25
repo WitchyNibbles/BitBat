@@ -6,6 +6,15 @@
 - **Milestone result:** D1/D2/D3 delivered and verified, post-audit timeline readability gaps closed
 - **Release acceptance command:** `make test-release`
 
+## Current Milestone: v1.1 UI-First Simplification
+
+**Goal:** Reduce BitBat to the views that are actively used and harden the UI by removing/retiring broken surfaces.
+
+**Target features:**
+- Keep only `Quick Start`, `Settings`, `Performance`, `About`, and `System` as supported views.
+- Retire non-used/broken views (`Alerts`, `Analytics`, `History`, `Backtest`, `Pipeline`) from primary navigation.
+- Ensure removed or legacy routes fail gracefully with user-facing guidance rather than tracebacks.
+
 ## What This Is
 
 BitBat is a local-first BTC prediction application with CLI, API, autonomous monitoring, and a Streamlit dashboard. v1.0 stabilized monitoring + schema behavior, repaired and expanded the timeline experience, and standardized Streamlit compatibility guardrails for repeatable release verification.
@@ -25,12 +34,13 @@ A reliable prediction system where operators can trust that monitoring runs with
 - ✓ QUAL-01/02/03: D1/D2/D3 release gates implemented with canonical acceptance workflow.
 - ✓ API-01/02: API/readiness surfaces are aligned with runtime schema/timeline semantics.
 
-### Active (Next Milestone Candidates)
+### Active (v1.1 Scope)
 
-- [ ] ANLY-01: Timeline supports model-vs-model comparative overlays.
-- [ ] ANLY-02: Timeline supports exportable segment reports with annotation metadata.
-- [ ] OPER-01: Optional database backend migration path beyond SQLite for higher concurrency.
-- [ ] Define v1.1 milestone goals and acceptance criteria.
+- [ ] Streamlit navigation and entry points expose only the five supported views.
+- [ ] Broken views no longer crash runtime (`KeyError: confidence`, pipeline import error, backtest indexing error).
+- [ ] Legacy/non-supported view access is handled safely (retired page notice or redirect).
+- [ ] UI copy and internal links no longer reference retired pages.
+- [ ] Regression tests enforce the simplified UI surface contract.
 
 ### Out of Scope
 
@@ -53,9 +63,9 @@ v1.0 was delivered through 9 phases (24 plans, 72 tasks), including a post-audit
 
 ## Next Milestone Goals
 
-1. Define v1.1 scope and requirement priorities.
-2. Create fresh milestone requirements and roadmap phases.
-3. Decide whether to keep historical phase directories in place or archive them via `$gsd-cleanup`.
+1. Ship a stable, minimal UI surface aligned with actual operator usage.
+2. Remove dependence on currently broken advanced pages from normal runtime.
+3. Lock simplified behavior with regression gates before considering advanced-page reintroduction.
 
 ---
-*Last updated: 2026-02-25 after v1.0 milestone closure*
+*Last updated: 2026-02-25 after starting v1.1 milestone*

@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Planning the next milestone from a clean v1.0 baseline
+**Current focus:** v1.1 UI-first simplification milestone setup
 
 ## Current Position
 
-Milestone: v1.0 (Reliability and Timeline Evolution)
-Phase: none (milestone archived)
-Status: v1.0 milestone complete and archived after audit pass
-Last activity: 2026-02-25 - Archived v1.0 milestone artifacts and prepared for next milestone setup
+Milestone: v1.1 (UI-First Simplification)
+Phase: Not started (defining requirements)
+Status: Defining requirements and roadmap for simplified supported UI views
+Last activity: 2026-02-25 - Started v1.1 milestone from user-reported view usage and broken-page errors
 
-Progress: [██████████] 100% for v1.0; next milestone not started
+Progress: [░░░░░░░░░░] 0% for v1.1 (planning started)
 
 ## Milestone Metrics
 
@@ -37,14 +37,15 @@ Progress: [██████████] 100% for v1.0; next milestone not sta
 
 ### Pending Todos
 
-- Start next milestone definition (`$gsd-new-milestone`).
+- Define and approve v1.1 requirements (`.planning/REQUIREMENTS.md`).
+- Create v1.1 roadmap phases (starting at Phase 10).
 
 ### Blockers/Concerns
 
-- No active blockers.
+- Current runtime includes broken non-core views (`app`, `backtest`, `pipeline`) that must be retired or hardened in v1.1.
 
 ## Session Continuity
 
-Last session: 2026-02-25 16:41
-Stopped at: v1.0 milestone archival and planning-state consolidation
-Resume with: `$gsd-new-milestone`
+Last session: 2026-02-25 17:00
+Stopped at: v1.1 milestone initialization and requirement drafting
+Resume with: `$gsd-plan-phase 10`
