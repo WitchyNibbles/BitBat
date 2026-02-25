@@ -2,8 +2,8 @@
 
 ## Current State
 
-- **Shipped version:** v1.0 (2026-02-24)
-- **Milestone result:** D1/D2/D3 delivered and verified
+- **Shipped version:** v1.0 (2026-02-25 final closure)
+- **Milestone result:** D1/D2/D3 delivered and verified, post-audit timeline readability gaps closed
 - **Release acceptance command:** `make test-release`
 
 ## What This Is
@@ -40,7 +40,7 @@ A reliable prediction system where operators can trust that monitoring runs with
 
 ## Context
 
-v1.0 was delivered through 8 phases (21 plans, 63 tasks) and finalized with release-level verification. The runtime now has explicit schema/readiness contracts, timeline semantics are deterministic and filter-safe, and Streamlit compatibility regressions are prevented by automated checks.
+v1.0 was delivered through 9 phases (24 plans, 72 tasks), including a post-audit closure phase for timeline readability and comparison clarity. The runtime now has explicit schema/readiness contracts, timeline semantics/readability are regression-tested, and Streamlit compatibility regressions are prevented by automated checks.
 
 ## Key Decisions
 
@@ -55,7 +55,7 @@ v1.0 was delivered through 8 phases (21 plans, 63 tasks) and finalized with rele
 
 1. Define v1.1 scope and requirement priorities.
 2. Create fresh milestone requirements and roadmap phases.
-3. Decide whether to keep phases in-place or archive raw phase directories.
+3. Decide whether to keep historical phase directories in place or archive them via `$gsd-cleanup`.
 
 ---
-*Last updated: 2026-02-24 after v1.0 milestone completion*
+*Last updated: 2026-02-25 after v1.0 milestone closure*
