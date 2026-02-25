@@ -441,6 +441,43 @@ class TestSupportedSurfaceNavigationContract:
         }
 
 
+class TestRetiredLegacyRouteNoticeGuards:
+    def test_retired_notice_targets_only_supported_views(self) -> None:
+        helper_source = Path("streamlit/retired_pages/_retired_notice.py").read_text(
+            encoding="utf-8"
+        )
+        expected_targets = {
+            "pages/0_Quick_Start.py",
+            "pages/1_⚙️_Settings.py",
+            "pages/2_📈_Performance.py",
+            "pages/3_ℹ️_About.py",
+            "pages/4_🔧_System.py",
+        }
+
+        assert "SUPPORTED_VIEWS" in helper_source
+        assert "st.switch_page(target)" in helper_source
+        for target in expected_targets:
+            assert f'"{target}"' in helper_source
+
+    def test_retired_backtest_page_uses_notice_guard_without_heavy_imports(self) -> None:
+        source = Path("streamlit/retired_pages/8_🎯_Backtest.py").read_text(encoding="utf-8")
+
+        assert "from _retired_notice import render_retired_page" in source
+        assert 'render_retired_page("Backtest")' in source
+        assert "xgboost" not in source
+        assert "backtest_run" not in source
+        assert "compare_scenarios" not in source
+
+    def test_retired_pipeline_page_uses_notice_guard_without_pipeline_imports(self) -> None:
+        source = Path("streamlit/retired_pages/9_🔬_Pipeline.py").read_text(encoding="utf-8")
+
+        assert "from _retired_notice import render_retired_page" in source
+        assert 'render_retired_page("Pipeline")' in source
+        assert "classification_metrics" not in source
+        assert "fit_xgb" not in source
+        assert "xgboost" not in source
+
+
 # ---------------------------------------------------------------------------
 # SESSION 3 composite: validate all 3 sessions together
 # ---------------------------------------------------------------------------
