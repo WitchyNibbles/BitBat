@@ -12,8 +12,8 @@
 **Goal:** Move BitBat prediction inputs/targets to leakage-safe as-of features and return-first labels.
 **Depends on:** v1.1 verified baseline
 **Requirements:** [DATA-01, DATA-02, LABL-01]
-**Plans:** 0/3 plans complete
-**Status:** Not started
+**Plans:** 1/3 plans complete
+**Status:** In Progress
 
 Success criteria:
 1. Dataset assembly enforces as-of timestamp alignment across all feature sources and rejects future leakage.
@@ -64,7 +64,7 @@ Success criteria:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. Data and Label Contract Upgrade | v1.2 | 0/3 | Planned | - |
+| 13. Data and Label Contract Upgrade | v1.2 | 1/3 | In Progress | - |
 | 14. Baseline Models and Retraining Cadence | v1.2 | 0/0 | Not started | - |
 | 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/0 | Not started | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |

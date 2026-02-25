@@ -10,7 +10,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Data and Label Integrity
 
-- [ ] **DATA-01**: BTC training features are built with strict as-of timestamp alignment so no feature row can reference future information.
+- [x] **DATA-01**: BTC training features are built with strict as-of timestamp alignment so no feature row can reference future information.
 - [ ] **DATA-02**: Default prediction targets are return-based (configurable horizons) with direction labels derived from the same horizon definitions.
 - [ ] **LABL-01**: Triple-barrier event labels can be generated as an optional dataset mode for trading-aligned experiments.
 
@@ -56,7 +56,7 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 13 | Pending |
+| DATA-01 | Phase 13 | Complete |
 | DATA-02 | Phase 13 | Pending |
 | LABL-01 | Phase 13 | Pending |
 | MODL-01 | Phase 14 | Pending |
