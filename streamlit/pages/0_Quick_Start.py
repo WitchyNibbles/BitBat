@@ -235,6 +235,7 @@ elif state == "RUNNING":
     def _live_timeline() -> None:
         from bitbat.gui.timeline import (
             apply_timeline_filters,
+            build_timeline_comparison_figure,
             build_timeline_figure,
             format_timeline_empty_state,
             get_price_series,
@@ -257,7 +258,7 @@ elif state == "RUNNING":
         if "timeline_filter_window" not in st.session_state:
             st.session_state["timeline_filter_window"] = "7d"
         if "timeline_show_overlay" not in st.session_state:
-            st.session_state["timeline_show_overlay"] = True
+            st.session_state["timeline_show_overlay"] = False
 
         if st.session_state["timeline_filter_freq"] not in timeline_freq_options:
             st.session_state["timeline_filter_freq"] = freq
@@ -287,7 +288,7 @@ elif state == "RUNNING":
             )
         with filter_cols[3]:
             show_overlay = st.toggle(
-                "Overlay Compare",
+                "Show Return Comparison",
                 key="timeline_show_overlay",
             )
 
@@ -301,8 +302,12 @@ elif state == "RUNNING":
         first_ts = predictions["timestamp_utc"].min()
         prices = get_price_series(_DATA_DIR, selected_freq, first_ts)
 
-        fig = build_timeline_figure(predictions, prices, show_overlay=show_overlay)
+        fig = build_timeline_figure(predictions, prices, show_overlay=False)
         st.plotly_chart(fig, width="stretch")
+
+        if show_overlay:
+            comparison_fig = build_timeline_comparison_figure(predictions)
+            st.plotly_chart(comparison_fig, width="stretch")
 
         # Legend
         c1, c2, c3 = st.columns(3)
@@ -311,7 +316,7 @@ elif state == "RUNNING":
         with c2:
             st.caption("Status: Pending | Realized (Correct) | Realized (Wrong)")
         with c3:
-            st.caption("Auto-refreshes every 60 seconds")
+            st.caption("Return comparison is opt-in to preserve readability")
 
         # Summary metrics
         insights = summarize_timeline_insights(predictions)
