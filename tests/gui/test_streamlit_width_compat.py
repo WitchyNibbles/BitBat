@@ -10,6 +10,13 @@ STREAMLIT_DIR = ROOT / "streamlit"
 PAGES_DIR = STREAMLIT_DIR / "pages"
 RETIRED_PAGES_DIR = STREAMLIT_DIR / "retired_pages"
 ALLOWED_WIDTH_LITERALS = {"stretch", "content"}
+RETIRED_PAGE_PATHS = {
+    "pages/5_🔔_Alerts.py",
+    "pages/6_📊_Analytics.py",
+    "pages/7_📅_History.py",
+    "pages/8_🎯_Backtest.py",
+    "pages/9_🔬_Pipeline.py",
+}
 
 
 def _runtime_streamlit_files() -> list[Path]:
@@ -61,6 +68,13 @@ def test_runtime_scope_excludes_retired_pages_from_active_directory() -> None:
     retired = {path.name for path in RETIRED_PAGES_DIR.glob("*.py")}
     assert retired
     assert active.isdisjoint(retired)
+
+
+def test_runtime_sources_do_not_reference_retired_page_routes() -> None:
+    for file_path in _runtime_streamlit_files():
+        source = file_path.read_text(encoding="utf-8")
+        for retired_path in RETIRED_PAGE_PATHS:
+            assert retired_path not in source
 
 
 def test_deprecated_usage_absent_in_runtime_streamlit_sources() -> None:

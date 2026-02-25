@@ -440,6 +440,24 @@ class TestSupportedSurfaceNavigationContract:
             "4_🔧_System.py",
         }
 
+    def test_core_supported_sources_do_not_reference_retired_page_files(self) -> None:
+        core_sources = [
+            Path("streamlit/app.py"),
+            Path("streamlit/pages/0_Quick_Start.py"),
+            Path("streamlit/pages/3_ℹ️_About.py"),
+        ]
+        retired_page_paths = {
+            "pages/5_🔔_Alerts.py",
+            "pages/6_📊_Analytics.py",
+            "pages/7_📅_History.py",
+            "pages/8_🎯_Backtest.py",
+            "pages/9_🔬_Pipeline.py",
+        }
+
+        merged = "\n".join(path.read_text(encoding="utf-8") for path in core_sources)
+        for retired_path in retired_page_paths:
+            assert retired_path not in merged
+
 
 class TestRetiredLegacyRouteNoticeGuards:
     def test_retired_notice_targets_only_supported_views(self) -> None:
