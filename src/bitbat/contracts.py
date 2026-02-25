@@ -89,6 +89,10 @@ def ensure_feature_contract(
 
     validated = frame.copy()
     validated["timestamp_utc"] = _ensure_datetime(validated["timestamp_utc"], "timestamp_utc")
+    if not validated["timestamp_utc"].is_monotonic_increasing:
+        raise ContractError("Feature frame timestamps must be sorted ascending.")
+    if validated["timestamp_utc"].duplicated().any():
+        raise ContractError("Feature frame timestamps must be unique.")
 
     feature_cols = [col for col in validated.columns if col.startswith("feat_")]
     if not feature_cols:

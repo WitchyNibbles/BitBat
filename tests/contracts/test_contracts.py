@@ -58,6 +58,32 @@ def test_feature_contract_full_requires_sentiment() -> None:
         )
 
 
+def test_feature_contract_requires_sorted_timestamps() -> None:
+    frame = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(["2024-01-01 01:00:00", "2024-01-01 00:00:00"]),
+        "feat_a": [0.1, 0.2],
+    })
+    with pytest.raises(ContractError, match="sorted ascending"):
+        ensure_feature_contract(
+            frame,
+            require_label=False,
+            require_forward_return=False,
+        )
+
+
+def test_feature_contract_requires_unique_timestamps() -> None:
+    frame = pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 00:00:00"]),
+        "feat_a": [0.1, 0.2],
+    })
+    with pytest.raises(ContractError, match="must be unique"):
+        ensure_feature_contract(
+            frame,
+            require_label=False,
+            require_forward_return=False,
+        )
+
+
 def test_predictions_contract_normalises_types() -> None:
     frame = pd.DataFrame({
         "timestamp_utc": [datetime(2024, 1, 1, 12, 0, 0)],

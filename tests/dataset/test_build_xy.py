@@ -79,6 +79,8 @@ def test_build_xy_shapes_and_outputs(
     assert dataset_path.exists()
     dataset = pd.read_parquet(dataset_path)
     assert "r_forward" in dataset.columns
+    assert dataset["timestamp_utc"].is_monotonic_increasing
+    assert dataset["timestamp_utc"].is_unique
     feature_columns = [
         column for column in dataset.columns if column.startswith("feat_")
     ]
