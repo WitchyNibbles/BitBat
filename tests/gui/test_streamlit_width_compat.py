@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"
 PAGES_DIR = STREAMLIT_DIR / "pages"
+RETIRED_PAGES_DIR = STREAMLIT_DIR / "retired_pages"
 ALLOWED_WIDTH_LITERALS = {"stretch", "content"}
 
 
@@ -53,6 +54,13 @@ def test_runtime_scope_covers_primary_gui_entrypoints() -> None:
         "4_🔧_System.py",
     }
     assert names == expected
+
+
+def test_runtime_scope_excludes_retired_pages_from_active_directory() -> None:
+    active = {path.name for path in PAGES_DIR.glob("*.py")}
+    retired = {path.name for path in RETIRED_PAGES_DIR.glob("*.py")}
+    assert retired
+    assert active.isdisjoint(retired)
 
 
 def test_deprecated_usage_absent_in_runtime_streamlit_sources() -> None:
