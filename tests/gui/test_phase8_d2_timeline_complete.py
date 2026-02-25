@@ -32,6 +32,7 @@ D2_CANONICAL_SUITES = [
     "tests/gui/test_phase6_timeline_ux_complete.py",
     "tests/gui/test_phase9_timeline_readability_complete.py",
     "tests/gui/test_phase10_supported_surface_complete.py",
+    "tests/gui/test_phase11_runtime_stability_complete.py",
     "tests/gui/test_phase8_d2_timeline_complete.py",
 ]
 
