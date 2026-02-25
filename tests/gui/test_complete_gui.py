@@ -355,6 +355,11 @@ class TestTimelineStatusMetrics:
         quick_start = Path("streamlit/pages/0_Quick_Start.py").read_text(encoding="utf-8")
         assert 'st.session_state["timeline_show_overlay"] = False' in quick_start
 
+    def test_quick_start_timeline_comparison_control_is_explicit(self) -> None:
+        quick_start = Path("streamlit/pages/0_Quick_Start.py").read_text(encoding="utf-8")
+        assert '"Show Return Comparison"' in quick_start
+        assert "build_timeline_figure(predictions, prices, show_overlay=False)" in quick_start
+
 
 # ---------------------------------------------------------------------------
 # Cross-module: preset → config flow

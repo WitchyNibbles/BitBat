@@ -625,6 +625,28 @@ def test_build_timeline_figure_readability_dense_data_uses_grouped_marker_traces
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_figure_readability_uses_explicit_marker_labels() -> None:
+    from bitbat.gui.timeline import build_timeline_figure
+
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="h"),
+        "predicted_direction": ["up", "down", "up"],
+        "correct": [True, False, None],
+    })
+    prices = pd.DataFrame(
+        {"close": [100.0, 99.5, 100.5]},
+        index=pd.date_range("2024-01-01", periods=3, freq="h"),
+    )
+
+    fig = build_timeline_figure(predictions, prices, show_overlay=False)
+    marker_names = {trace.name for trace in fig.data if getattr(trace, "mode", None) == "markers"}
+
+    assert "UP - Realized (Correct)" in marker_names
+    assert "DOWN - Realized (Wrong)" in marker_names
+    assert "UP - Pending" in marker_names
+
+
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
 def test_build_timeline_comparison_figure_traces_and_pending_semantics() -> None:
     predictions = pd.DataFrame({
         "timestamp_utc": pd.date_range("2024-01-01", periods=4, freq="h"),
