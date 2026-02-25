@@ -141,15 +141,18 @@ No data is sent to external servers (except API calls to fetch price/news data).
     )
 
 # ------------------------------------------------------------------
-# Links
+# Supported pages
 # ------------------------------------------------------------------
-st.header("Advanced Features")
+st.header("Supported Pages")
 st.markdown(
     """
-For power users who need access to the full technical pipeline
-(ingest data, build features, train models, run backtests):
+BitBat currently focuses on five stable pages:
 
-👉 Use the **Advanced Pipeline** page in the sidebar.
+- **Quick Start** — Train and run monitoring in one place
+- **Settings** — Choose strategy presets and thresholds
+- **Performance** — Accuracy and retraining metrics
+- **About** — Product help and FAQ
+- **System** — Health checks, logs, and autonomous controls
 """
 )
 

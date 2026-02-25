@@ -130,7 +130,7 @@ def _render_home() -> None:
     # ------------------------------------------------------------------
     st.header("Quick Actions")
 
-    act1, act2, act3, act4 = st.columns(4)
+    act1, act2, act3, act4, act5 = st.columns(5)
     with act1:
         if st.button("Quick Start", width="stretch", type="primary"):
             st.switch_page("pages/0_Quick_Start.py")
@@ -143,6 +143,9 @@ def _render_home() -> None:
     with act4:
         if st.button("❓ Help & About", width="stretch"):
             st.switch_page("pages/3_ℹ️_About.py")
+    with act5:
+        if st.button("🔧 System Status", width="stretch"):
+            st.switch_page("pages/4_🔧_System.py")
 
     # ------------------------------------------------------------------
     # Recent activity feed
