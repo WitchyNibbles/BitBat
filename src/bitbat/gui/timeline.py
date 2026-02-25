@@ -537,7 +537,7 @@ def build_timeline_figure(
                 y=marker_prices["close"],
                 mode="lines",
                 name="BTC Price",
-                line={"color": "#6366f1", "width": 2},
+                line={"color": "#60A5FA", "width": 2},
             )
         )
 
@@ -654,17 +654,26 @@ def build_timeline_figure(
         title="Prediction Timeline",
         xaxis_title="Time",
         yaxis_title="BTC Price (USD)",
+        xaxis={"gridcolor": "rgba(148,163,184,0.16)"},
+        yaxis={"gridcolor": "rgba(148,163,184,0.16)"},
         yaxis2={
             "title": "Return (%)",
             "overlaying": "y",
             "side": "right",
             "showgrid": False,
         },
-        height=500,
+        height=520,
         template="plotly_dark",
         paper_bgcolor="#0e1117",
         plot_bgcolor="#1a1f2e",
-        legend={"font": {"color": "white"}},
+        legend={
+            "font": {"color": "white", "size": 11},
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "left",
+            "x": 0.0,
+        },
     )
 
     return fig
