@@ -12,3 +12,7 @@ Retired in Phase 10:
 - 7_📅_History.py
 - 8_🎯_Backtest.py
 - 9_🔬_Pipeline.py
+
+Retirement guard behavior (Phase 11):
+- `_retired_notice.py` renders a shared user-facing retirement message.
+- Legacy Backtest/Pipeline scripts now route users to supported pages without loading advanced imports.
