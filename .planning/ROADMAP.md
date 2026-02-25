@@ -37,7 +37,8 @@ Success criteria:
 **Goal:** Lock the simplified UI contract and crash fixes with automated verification.
 **Depends on:** Phase 11
 **Requirements:** [QUAL-04, QUAL-05, QUAL-06]
-**Plans:** 2 planned
+**Plans:** 2/2 plans complete
+**Status:** Complete (verified 2026-02-25 in `.planning/phases/12-simplified-ui-regression-gates/12-VERIFICATION.md`)
 
 Success criteria:
 1. Automated tests enforce the supported-page contract and guard against retired-page link regressions.
@@ -50,8 +51,8 @@ Success criteria:
 |-------|-----------|----------------|--------|-----------|
 | 10. Supported Surface Pruning | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 11. Runtime Stability and Retirement Guards | v1.1 | 3/3 | Complete | 2026-02-25 |
-| 12. Simplified UI Regression Gates | v1.1 | 0/2 | Not started | - |
+| 12. Simplified UI Regression Gates | v1.1 | 2/2 | Complete | 2026-02-25 |
 
 ## Next
 
-- Continue with `$gsd-plan-phase 12` (or `$gsd-discuss-phase 12` first).
+- Continue with `$gsd-audit-milestone`.

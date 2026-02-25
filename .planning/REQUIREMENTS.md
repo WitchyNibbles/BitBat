@@ -1,7 +1,7 @@
 # Requirements: BitBat UI-First Simplification
 
 **Defined:** 2026-02-25
-**Status:** v1.1 in progress (Phases 10-11 complete, Phase 12 pending)
+**Status:** v1.1 complete (Phases 10-12 complete)
 **Core Value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
 
 ## v1.1 Requirements
@@ -27,9 +27,9 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Quality & Verification
 
-- [ ] **QUAL-04**: Automated tests enforce the supported-page contract and reject reintroduction of retired-page links in core UI surfaces.
-- [ ] **QUAL-05**: Automated regressions cover the reported failure signatures (`KeyError: confidence`, pipeline import crash, backtest indexing crash) via guards or retirement behavior.
-- [ ] **QUAL-06**: Smoke tests verify that Quick Start, Settings, Performance, About, and System render without runtime exceptions.
+- [x] **QUAL-04**: Automated tests enforce the supported-page contract and reject reintroduction of retired-page links in core UI surfaces.
+- [x] **QUAL-05**: Automated regressions cover the reported failure signatures (`KeyError: confidence`, pipeline import crash, backtest indexing crash) via guards or retirement behavior.
+- [x] **QUAL-06**: Smoke tests verify that Quick Start, Settings, Performance, About, and System render without runtime exceptions.
 
 ## v1.2+ Requirements (Deferred)
 
@@ -67,9 +67,9 @@ Explicitly excluded for v1.1 to prevent scope creep.
 | STAB-02 | Phase 11 | Complete |
 | STAB-03 | Phase 11 | Complete |
 | RET-01 | Phase 11 | Complete |
-| QUAL-04 | Phase 12 | Pending |
-| QUAL-05 | Phase 12 | Pending |
-| QUAL-06 | Phase 12 | Pending |
+| QUAL-04 | Phase 12 | Complete |
+| QUAL-05 | Phase 12 | Complete |
+| QUAL-06 | Phase 12 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 11 total
@@ -78,4 +78,4 @@ Explicitly excluded for v1.1 to prevent scope creep.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after Phase 11 completion*
+*Last updated: 2026-02-25 after Phase 12 completion*

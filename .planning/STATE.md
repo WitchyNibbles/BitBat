@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 12 planning for simplified UI regression gates
+**Current focus:** Milestone v1.1 audit and closure
 
 ## Current Position
 
 Milestone: v1.1 (UI-First Simplification)
-Phase: 12-simplified-ui-regression-gates (next)
-Status: Phase 11 complete and verified; ready to plan/execute Phase 12
-Last activity: 2026-02-25 - Completed Phase 11 runtime stability and retirement guards
+Phase: 12-simplified-ui-regression-gates (complete)
+Status: Phase 12 complete and verified; milestone ready for audit
+Last activity: 2026-02-25 - Completed Phase 12 simplified UI regression gates
 
-Progress: [███████░░░] 67% for v1.1 (2/3 phases complete)
+Progress: [██████████] 100% for v1.1 (3/3 phases complete)
 
 ## Milestone Metrics
 
-- Phases: 11
-- Plans: 30
-- Tasks: 90
+- Phases: 12
+- Plans: 32
+- Tasks: 96
 - Commit range: `cd1d1ab^..HEAD`
-- Change volume: Updated through Phase 11 runtime hardening and retirement guards
+- Change volume: Updated through Phase 12 regression gates and smoke coverage
 
 ## Accumulated Context
 
@@ -37,18 +37,19 @@ Progress: [███████░░░] 67% for v1.1 (2/3 phases complete)
 - Streamlit runtime surface is now intentionally limited to Quick Start, Settings, Performance, About, and System.
 - Home dashboard prediction rendering now tolerates partial rows (including missing confidence).
 - Legacy Backtest/Pipeline routes are retirement-guarded and redirect users to supported pages.
+- Simplified UI contract, crash-signature guards, and supported-view smoke coverage are now release-wired.
 
 ### Pending Todos
 
-- Plan and execute Phase 12 (`$gsd-plan-phase 12` / `$gsd-execute-phase 12`).
-- Lock Phase 11 runtime-hardening contracts into final simplified UI regression gates.
+- Audit milestone completion (`$gsd-audit-milestone`).
+- Close milestone archive and transition (`$gsd-complete-milestone`).
 
 ### Blockers/Concerns
 
-- None active for Phase 11 scope; next risk is preserving regression-gate quality in Phase 12.
+- None active for implementation; remaining work is milestone audit/closure workflow.
 
 ## Session Continuity
 
-Last session: 2026-02-25 19:08
-Stopped at: Phase 11 execution complete with verification and release wiring
-Resume with: `$gsd-plan-phase 12`
+Last session: 2026-02-25 19:04
+Stopped at: Phase 12 execution complete with verification and release wiring
+Resume with: `$gsd-audit-milestone`
