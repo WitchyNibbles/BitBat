@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Milestone: v1.1 (UI-First Simplification)
-Phase: Not started (defining requirements)
-Status: Defining requirements and roadmap for simplified supported UI views
-Last activity: 2026-02-25 - Started v1.1 milestone from user-reported view usage and broken-page errors
+Phase: 10-supported-surface-pruning (planned)
+Status: Requirements and roadmap approved, ready to plan Phase 10
+Last activity: 2026-02-25 - Created v1.1 requirements and roadmap from UI-first simplification scope
 
-Progress: [░░░░░░░░░░] 0% for v1.1 (planning started)
+Progress: [░░░░░░░░░░] 0% for v1.1 (ready for phase planning)
 
 ## Milestone Metrics
 
@@ -37,8 +37,8 @@ Progress: [░░░░░░░░░░] 0% for v1.1 (planning started)
 
 ### Pending Todos
 
-- Define and approve v1.1 requirements (`.planning/REQUIREMENTS.md`).
-- Create v1.1 roadmap phases (starting at Phase 10).
+- Plan Phase 10 (`$gsd-plan-phase 10`).
+- Decide implementation path for retired views (hide-only vs explicit retirement notice routes).
 
 ### Blockers/Concerns
 
@@ -46,6 +46,6 @@ Progress: [░░░░░░░░░░] 0% for v1.1 (planning started)
 
 ## Session Continuity
 
-Last session: 2026-02-25 17:00
-Stopped at: v1.1 milestone initialization and requirement drafting
+Last session: 2026-02-25 17:12
+Stopped at: v1.1 roadmap creation and phase sequence definition
 Resume with: `$gsd-plan-phase 10`
