@@ -25,6 +25,7 @@ from bitbat.gui.presets import (
 )
 from bitbat.gui.timeline import (
     apply_timeline_filters,
+    build_timeline_comparison_figure,
     format_timeline_empty_state,
     summarize_timeline_insights,
     summarize_timeline_status,
@@ -333,6 +334,26 @@ class TestTimelineStatusMetrics:
         assert insights["pending"] == 1
         assert insights["correct"] == 0
         assert insights["average_confidence"] == pytest.approx(70.0, abs=0.01)
+
+    def test_comparison_figure_available_for_opt_in_mode(self) -> None:
+        predictions = pd.DataFrame({
+            "timestamp_utc": pd.date_range("2024-02-01", periods=3, freq="h"),
+            "predicted_direction": ["up", "down", "flat"],
+            "predicted_return": [0.01, -0.006, 0.002],
+            "actual_return": [0.008, -0.002, None],
+            "correct": [1, 0, None],
+        })
+
+        fig = build_timeline_comparison_figure(predictions)
+        names = [trace.name for trace in fig.data if trace.name]
+
+        assert "Predicted Return" in names
+        assert "Realized Return" in names
+        assert "Mismatch Band" in names
+
+    def test_quick_start_timeline_comparison_default_is_off(self) -> None:
+        quick_start = Path("streamlit/pages/0_Quick_Start.py").read_text(encoding="utf-8")
+        assert 'st.session_state["timeline_show_overlay"] = False' in quick_start
 
 
 # ---------------------------------------------------------------------------

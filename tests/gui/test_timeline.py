@@ -9,6 +9,7 @@ import pytest
 
 from bitbat.gui.timeline import (
     apply_timeline_filters,
+    build_timeline_comparison_figure,
     build_timeline_overlay_frame,
     format_timeline_empty_state,
     get_price_series,
@@ -573,6 +574,30 @@ def test_build_timeline_overlay_frame_pending_semantics() -> None:
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_figure_default_excludes_overlay_traces() -> None:
+    from bitbat.gui.timeline import build_timeline_figure
+
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="h"),
+        "predicted_direction": ["up", "down", "flat"],
+        "predicted_return": [0.01, -0.005, 0.002],
+        "actual_return": [0.008, -0.002, None],
+        "correct": [1, 0, None],
+    })
+    prices = pd.DataFrame(
+        {"close": [100.0, 99.0, 101.0]},
+        index=pd.date_range("2024-01-01", periods=3, freq="h"),
+    )
+
+    fig = build_timeline_figure(predictions, prices, show_overlay=False)
+    names = {trace.name for trace in fig.data if trace.name}
+
+    assert "Predicted Return" not in names
+    assert "Realized Return" not in names
+    assert "Mismatch Band" not in names
+
+
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
 def test_build_timeline_figure_readability_dense_data_uses_grouped_marker_traces() -> None:
     from bitbat.gui.timeline import build_timeline_figure
 
@@ -597,6 +622,27 @@ def test_build_timeline_figure_readability_dense_data_uses_grouped_marker_traces
     assert total_points == len(predictions)
     assert len(marker_traces) <= 9
     assert len(marker_traces) < len(predictions)
+
+
+@pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
+def test_build_timeline_comparison_figure_traces_and_pending_semantics() -> None:
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01", periods=4, freq="h"),
+        "predicted_direction": ["up", "down", "flat", "up"],
+        "predicted_return": [0.01, -0.005, 0.002, 0.004],
+        "actual_return": [0.008, -0.002, None, None],
+        "correct": [1, 0, None, None],
+    })
+
+    fig = build_timeline_comparison_figure(predictions)
+    names = [trace.name for trace in fig.data if trace.name]
+    assert "Predicted Return" in names
+    assert "Realized Return" in names
+    assert "Mismatch Band" in names
+
+    realized_trace = next(trace for trace in fig.data if trace.name == "Realized Return")
+    assert pd.isna(realized_trace.y[-1])
+    assert pd.isna(realized_trace.y[-2])
 
 
 @pytest.mark.skipif(not _has_plotly, reason="plotly not installed")
