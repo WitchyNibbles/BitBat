@@ -9,6 +9,7 @@ All tests are pure-Python (no live Streamlit server required).
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -389,6 +390,34 @@ class TestPresetToConfigFlow:
             assert "horizon" in cfg
             assert 0 < cfg["tau"] < 0.1
             assert 0.5 <= cfg["enter_threshold"] <= 1.0
+
+
+class TestSupportedSurfaceNavigationContract:
+    def test_app_switch_page_targets_only_supported_views(self) -> None:
+        app_source = Path("streamlit/app.py").read_text(encoding="utf-8")
+        destinations = set(re.findall(r'st\.switch_page\("([^"]+)"\)', app_source))
+        assert destinations == {
+            "pages/0_Quick_Start.py",
+            "pages/1_⚙️_Settings.py",
+            "pages/2_📈_Performance.py",
+            "pages/3_ℹ️_About.py",
+            "pages/4_🔧_System.py",
+        }
+
+    def test_about_copy_reflects_supported_surface_only(self) -> None:
+        about_source = Path("streamlit/pages/3_ℹ️_About.py").read_text(encoding="utf-8")
+        assert "Supported Pages" in about_source
+        assert "Advanced Pipeline" not in about_source
+
+    def test_active_pages_directory_contains_only_supported_pages(self) -> None:
+        active_pages = {p.name for p in Path("streamlit/pages").glob("*.py")}
+        assert active_pages == {
+            "0_Quick_Start.py",
+            "1_⚙️_Settings.py",
+            "2_📈_Performance.py",
+            "3_ℹ️_About.py",
+            "4_🔧_System.py",
+        }
 
 
 # ---------------------------------------------------------------------------
