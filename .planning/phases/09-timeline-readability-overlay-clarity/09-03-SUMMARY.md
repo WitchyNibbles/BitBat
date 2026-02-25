@@ -23,6 +23,8 @@ key-files:
     - tests/gui/test_complete_gui.py
     - tests/gui/test_phase8_d2_timeline_complete.py
     - tests/gui/test_phase8_release_verification_complete.py
+    - tests/gui/test_phase5_timeline_complete.py
+    - tests/gui/test_phase6_timeline_ux_complete.py
 key-decisions:
   - "Added a dedicated phase-level readability gate instead of relying on structural trace-presence checks."
   - "Updated D2 canonical suite contracts so timeline readability closure remains part of future release verification."
@@ -42,12 +44,13 @@ completed: 2026-02-25
 
 - **Duration:** 16 min
 - **Tasks:** 3
-- **Files modified:** 5
+- **Files modified:** 7
 
 ## Accomplishments
 - Added `test_phase9_timeline_readability_complete.py` as a dedicated completion gate for default readability plus opt-in comparison behavior.
 - Extended timeline unit/integration suites with explicit readability/default-mode acceptance checks.
 - Updated D2 canonical suite contracts and release-readiness assertions to include the new Phase 9 gate.
+- Aligned legacy Phase 5/6 timeline gates with grouped marker/customdata semantics so release acceptance reflects new timeline contracts.
 
 ## Task Commits
 
@@ -62,6 +65,8 @@ completed: 2026-02-25
 - `tests/gui/test_complete_gui.py` - Added explicit comparison control/readability-default checks.
 - `tests/gui/test_phase8_d2_timeline_complete.py` - Added Phase 9 suite to canonical list and stabilized marker assertions.
 - `tests/gui/test_phase8_release_verification_complete.py` - Added canonical D2 contract assertion for Phase 9 gate.
+- `tests/gui/test_phase5_timeline_complete.py` - Replaced positional marker assumptions with marker-name assertions.
+- `tests/gui/test_phase6_timeline_ux_complete.py` - Switched confidence assertions from hover text literals to `customdata` values.
 
 ## Decisions Made
 - Prefer named marker-trace assertions over position-based checks to keep tests stable under readability refactors.
@@ -69,11 +74,13 @@ completed: 2026-02-25
 
 ## Deviations from Plan
 
-None - executed as planned.
+Minor follow-up: while running final release verification, legacy Phase 5/6 assertions failed due intentional grouped-marker/customdata changes from 09-01. These suites were updated to assert stable marker-name/customdata contracts.
 
 ## Issues Encountered
 - Initial D2 gate failure due marker trace ordering assumptions after grouped-marker refactor.
 - Resolved by converting assertions to marker-name/customdata checks.
+- `make test-release` initially failed on two legacy D2 suites (Phase 5/6) that still expected old marker ordering and hover literal behavior.
+- Resolved by updating those suites to use grouped marker names and `customdata`-driven confidence checks.
 
 ## User Setup Required
 None.
@@ -87,6 +94,8 @@ None.
 - `poetry run pytest tests/gui/test_timeline.py tests/gui/test_complete_gui.py -q -k "timeline and (readability or overlay or default or dense)"` -> 7 passed
 - `poetry run pytest tests/gui/test_phase8_d2_timeline_complete.py tests/gui/test_phase9_timeline_readability_complete.py -q` -> 4 passed
 - `poetry run pytest tests/gui/test_timeline.py tests/gui/test_complete_gui.py tests/gui/test_phase8_d2_timeline_complete.py tests/gui/test_phase9_timeline_readability_complete.py tests/gui/test_phase8_release_verification_complete.py -q` -> 59 passed
+- `poetry run pytest tests/gui/test_phase5_timeline_complete.py::test_phase5_timeline_reliability_end_to_end tests/gui/test_phase6_timeline_ux_complete.py::test_phase6_timeline_ux_end_to_end_overlay_and_filters -q` -> 2 passed
+- `make test-release` -> D1: 21 passed; D2: 58 passed; D3: 11 passed
 
 ---
 *Phase: 09-timeline-readability-overlay-clarity*
