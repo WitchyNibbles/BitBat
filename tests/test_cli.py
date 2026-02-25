@@ -312,6 +312,124 @@ def test_cli_news_pull_cryptocompare_source(
     pd_testing.assert_frame_equal(stored, sample_frame)
 
 
+def test_cli_features_build_label_mode_default_compatibility(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = _write_test_config(
+        tmp_path / "features_default_config.yaml",
+        enable_sentiment=False,
+    )
+    prices_path = tmp_path / "data" / "raw" / "prices" / "btcusd_yf_1h.parquet"
+    prices_path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "timestamp_utc": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 01:00:00"]
+            ),
+            "open": [100.0, 101.0],
+            "high": [101.0, 102.0],
+            "low": [99.0, 100.0],
+            "close": [100.5, 101.5],
+            "volume": [1000, 1200],
+        }
+    ).to_parquet(prices_path, index=False)
+
+    captured: dict[str, Any] = {}
+
+    def fake_build_xy(*args: Any, **kwargs: Any) -> tuple[pd.DataFrame, pd.Series, Any]:
+        captured["kwargs"] = kwargs
+        idx = pd.to_datetime(["2024-01-01 00:00:00"])
+        return pd.DataFrame({"feat_demo": [1.0]}, index=idx), pd.Series([0.01], index=idx), {}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.cli.build_xy", fake_build_xy)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "bitbat",
+            "--config",
+            str(config_path),
+            "features",
+            "build",
+            "--start",
+            "2024-01-01 00:00:00",
+            "--end",
+            "2024-01-01 01:00:00",
+        ],
+    )
+    main()
+
+    out = capsys.readouterr().out
+    assert "Built feature matrix with 1 rows." in out
+    assert captured["kwargs"]["label_mode"] == "return_direction"
+    assert captured["kwargs"]["barrier_take_profit"] is None
+    assert captured["kwargs"]["barrier_stop_loss"] is None
+    assert captured["kwargs"]["tau"] == pytest.approx(0.0015)
+
+
+def test_cli_features_build_triple_barrier_label_mode(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config_path = _write_test_config(
+        tmp_path / "features_triple_barrier_config.yaml",
+        enable_sentiment=False,
+    )
+    prices_path = tmp_path / "data" / "raw" / "prices" / "btcusd_yf_1h.parquet"
+    prices_path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "timestamp_utc": pd.to_datetime(
+                ["2024-01-01 00:00:00", "2024-01-01 01:00:00"]
+            ),
+            "open": [100.0, 101.0],
+            "high": [101.0, 102.0],
+            "low": [99.0, 100.0],
+            "close": [100.5, 101.5],
+            "volume": [1000, 1200],
+        }
+    ).to_parquet(prices_path, index=False)
+
+    captured: dict[str, Any] = {}
+
+    def fake_build_xy(*args: Any, **kwargs: Any) -> tuple[pd.DataFrame, pd.Series, Any]:
+        captured["kwargs"] = kwargs
+        idx = pd.to_datetime(["2024-01-01 00:00:00"])
+        return pd.DataFrame({"feat_demo": [1.0]}, index=idx), pd.Series([0.01], index=idx), {}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.cli.build_xy", fake_build_xy)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "bitbat",
+            "--config",
+            str(config_path),
+            "features",
+            "build",
+            "--start",
+            "2024-01-01 00:00:00",
+            "--end",
+            "2024-01-01 01:00:00",
+            "--label-mode",
+            "triple_barrier",
+            "--take-profit",
+            "0.02",
+            "--stop-loss",
+            "0.01",
+        ],
+    )
+    main()
+
+    assert captured["kwargs"]["label_mode"] == "triple_barrier"
+    assert captured["kwargs"]["barrier_take_profit"] == pytest.approx(0.02)
+    assert captured["kwargs"]["barrier_stop_loss"] == pytest.approx(0.01)
+
+
 def test_cli_model_cv(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

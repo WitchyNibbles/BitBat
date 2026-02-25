@@ -300,14 +300,48 @@ def news_pull(from_dt: str, to_dt: str, source: str | None, output: Path | None)
 @features.command("build")
 @click.option("--start", default=None, help="Start datetime for feature build.")
 @click.option("--end", default=None, help="End datetime for feature build.")
+@click.option(
+    "--label-mode",
+    type=click.Choice(["return_direction", "triple_barrier"], case_sensitive=False),
+    default=None,
+    help="Target labeling mode for dataset generation.",
+)
+@click.option(
+    "--take-profit",
+    type=float,
+    default=None,
+    help="Take-profit threshold for `--label-mode triple_barrier`.",
+)
+@click.option(
+    "--stop-loss",
+    type=float,
+    default=None,
+    help="Stop-loss threshold for `--label-mode triple_barrier`.",
+)
 def features_build(
     start: str | None,
     end: str | None,
+    label_mode: str | None,
+    take_profit: float | None,
+    stop_loss: float | None,
 ) -> None:
     """Build feature matrix and labels."""
     freq = _resolve_setting(None, "freq")
     horizon = _resolve_setting(None, "horizon")
     enable_sentiment = _sentiment_enabled()
+    configured_mode = str(_config().get("label_mode", "return_direction"))
+    resolved_label_mode = (label_mode or configured_mode).strip().lower()
+    if resolved_label_mode not in {"return_direction", "triple_barrier"}:
+        raise click.ClickException(
+            f"Unsupported label mode '{resolved_label_mode}'. "
+            "Expected 'return_direction' or 'triple_barrier'."
+        )
+    if resolved_label_mode != "triple_barrier" and (
+        take_profit is not None or stop_loss is not None
+    ):
+        raise click.ClickException(
+            "--take-profit/--stop-loss can only be used with --label-mode triple_barrier."
+        )
 
     prices_path = _data_path("raw", "prices", f"btcusd_yf_{freq}.parquet")
     _ensure_path_exists(prices_path, "Prices parquet")
@@ -343,6 +377,16 @@ def features_build(
         if onchain_candidate.exists():
             onchain_path = onchain_candidate
 
+    tau_config = _config().get("tau")
+    tau_value = float(tau_config) if tau_config is not None else None
+    barrier_tp: float | None = None
+    barrier_sl: float | None = None
+    if resolved_label_mode == "triple_barrier":
+        default_tp = float(_config().get("triple_barrier_take_profit", tau_value or 0.01))
+        barrier_tp = float(take_profit) if take_profit is not None else default_tp
+        default_sl = float(_config().get("triple_barrier_stop_loss", barrier_tp))
+        barrier_sl = float(stop_loss) if stop_loss is not None else default_sl
+
     X, y, _meta = build_xy(
         prices_path,
         news_path,
@@ -350,10 +394,14 @@ def features_build(
         horizon=horizon,
         start=default_start,
         end=default_end,
+        tau=tau_value,
         enable_sentiment=enable_sentiment,
         enable_garch=enable_garch,
         macro_parquet=macro_path,
         onchain_parquet=onchain_path,
+        label_mode=resolved_label_mode,
+        barrier_take_profit=barrier_tp,
+        barrier_stop_loss=barrier_sl,
         output_root=Path(_config()["data_dir"]).expanduser(),
         seed=int(_config().get("seed", 0)),
         version=__version__,
