@@ -6,6 +6,15 @@
 - **Milestone result:** UI-first simplification shipped with a five-view supported surface, retirement-safe legacy routes, and regression/smoke release gates.
 - **Release acceptance command:** `make test-release`
 
+## Current Milestone: v1.2 BTC Prediction Accuracy Evolution
+
+**Goal:** Improve BTC prediction accuracy by upgrading data/label quality, retraining/evaluation rigor, and model promotion safety.
+
+**Target features:**
+- Return-first and leakage-safe training data contracts (with optional triple-barrier event labels for trading-aligned experiments).
+- Strong classical baselines (tree ensembles) with periodic retraining and regime/drift diagnostics.
+- Walk-forward, cost-aware evaluation and explicit promotion gates that prevent backtest overfitting.
+
 ## What This Is
 
 BitBat is a local-first BTC prediction platform with CLI, API, autonomous monitoring, and a Streamlit dashboard. After v1.1, the primary operator UI is intentionally reduced to reliable core views with retired advanced paths guarded behind user-facing guidance.
@@ -31,20 +40,24 @@ A reliable prediction system where operators can trust that monitoring runs with
 
 ### Active (Next Milestone Planning Queue)
 
-- [ ] ANLY-01: Evaluate whether any advanced analytics surfaces should be reintroduced based on validated demand.
-- [ ] ANLY-02: Reintroduce backtest workflows only with robust dataset/model/runtime guards.
-- [ ] ANLY-03: Rebuild pipeline UX against current modeling/evaluation APIs if advanced workflows return.
-- [ ] OPER-01: Evaluate optional non-SQLite backend path for higher concurrency environments.
+- [ ] Upgrade the prediction dataset to leakage-safe as-of semantics and return-based targets.
+- [ ] Add optional triple-barrier labels for event-driven signal evaluation.
+- [ ] Establish tree-ensemble accuracy baselines with reproducible retraining windows.
+- [ ] Introduce cost-aware walk-forward evaluation with statistical guardrails for model selection.
+- [ ] Promote models only through explicit multi-window performance and drawdown gates.
 
 ### Out of Scope
 
 - Full dashboard redesign.
 - Major model strategy replacement.
 - Reintroducing advanced views without explicit operator demand and verification contracts.
+- Treating raw next-price forecasting as the primary objective instead of return/direction/trading-aligned targets.
 
 ## Context
 
 v1.1 completed in 3 phases (10-12), 8 plans, and 24 tasks. The runtime surface is now intentionally minimal, retired advanced routes fail safely, and release acceptance includes dedicated phase-level coverage for supported-surface, stability, and smoke behavior.
+
+The next milestone is grounded in `deep-research-report.md` findings: crypto prediction accuracy gains come more from leakage control, retraining discipline, and cost-aware walk-forward evaluation than from jumping directly to complex model architectures.
 
 ## Key Decisions
 
@@ -55,12 +68,13 @@ v1.1 completed in 3 phases (10-12), 8 plans, and 24 tasks. The runtime surface i
 | Prioritize UI-first simplification for v1.1 | Operator value concentrated in five views; advanced views were broken | ✓ Shipped in v1.1 |
 | Retire Backtest/Pipeline routes instead of patching brittle imports in place | Fastest safe path to remove user-facing tracebacks while preserving future rebuild option | ✓ Shipped in v1.1 |
 | Lock milestone behavior with dedicated phase gates plus release wiring | Prevent regressions when future work touches Streamlit/runtime contracts | ✓ Shipped in v1.1 |
+| Prioritize pipeline rigor over exotic model complexity for v1.2 | Research review indicates leakage, retraining cadence, and evaluation protocol dominate real-world crypto accuracy | — Pending |
 
 ## Next Milestone Goals
 
-1. Define v1.2 requirements from real operator workflows and current usage evidence.
-2. Decide whether advanced interfaces should remain retired or return behind explicit contracts.
-3. Preserve D1/D2/D3 release acceptance as the non-negotiable shipping gate.
+1. Shift prediction contracts to return/direction-focused labels with strict as-of leakage controls.
+2. Build a reproducible retraining and walk-forward benchmark harness that includes transaction-cost realism.
+3. Add statistically safer promotion gates so “improved” models must beat incumbents out-of-sample before shipping.
 
 <details>
 <summary>Archived v1.1 kickoff notes</summary>
@@ -71,4 +85,4 @@ v1.1 completed in 3 phases (10-12), 8 plans, and 24 tasks. The runtime surface i
 </details>
 
 ---
-*Last updated: 2026-02-25 after completing v1.1 milestone*
+*Last updated: 2026-02-25 after starting v1.2 milestone*
