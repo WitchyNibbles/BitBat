@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Milestone v1.2 prediction-accuracy planning and phase 13 kickoff
+**Current focus:** Phase 13 execution prep for leakage-safe data and label contract upgrades
 
 ## Current Position
 
 Milestone: v1.2 (BTC Prediction Accuracy Evolution)
-Phase: 13-data-and-label-contract-upgrade (not started)
-Status: v1.2 initialized; requirements and roadmap defined
-Last activity: 2026-02-25 - Started v1.2 using deep-research-driven accuracy strategy
+Phase: 13-data-and-label-contract-upgrade (planned)
+Status: Phase 13 plans created and verified; ready for execution
+Last activity: 2026-02-25 - Planned Phase 13 from deep research and created executable plan set
 
 Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 
@@ -20,7 +20,7 @@ Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 
 - Planned phases: 4 (13-16)
 - Planned requirements: 11
-- Plans: 0 (phase planning not started)
+- Plans: 3 (Phase 13)
 - Tasks: 0 (execution not started)
 - Source context: `deep-research-report.md`
 
@@ -38,8 +38,8 @@ Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 
 ### Pending Todos
 
-- Create execution plan for Phase 13 (`$gsd-plan-phase 13`).
-- Implement v1.2 Phase 13 data/label contract upgrades after planning approval.
+- Execute Phase 13 (`$gsd-execute-phase 13`).
+- Verify Phase 13 outcome against DATA-01/DATA-02/LABL-01 requirements.
 - Keep v1.2 model promotion tied to out-of-sample and drawdown-safe gates.
 
 ### Blockers/Concerns
@@ -49,5 +49,5 @@ Progress: [░░░░░░░░░░] 0% for v1.2 (0/4 phases complete)
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: v1.2 milestone initialization and roadmap setup
-Resume with: `$gsd-plan-phase 13`
+Stopped at: phase 13 planning complete
+Resume with: `$gsd-execute-phase 13`

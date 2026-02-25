@@ -12,7 +12,7 @@
 **Goal:** Move BitBat prediction inputs/targets to leakage-safe as-of features and return-first labels.
 **Depends on:** v1.1 verified baseline
 **Requirements:** [DATA-01, DATA-02, LABL-01]
-**Plans:** 0/0 plans complete
+**Plans:** 0/3 plans complete
 **Status:** Not started
 
 Success criteria:
@@ -64,11 +64,11 @@ Success criteria:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. Data and Label Contract Upgrade | v1.2 | 0/0 | Not started | - |
+| 13. Data and Label Contract Upgrade | v1.2 | 0/3 | Planned | - |
 | 14. Baseline Models and Retraining Cadence | v1.2 | 0/0 | Not started | - |
 | 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/0 | Not started | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |
 
 ## Next
 
-- Begin implementation planning with `$gsd-plan-phase 13`.
+- Execute planned work with `$gsd-execute-phase 13`.
