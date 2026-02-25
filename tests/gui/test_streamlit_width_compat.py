@@ -44,10 +44,15 @@ def _keyword_value(call: ast.Call, keyword_name: str) -> ast.AST | None:
 
 def test_runtime_scope_covers_primary_gui_entrypoints() -> None:
     names = {path.name for path in _runtime_streamlit_files()}
-    assert "app.py" in names
-    assert "0_Quick_Start.py" in names
-    assert "4_🔧_System.py" in names
-    assert len(names) >= 10
+    expected = {
+        "app.py",
+        "0_Quick_Start.py",
+        "1_⚙️_Settings.py",
+        "2_📈_Performance.py",
+        "3_ℹ️_About.py",
+        "4_🔧_System.py",
+    }
+    assert names == expected
 
 
 def test_deprecated_usage_absent_in_runtime_streamlit_sources() -> None:
@@ -99,5 +104,6 @@ def test_runtime_scope_uses_modern_width_literals() -> None:
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
                 literals.add(value.value)
 
+    assert literals
+    assert literals.issubset(ALLOWED_WIDTH_LITERALS)
     assert "stretch" in literals
-    assert "content" in literals
