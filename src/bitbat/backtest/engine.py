@@ -13,6 +13,8 @@ def run(
     min_signal: float = 0.0005,
     allow_short: bool = True,
     cost_bps: float = 4.0,
+    fee_bps: float | None = None,
+    slippage_bps: float | None = None,
     scale_factor: float = 0.01,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """Run a regression-based backtest and return trades plus equity.
@@ -35,7 +37,22 @@ def run(
     returns = close.pct_change().fillna(0.0)
 
     trade_changes = position_series.diff().fillna(position_series.iloc[0])
-    costs = np.abs(trade_changes) * (cost_bps / 10000.0)
+    if fee_bps is None and slippage_bps is None:
+        resolved_fee_bps = float(cost_bps)
+        resolved_slippage_bps = 0.0
+    elif fee_bps is None:
+        resolved_slippage_bps = float(slippage_bps or 0.0)
+        resolved_fee_bps = max(float(cost_bps) - resolved_slippage_bps, 0.0)
+    elif slippage_bps is None:
+        resolved_fee_bps = float(fee_bps)
+        resolved_slippage_bps = max(float(cost_bps) - resolved_fee_bps, 0.0)
+    else:
+        resolved_fee_bps = float(fee_bps)
+        resolved_slippage_bps = float(slippage_bps)
+
+    fee_costs = np.abs(trade_changes) * (resolved_fee_bps / 10000.0)
+    slippage_costs = np.abs(trade_changes) * (resolved_slippage_bps / 10000.0)
+    costs = fee_costs + slippage_costs
 
     pnl = position_series.shift(1).fillna(0.0) * returns - costs
     equity_curve = (1 + pnl).cumprod()
@@ -46,6 +63,8 @@ def run(
             "close": close,
             "position": position_series,
             "returns": returns,
+            "fee_costs": fee_costs,
+            "slippage_costs": slippage_costs,
             "costs": costs,
             "gross_pnl": gross_pnl,
             "pnl": pnl,

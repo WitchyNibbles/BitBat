@@ -44,6 +44,29 @@ def test_trades_contain_cost_columns() -> None:
     assert "pnl" in trades.columns
 
 
+def test_trades_split_fee_and_slippage_costs() -> None:
+    idx = pd.date_range(datetime(2024, 1, 1), periods=10, freq="1h")
+    prices = pd.Series(range(100, 110), index=idx, dtype=float)
+    predicted_returns = pd.Series([0.01] * 10, index=idx)
+
+    trades, _ = run(
+        prices,
+        predicted_returns,
+        fee_bps=3.0,
+        slippage_bps=2.0,
+    )
+
+    assert "fee_costs" in trades.columns
+    assert "slippage_costs" in trades.columns
+    pd.testing.assert_series_equal(
+        trades["costs"],
+        trades["fee_costs"] + trades["slippage_costs"],
+        check_names=False,
+    )
+    assert trades["fee_costs"].sum() > 0
+    assert trades["slippage_costs"].sum() > 0
+
+
 def test_zero_cost_gives_equal_pnl() -> None:
     idx = pd.date_range(datetime(2024, 1, 1), periods=10, freq="1h")
     prices = pd.Series(range(100, 110), index=idx, dtype=float)
