@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 18 execution in progress (Plans 01-02 complete; Plan 03 pending)
+**Current focus:** Phase 18 complete; preparing Phase 19 regression gates and runbook hardening
 
 ## Current Position
 
 Milestone: v1.3 (Autonomous Monitor Alignment and Metrics Integrity)
-Phase: 18 (monitoring cycle semantics and operator diagnostics)
-Status: Phase 18 in progress; cycle semantics and status lifecycle counts shipped in Plans 01-02
-Last activity: 2026-02-26 - Completed Phase 18 Plan 02 (MON-05) and updated monitor status count semantics
+Phase: 19 (regression gates and runbook hardening)
+Status: Phase 18 executed and verified complete; Phase 19 planning pending
+Last activity: 2026-02-26 - Completed Phase 18 plans, verification, and MON-04/05/06 requirement updates
 
-Progress: [███░░░░░░░] 33% for v1.3 (1/3 phases complete)
+Progress: [███████░░░] 67% for v1.3 (2/3 phases complete)
 
 ## Milestone Metrics
 
@@ -39,20 +39,22 @@ Progress: [███░░░░░░░] 33% for v1.3 (1/3 phases complete)
 - Monitoring cycle payload now includes explicit `prediction_state`, `prediction_reason`, and `realization_state`.
 - `bitbat monitor run-once` now surfaces cycle-state semantics directly in operator-facing output.
 - Monitor status now reports pair-scoped `total/unrealized/realized` prediction lifecycle counts from DB rows.
+- Cycle payload/log output now includes concise `cycle_diagnostic` root-cause lines for no-prediction conditions.
+- Monitoring heartbeat payloads now propagate latest cycle diagnostic state/reason fields.
 
 ### Pending Todos
 
-- Execute Phase 18 Plan 03 (`MON-06`) to propagate no-prediction root-cause diagnostics to heartbeat/log surfaces.
-- Run Phase 18 verification and completion workflow after Plan 03.
-- Confirm operator-facing heartbeat/log diagnostics remain aligned with cycle-state reason codes.
+- Discuss and finalize Phase 19 verification/runbook hardening scope (`$gsd-discuss-phase 19`).
+- Generate execution plans for Phase 19 (`$gsd-plan-phase 19`).
+- Execute Phase 19 and run final v1.3 completion verification.
 
 ### Blockers/Concerns
 
 - No active blocker.
-- Phase 18 Plan 03 should reuse existing predictor reason codes rather than introducing divergent diagnostics.
+- Phase 19 should preserve newly established monitor semantics while hardening regression coverage and operator docs.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 18 Plan 02 complete (`18-02-SUMMARY.md`)
-Resume with: `$gsd-execute-phase 18` (continues with 18-03)
+Stopped at: Phase 18 completed and verified (`18-VERIFICATION.md`)
+Resume with: `$gsd-discuss-phase 19` or `$gsd-plan-phase 19`
