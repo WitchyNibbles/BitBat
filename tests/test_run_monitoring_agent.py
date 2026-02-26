@@ -49,3 +49,28 @@ def test_write_heartbeat_error_payload_keeps_metadata(tmp_path: Path) -> None:
     assert payload["config_source"] == "BITBAT_CONFIG"
     assert payload["config_path"] == str(runtime_config_path)
     assert "predict.store_prediction" in payload["error"]
+
+
+def test_write_heartbeat_includes_cycle_diagnostic_fields(tmp_path: Path) -> None:
+    heartbeat = tmp_path / "monitoring_agent_heartbeat.json"
+
+    run_monitoring_agent._write_heartbeat(  # noqa: SLF001
+        heartbeat,
+        status="ok",
+        freq="1h",
+        horizon="4h",
+        interval=300,
+        db_url="sqlite:///data/autonomous.db",
+        config_source="--config",
+        config_path=str(tmp_path / "monitor.yaml"),
+        cycle_prediction_state="none",
+        cycle_prediction_reason="missing_model",
+        cycle_realization_state="pending",
+        cycle_diagnostic="missing_model: Model artifact not found for runtime pair",
+    )
+
+    payload = json.loads(heartbeat.read_text(encoding="utf-8"))
+    assert payload["cycle_prediction_state"] == "none"
+    assert payload["cycle_prediction_reason"] == "missing_model"
+    assert payload["cycle_realization_state"] == "pending"
+    assert "missing_model" in payload["cycle_diagnostic"]

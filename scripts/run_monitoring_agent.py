@@ -67,6 +67,10 @@ def _write_heartbeat(
     config_source: str,
     config_path: str,
     error: str | None = None,
+    cycle_prediction_state: str | None = None,
+    cycle_prediction_reason: str | None = None,
+    cycle_realization_state: str | None = None,
+    cycle_diagnostic: str | None = None,
 ) -> None:
     payload = {
         "status": status,
@@ -80,6 +84,14 @@ def _write_heartbeat(
     }
     if error is not None:
         payload["error"] = error
+    if cycle_prediction_state is not None:
+        payload["cycle_prediction_state"] = cycle_prediction_state
+    if cycle_prediction_reason is not None:
+        payload["cycle_prediction_reason"] = cycle_prediction_reason
+    if cycle_realization_state is not None:
+        payload["cycle_realization_state"] = cycle_realization_state
+    if cycle_diagnostic is not None:
+        payload["cycle_diagnostic"] = cycle_diagnostic
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,7 +149,20 @@ def main() -> int:
 
     while not shutdown["requested"]:
         try:
-            agent.run_once()
+            result = agent.run_once()
+            prediction_state = None
+            prediction_reason = None
+            realization_state = None
+            cycle_diagnostic = None
+            if isinstance(result, dict):
+                if result.get("prediction_state") is not None:
+                    prediction_state = str(result.get("prediction_state"))
+                if result.get("prediction_reason") is not None:
+                    prediction_reason = str(result.get("prediction_reason"))
+                if result.get("realization_state") is not None:
+                    realization_state = str(result.get("realization_state"))
+                if result.get("cycle_diagnostic") is not None:
+                    cycle_diagnostic = str(result.get("cycle_diagnostic"))
             _write_heartbeat(
                 heartbeat,
                 status="ok",
@@ -147,6 +172,10 @@ def main() -> int:
                 db_url=db_url,
                 config_source=config_source,
                 config_path=config_path,
+                cycle_prediction_state=prediction_state,
+                cycle_prediction_reason=prediction_reason,
+                cycle_realization_state=realization_state,
+                cycle_diagnostic=cycle_diagnostic,
             )
         except MonitorDatabaseError as exc:
             logger.error(
