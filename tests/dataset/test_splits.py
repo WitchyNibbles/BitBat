@@ -38,3 +38,46 @@ def test_walk_forward_no_leakage_across_folds() -> None:
     assert len(folds) == 2
     overlap = set(folds[0].test).intersection(set(folds[1].train))
     assert not overlap
+
+
+def test_walk_forward_purge_bars_remove_training_tail() -> None:
+    idx = pd.date_range("2024-01-01", periods=30, freq="1h")
+    folds = walk_forward(
+        indices=idx,
+        windows=[
+            (
+                "2024-01-01 00:00:00",
+                "2024-01-01 15:00:00",
+                "2024-01-01 16:00:00",
+                "2024-01-01 20:00:00",
+            ),
+        ],
+        embargo_bars=0,
+        purge_bars=3,
+    )
+
+    assert len(folds) == 1
+    assert folds[0].train.max() == idx[12]
+    assert len(folds[0].train) == 13
+
+
+def test_walk_forward_label_horizon_infers_purge_window() -> None:
+    idx = pd.date_range("2024-01-01", periods=30, freq="1h")
+    folds = walk_forward(
+        indices=idx,
+        windows=[
+            (
+                "2024-01-01 00:00:00",
+                "2024-01-01 15:00:00",
+                "2024-01-01 16:00:00",
+                "2024-01-01 20:00:00",
+            ),
+        ],
+        embargo_bars=0,
+        purge_bars=0,
+        label_horizon="4h",
+    )
+
+    assert len(folds) == 1
+    assert folds[0].train.max() == idx[11]
+    assert len(folds[0].train) == 12
