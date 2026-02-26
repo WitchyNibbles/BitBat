@@ -62,3 +62,26 @@
 - Milestone-level audit file (`v1.2-MILESTONE-AUDIT.md`) was not generated prior to closeout.
 
 ---
+
+## v1.3 Autonomous Monitor Alignment and Metrics Integrity (Shipped: 2026-02-26)
+
+**Delivered:** Locked monitor runtime/model alignment semantics and operator diagnostics so no-data states are explicit, test-gated, and runbooked for release operations.
+
+**Phases completed:** 17-19 (3 phases, 8 plans, 24 tasks)  
+**Timeline:** 2026-02-26 13:55:11+01:00 to 2026-02-26 17:03:35+01:00  
+**Git range:** `c7afadc^..06671aa` (28 commits, 41 files changed, 2,909 insertions, 109 deletions)
+
+**Key accomplishments:**
+- Enforced monitor startup runtime-pair alignment with fail-fast model-artifact guardrails and actionable remediation guidance.
+- Added config provenance to startup and heartbeat flows to expose resolved config source/path and runtime pair.
+- Extended schema compatibility contracts to protect monitor status/snapshot/runtime paths from `performance_snapshots` drift.
+- Added explicit cycle-state semantics (`prediction_state`, `prediction_reason`, `realization_state`) and concise root-cause diagnostics across agent, CLI, and heartbeat surfaces.
+- Added phase-level D1 regression gates wired into canonical release verification so startup/cycle/schema regressions fail pre-release.
+- Published a monitor operations runbook and service-template config contract (`--config`/`BITBAT_CONFIG`) enforced by documentation contract tests.
+
+**Verification snapshot:**
+- Phase 19 verification passed (`19-VERIFICATION.md`): 5/5 must-haves verified.
+- `make test-release` passed after fixture normalization: D1 (36 passed), D2 (86 passed), D3/release-contract (13 passed).
+- Milestone-level audit file (`v1.3-MILESTONE-AUDIT.md`) was not generated prior to closeout.
+
+---

@@ -2,22 +2,9 @@
 
 ## Current State
 
-- **Shipped version:** v1.2 (2026-02-26)
-- **Milestone result:** Accuracy-evolution controls shipped with leakage-safe data/label
-  contracts, cost-aware walk-forward evaluation, and promotion-gate deployment safety.
+- **Shipped version:** v1.3 (2026-02-26)
+- **Milestone result:** Monitor runtime/model alignment and diagnostics integrity are now release-gated and operator-documented.
 - **Release acceptance command:** `make test-release`
-
-## Current Milestone: v1.3 Autonomous Monitor Alignment and Metrics Integrity
-
-**Goal:** Ensure autonomous monitoring reports meaningful performance by aligning runtime
-configuration with trained model artifacts and making no-data conditions explicit.
-
-**Target features:**
-- Enforce runtime/model alignment for `freq/horizon` so monitor cycles run against valid
-  artifacts.
-- Add fail-fast monitor diagnostics for missing model artifacts and mismatched runtime pairs.
-- Improve monitor cycle/status observability so operators can distinguish "no predictions yet"
-  from true zero performance.
 
 ## What This Is
 
@@ -54,45 +41,34 @@ active prediction flows for the configured runtime pair.
 - ✓ EVAL-01/EVAL-02/EVAL-03/EVAL-04: Purge/embargo controls, cost-aware evaluation, champion
   reports, nested optimization safeguards shipped.
 - ✓ OPER-02: Promotion requires consecutive incumbent outperformance and drawdown-safe gate pass.
+- ✓ ALGN-01/02/03, SCHE-04, MON-04/05/06, QUAL-07/08/09: Runtime-pair guardrails, explicit
+  cycle/status semantics, root-cause diagnostics, and monitor runbook/release gate hardening
+  shipped in v1.3.
 
-### Active (v1.3 Planning Scope)
+### Active (Next Milestone Candidates)
 
-- [ ] ALGN-01: Monitor startup resolves the intended runtime config and uses the same
-  `freq/horizon` pair as available model artifacts.
-- [ ] ALGN-02: Monitor startup fails with actionable remediation when model artifacts for the
-  resolved pair are missing.
-- [ ] ALGN-03: Heartbeat and startup logs expose resolved config source and runtime pair.
-- [ ] SCHE-04: Schema compatibility checks include `performance_snapshots` runtime columns so
-  `monitor status` and snapshot writes cannot fail from silent schema drift.
-- [ ] MON-04: Cycle output distinguishes "no prediction generated", "unrealized pending", and
-  "realized metrics available" states.
-- [ ] MON-05: Monitor status surfaces total/unrealized/realized counts for the active pair.
-- [ ] MON-06: Missing-model root cause is visible in one operator-facing cycle summary.
-- [ ] QUAL-07: Regression tests enforce startup guardrails for runtime/model mismatch.
-- [ ] QUAL-08: Regression tests enforce non-ambiguous cycle/status metrics semantics.
+- [ ] MICR-01: Add optional microstructure/LOB feature pipeline for short-horizon experiments.
+- [ ] PORT-01: Add multi-asset portfolio-level forecasting and allocation workflow.
+- [ ] EA-01: Add EA-driven policy optimization under strict anti-overfitting controls.
 
 ### Out of Scope
 
-- Advanced modeling expansion (microstructure, portfolio, EA optimization) before monitor
-  alignment is corrected.
-- Full dashboard redesign.
+- Full dashboard redesign while monitor/runtime reliability remains the top operating requirement.
 - Bypassing walk-forward and promotion-gate discipline for model experimentation.
 
 ## Context
 
-On 2026-02-26, monitor cycles repeatedly logged all-zero metrics with
-`drift_reason='Insufficient realized predictions: 0/30'`. Investigation showed runtime was
-executing at `5m/30m` (heartbeat + logs) while local model artifacts and prediction history were
-for `1h`-based pairs. This produced legitimate empty metrics, but with operator confusion.
-
-v1.3 focuses on closing this operational gap before resuming advanced model exploration.
+As of 2026-02-26, v1.3 closed the monitor trust gap: startup now validates runtime/model pairing,
+no-prediction states are explicit, and release verification includes phase-level alignment gates
+plus runbook contract tests.
 
 ## Constraints
 
 - **Compatibility:** Preserve existing autonomous DB schema and prior realized history.
 - **Operational Safety:** Prefer fail-fast startup and explicit remediation over silent cycles.
-- **Verification:** New monitor semantics must be covered by deterministic automated tests.
-- **Scope:** Keep v1.3 focused on runtime alignment + observability, not model-family expansion.
+- **Verification:** New monitor and modeling semantics must be covered by deterministic automated
+  tests.
+- **Scope Discipline:** New milestone work must preserve released v1.3 monitor guarantees.
 
 ## Key Decisions
 
@@ -103,22 +79,28 @@ v1.3 focuses on closing this operational gap before resuming advanced model expl
 | Prioritize UI-first simplification for v1.1 | Operator value concentrated in five views; advanced views were broken | ✓ Shipped in v1.1 |
 | Prioritize pipeline rigor over exotic model complexity for v1.2 | Leakage control, retraining cadence, and evaluation protocol dominate real-world crypto robustness | ✓ Shipped in v1.2 |
 | Require promotion gates before autonomous deployment | Single-window wins are insufficient for stable production promotion | ✓ Shipped in v1.2 |
-| Prioritize runtime alignment before advanced modeling in v1.3 | Monitoring trust is a prerequisite for evaluating any new model capabilities | — Pending |
+| Prioritize runtime alignment before advanced modeling in v1.3 | Monitoring trust is a prerequisite for evaluating new model capabilities | ✓ Shipped in v1.3 |
 
 ## Next Milestone Goals
 
-1. Eliminate silent monitor cycles caused by runtime/model pair mismatch.
-2. Make cycle/status outputs self-explanatory when no realizations are available.
-3. Lock behavior with regression tests before reopening advanced-model scope.
+1. Reopen advanced-model scope only on top of v1.3 monitor alignment and diagnostics guarantees.
+2. Add new model capabilities with reproducible, leakage-safe, cost-aware evaluation evidence.
+3. Extend release verification contracts as scope expands so regressions are caught pre-release.
 
 <details>
-<summary>Archived deferred scope (post-v1.3 candidate)</summary>
+<summary>Archived v1.3 planning context</summary>
 
-- MICR-01: Optional microstructure/LOB feature pipeline.
-- PORT-01: Multi-asset portfolio forecasting workflow.
-- EA-01: EA-driven policy optimization under anti-overfitting controls.
+**Goal:** Ensure autonomous monitoring reports meaningful performance by aligning runtime
+configuration with trained model artifacts and making no-data conditions explicit.
+
+**Target features:**
+- Enforce runtime/model alignment for `freq/horizon` so monitor cycles run against valid
+  artifacts.
+- Add fail-fast monitor diagnostics for missing model artifacts and mismatched runtime pairs.
+- Improve monitor cycle/status observability so operators can distinguish "no predictions yet"
+  from true zero performance.
 
 </details>
 
 ---
-*Last updated: 2026-02-26 after starting v1.3 milestone*
+*Last updated: 2026-02-26 after completing v1.3 milestone*
