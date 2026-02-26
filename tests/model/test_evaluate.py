@@ -12,6 +12,7 @@ if pytest.importorskip("matplotlib"):
 
 from bitbat.model.evaluate import (
     build_candidate_report,
+    compute_multiple_testing_safeguards,
     regression_metrics,
     window_diagnostics,
     write_window_diagnostics,
@@ -149,3 +150,52 @@ def test_candidate_report_is_deterministic_for_same_input() -> None:
     first = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)
     second = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)
     assert first == second
+
+
+def test_multiple_testing_safeguards_are_deterministic() -> None:
+    outer_folds = [
+        {"outer_score": 0.0062},
+        {"outer_score": 0.0060},
+        {"outer_score": 0.0059},
+        {"outer_score": 0.0061},
+    ]
+
+    first = compute_multiple_testing_safeguards(
+        outer_folds,
+        trial_count=30,
+        min_deflated_sharpe=-0.2,
+        max_overfit_probability=0.60,
+    )
+    second = compute_multiple_testing_safeguards(
+        outer_folds,
+        trial_count=30,
+        min_deflated_sharpe=-0.2,
+        max_overfit_probability=0.60,
+    )
+
+    assert first == second
+    assert first["trial_count"] == 30
+    assert "deflated_sharpe" in first
+    assert "overfit_probability" in first
+    assert "pass" in first
+    assert isinstance(first["reasons"], list)
+
+
+def test_multiple_testing_safeguards_fail_for_unstable_results() -> None:
+    unstable_outer_folds = [
+        {"outer_score": 0.0210},
+        {"outer_score": 0.0075},
+        {"outer_score": 0.0300},
+        {"outer_score": 0.0040},
+    ]
+
+    safeguards = compute_multiple_testing_safeguards(
+        unstable_outer_folds,
+        trial_count=80,
+        min_deflated_sharpe=0.0,
+        max_overfit_probability=0.35,
+    )
+
+    assert safeguards["pass"] is False
+    assert safeguards["overfit_probability"] >= 0.35
+    assert len(safeguards["reasons"]) >= 1

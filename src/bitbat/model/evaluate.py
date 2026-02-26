@@ -169,6 +169,81 @@ def _fold_sum(folds: list[dict[str, Any]], key: str) -> float:
     return float(np.sum(values))
 
 
+def compute_multiple_testing_safeguards(
+    outer_folds: list[dict[str, Any]],
+    *,
+    trial_count: int,
+    min_deflated_sharpe: float = 0.0,
+    max_overfit_probability: float = 0.50,
+) -> dict[str, Any]:
+    """Compute deterministic multiple-testing safeguards from outer-fold outcomes.
+
+    Uses reciprocal RMSE as a stability-adjusted performance signal, then applies
+    a conservative trial-count/dispersion penalty to produce a deflated Sharpe-style
+    score and an overfit probability proxy.
+    """
+    outer_scores = [
+        float(fold["outer_score"])
+        for fold in outer_folds
+        if "outer_score" in fold and float(fold["outer_score"]) > 0.0
+    ]
+    if not outer_scores:
+        return {
+            "trial_count": int(max(trial_count, 0)),
+            "window_count": 0,
+            "raw_sharpe": 0.0,
+            "deflated_sharpe": 0.0,
+            "overfit_probability": 1.0,
+            "thresholds": {
+                "min_deflated_sharpe": float(min_deflated_sharpe),
+                "max_overfit_probability": float(max_overfit_probability),
+            },
+            "pass": False,
+            "reasons": ["no-outer-fold-scores"],
+        }
+
+    score_vector = np.asarray(outer_scores, dtype="float64")
+    performance_signal = 1.0 / np.clip(score_vector, 1e-12, None)
+    mean_signal = float(np.mean(performance_signal))
+    std_signal = float(np.std(performance_signal, ddof=0))
+    window_count = int(performance_signal.size)
+
+    if std_signal <= 1e-12:
+        raw_sharpe = float(mean_signal * np.sqrt(window_count))
+    else:
+        raw_sharpe = float((mean_signal / std_signal) * np.sqrt(window_count))
+
+    coefficient_of_variation = (
+        float(std_signal / abs(mean_signal)) if abs(mean_signal) > 1e-12 else 1.0
+    )
+    trial_penalty = float(np.sqrt(2.0 * np.log(max(int(trial_count), 1))))
+    adjusted_penalty = float(trial_penalty * (1.0 + coefficient_of_variation))
+    deflated_sharpe = float(raw_sharpe - adjusted_penalty)
+
+    clipped_deflated = float(np.clip(deflated_sharpe, -60.0, 60.0))
+    overfit_probability = float(1.0 / (1.0 + np.exp(clipped_deflated)))
+
+    reasons: list[str] = []
+    if deflated_sharpe < float(min_deflated_sharpe):
+        reasons.append("deflated_sharpe_below_threshold")
+    if overfit_probability > float(max_overfit_probability):
+        reasons.append("overfit_probability_above_threshold")
+
+    return {
+        "trial_count": int(max(trial_count, 0)),
+        "window_count": window_count,
+        "raw_sharpe": round(raw_sharpe, 6),
+        "deflated_sharpe": round(deflated_sharpe, 6),
+        "overfit_probability": round(overfit_probability, 6),
+        "thresholds": {
+            "min_deflated_sharpe": float(min_deflated_sharpe),
+            "max_overfit_probability": float(max_overfit_probability),
+        },
+        "pass": len(reasons) == 0,
+        "reasons": reasons,
+    }
+
+
 def build_candidate_report(
     *,
     candidate_id: str,
