@@ -22,9 +22,15 @@ CI should run both before executing the test suite.
 - `tests/model/`: Covers training, inference, persistence, and evaluation guardrails (PR-AUC leakage warning).
 - `tests/test_cli.py`: End-to-end scenarios, validating CLI commands stay single-purpose and idempotent.
 - `tests/test_config_loader.py`: Covers default config load behavior and runtime config initialization.
+- `tests/test_monitor_runbook_contract.py`: Locks monitor runbook/service config wiring and diagnostic guidance anchors.
 - `tests/timealign/`: Guarantees calendar/bucketing/purging uphold temporal ordering.
 
 Run `poetry run pytest` regularly—current suite collects 54 tests (`poetry run pytest --collect-only -q`).
+
+Release regression command:
+
+- `make test-release`: Executes canonical monitor/UI release gate suites, including the phase 19
+  monitor-alignment gate contract.
 
 ## Guardrails
 
