@@ -1920,8 +1920,145 @@ def test_cli_monitor_run_once(
     main()
 
     out = capsys.readouterr().out
+    assert "Monitor startup config:" in out
+    assert "Resolved runtime pair: freq=1h, horizon=4h" in out
     assert "Monitoring run completed" in out
     assert "Validations: 2" in out
+
+
+def test_cli_monitor_start_reports_startup_context(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_start.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_start_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class FakeAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def run_forever(self, interval_seconds: int = 300) -> None:
+            assert interval_seconds == 15
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", FakeAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "start",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+        "--interval",
+        "15",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Monitor startup config:" in out
+    assert "Resolved runtime pair: freq=1h, horizon=4h" in out
+    assert "Starting monitoring loop" in out
+
+
+def test_cli_monitor_run_once_missing_model_artifact_message(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_missing_model.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_missing_model_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class MissingModelAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise FileNotFoundError(
+                "Missing monitor model artifact for resolved runtime pair 1h/4h: "
+                "models/1h_4h/xgb.json."
+            )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", MissingModelAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "run-once",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(click.ClickException) as exc_info:
+        main()
+
+    message = str(exc_info.value)
+    assert "startup blocked" in message.lower()
+    assert "xgb.json" in message
+    assert "--config" in message
+    assert "BITBAT_CONFIG" in message
+
+
+def test_cli_monitor_start_missing_model_artifact_message(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_start_missing_model.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_start_missing_model_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class MissingModelAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise FileNotFoundError(
+                "Missing monitor model artifact for resolved runtime pair 1h/4h: "
+                "models/1h_4h/xgb.json."
+            )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", MissingModelAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "start",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+        "--interval",
+        "15",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(click.ClickException) as exc_info:
+        main()
+
+    message = str(exc_info.value)
+    assert "startup blocked" in message.lower()
+    assert "xgb.json" in message
+    assert "--config" in message
+    assert "BITBAT_CONFIG" in message
 
 
 def test_cli_monitor_run_once_reports_regime_diagnostics(
@@ -2172,3 +2309,58 @@ def test_cli_monitor_status_and_snapshots(
     main()
     snapshots_out = capsys.readouterr().out
     assert "Recent snapshots" in snapshots_out
+
+
+def test_cli_monitor_status_and_snapshots_schema_error_message(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from bitbat.autonomous.schema_compat import (
+        SchemaAuditReport,
+        SchemaCompatibilityError,
+        TableSchemaAudit,
+    )
+
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_status_schema_error.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_status_schema_error_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class BrokenDB:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+            report = SchemaAuditReport(tables=(
+                TableSchemaAudit(
+                    table_name="performance_snapshots",
+                    required_columns=("directional_accuracy",),
+                    existing_columns=(),
+                    missing_columns=("directional_accuracy",),
+                    addable_missing_columns=("directional_accuracy",),
+                    blocking_missing_columns=(),
+                ),
+            ))
+            raise SchemaCompatibilityError(report, db_url)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.db.AutonomousDB", BrokenDB)
+
+    for command in ("status", "snapshots"):
+        argv = [
+            "bitbat",
+            "--config",
+            str(config_path),
+            "monitor",
+            command,
+        ]
+        if command == "snapshots":
+            argv.extend(["--last", "1"])
+        monkeypatch.setattr(sys, "argv", argv)
+        with pytest.raises(click.ClickException) as exc_info:
+            main()
+        message = str(exc_info.value)
+        assert "schema is incompatible" in message.lower()
+        assert "directional_accuracy" in message
+        assert "--audit" in message
+        assert "--upgrade" in message

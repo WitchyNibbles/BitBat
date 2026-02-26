@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from bitbat.autonomous.alerting import send_alert
@@ -32,6 +33,7 @@ class MonitoringAgent:
         self.horizon = horizon
 
         self._validate_schema_preflight()
+        self._validate_model_preflight()
 
         config = get_runtime_config() or load_config()
 
@@ -47,6 +49,18 @@ class MonitoringAgent:
             engine=self.db.engine,
             auto_upgrade=False,
             raise_on_error=True,
+        )
+
+    def _validate_model_preflight(self) -> None:
+        """Fail fast when the runtime pair has no model artifact."""
+        model_path = Path("models") / f"{self.freq}_{self.horizon}" / "xgb.json"
+        if model_path.exists():
+            return
+        raise FileNotFoundError(
+            "Missing monitor model artifact for resolved runtime pair "
+            f"{self.freq}/{self.horizon}: {model_path}. "
+            "Use --config or BITBAT_CONFIG to select the intended pair, or train/copy "
+            "the required artifact before starting monitor commands."
         )
 
     def _active_model_version(self) -> str:

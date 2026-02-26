@@ -103,6 +103,12 @@ def _disable_ingestion(agent: MonitoringAgent) -> None:
     agent._ingest_auxiliary_data = lambda: None  # type: ignore[method-assign]
 
 
+def _seed_model_artifact(tmp_path: Path, freq: str = "1h", horizon: str = "4h") -> None:
+    model_dir = tmp_path / "models" / f"{freq}_{horizon}"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "xgb.json").write_text("{}", encoding="utf-8")
+
+
 def test_phase8_d1_schema_preflight_blocks_incompatible_legacy_schema(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
@@ -113,7 +119,10 @@ def test_phase8_d1_schema_preflight_blocks_incompatible_legacy_schema(tmp_path: 
         MonitoringAgent(db, "1h", "4h")
 
 
-def test_phase8_d1_upgraded_schema_monitor_cycle_stays_operational(tmp_path: Path) -> None:
+def test_phase8_d1_upgraded_schema_monitor_cycle_stays_operational(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     _create_legacy_prediction_outcomes(database_url)
@@ -121,6 +130,8 @@ def test_phase8_d1_upgraded_schema_monitor_cycle_stays_operational(tmp_path: Pat
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=16, correct_count=10)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     _disable_ingestion(agent)
@@ -145,12 +156,17 @@ def test_phase8_d1_upgraded_schema_monitor_cycle_stays_operational(tmp_path: Pat
     assert int(result["metrics"]["realized_predictions"]) == 16
 
 
-def test_phase8_d1_runtime_db_failure_remains_actionable(tmp_path: Path) -> None:
+def test_phase8_d1_runtime_db_failure_remains_actionable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=12, correct_count=6)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     _disable_ingestion(agent)

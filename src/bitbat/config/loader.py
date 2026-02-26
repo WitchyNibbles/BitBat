@@ -11,15 +11,27 @@ ENV_CONFIG = "BITBAT_CONFIG"
 
 _ACTIVE_CONFIG: dict[str, Any] | None = None
 _ACTIVE_PATH: Path | None = None
+_ACTIVE_SOURCE: str | None = None
+
+
+def _resolve_path_with_source(path: str | Path | None = None) -> tuple[Path, str]:
+    if path is not None:
+        candidate = Path(path)
+        source = "explicit"
+    else:
+        env_path = os.environ.get(ENV_CONFIG)
+        if env_path:
+            candidate = Path(env_path)
+            source = "env"
+        else:
+            candidate = DEFAULT_CONFIG_PATH
+            source = "default"
+    return candidate.expanduser().resolve(), source
 
 
 def _resolve_path(path: str | Path | None = None) -> Path:
-    if path is not None:
-        candidate = Path(path)
-    else:
-        env_path = os.environ.get(ENV_CONFIG)
-        candidate = Path(env_path) if env_path else DEFAULT_CONFIG_PATH
-    return candidate.expanduser().resolve()
+    resolved_path, _ = _resolve_path_with_source(path)
+    return resolved_path
 
 
 def load_config(path: str | Path | None = None, *, cache: bool = False) -> dict[str, Any]:
@@ -30,7 +42,7 @@ def load_config(path: str | Path | None = None, *, cache: bool = False) -> dict[
         msg = "PyYAML is required to load configuration files."
         raise RuntimeError(msg) from exc
 
-    config_path = _resolve_path(path)
+    config_path, source = _resolve_path_with_source(path)
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
@@ -41,9 +53,10 @@ def load_config(path: str | Path | None = None, *, cache: bool = False) -> dict[
         raise ValueError(f"Expected mapping at root of config {config_path}")
 
     if cache:
-        global _ACTIVE_CONFIG, _ACTIVE_PATH
+        global _ACTIVE_CONFIG, _ACTIVE_PATH, _ACTIVE_SOURCE
         _ACTIVE_CONFIG = data
         _ACTIVE_PATH = config_path
+        _ACTIVE_SOURCE = source
 
     return data
 
@@ -66,5 +79,13 @@ def get_runtime_config_path() -> Path:
     """Return the path to the active configuration file."""
     global _ACTIVE_PATH
     if _ACTIVE_PATH is None:
-        _ACTIVE_PATH = _resolve_path()
+        _ACTIVE_PATH, _ = _resolve_path_with_source()
     return _ACTIVE_PATH
+
+
+def get_runtime_config_source() -> str:
+    """Return where the active config came from: explicit, env, or default."""
+    global _ACTIVE_SOURCE
+    if _ACTIVE_SOURCE is None:
+        load_config(cache=True)
+    return str(_ACTIVE_SOURCE or "default")

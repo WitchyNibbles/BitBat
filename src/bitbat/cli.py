@@ -17,7 +17,12 @@ from bitbat import __version__
 from bitbat.autonomous.schema_compat import SchemaCompatibilityError, format_missing_columns
 from bitbat.backtest.engine import run as run_strategy
 from bitbat.backtest.metrics import summary as summarize_backtest
-from bitbat.config.loader import get_runtime_config, set_runtime_config
+from bitbat.config.loader import (
+    get_runtime_config,
+    get_runtime_config_path,
+    get_runtime_config_source,
+    set_runtime_config,
+)
 from bitbat.contracts import ensure_feature_contract, ensure_predictions_contract
 from bitbat.dataset.build import _generate_price_features, build_xy
 from bitbat.dataset.splits import generate_rolling_windows, walk_forward
@@ -30,12 +35,14 @@ from bitbat.model.evaluate import (
     regression_metrics,
     select_champion_report,
 )
-from bitbat.model.optimize import HyperparamOptimizer
 from bitbat.model.infer import predict_bar
+from bitbat.model.optimize import HyperparamOptimizer
 from bitbat.model.persist import (
     default_model_artifact_path,
-    load as load_model,
     save_baseline_artifact,
+)
+from bitbat.model.persist import (
+    load as load_model,
 )
 from bitbat.model.train import fit_random_forest, fit_xgb
 from bitbat.timealign.calendar import ensure_utc
@@ -201,6 +208,39 @@ def _raise_monitor_runtime_db_error(exc: MonitorDatabaseError) -> NoReturn:
                 f"Error class: {exc.error_class}",
                 f"Detail: {exc.detail}",
                 f"Remediation: {exc.remediation}",
+            ]
+        )
+    ) from exc
+
+
+def _monitor_config_source_label(source: str) -> str:
+    labels = {
+        "explicit": "--config",
+        "env": "BITBAT_CONFIG",
+        "default": "default-config",
+    }
+    return labels.get(source, source)
+
+
+def _emit_monitor_startup_context(freq: str, horizon: str) -> None:
+    source = get_runtime_config_source()
+    config_path = get_runtime_config_path()
+    click.echo(
+        "Monitor startup config: "
+        f"source={_monitor_config_source_label(source)}, path={config_path}"
+    )
+    click.echo(f"Resolved runtime pair: freq={freq}, horizon={horizon}")
+
+
+def _raise_monitor_model_preflight_error(exc: FileNotFoundError) -> NoReturn:
+    raise click.ClickException(
+        "\n".join(
+            [
+                "Autonomous monitor startup blocked: model artifact missing.",
+                f"Detail: {exc}",
+                "Remediation:",
+                "  1. Use --config or BITBAT_CONFIG to select the intended freq/horizon pair.",
+                "  2. Train/copy the expected model artifact: models/<freq>_<horizon>/xgb.json.",
             ]
         )
     ) from exc
@@ -463,7 +503,10 @@ def features_build(
 @click.option(
     "--backtest-window",
     default=None,
-    help="Rolling backtest window duration (e.g. 90D). Uses config model.cv.backtest_window by default.",
+    help=(
+        "Rolling backtest window duration (e.g. 90D). "
+        "Uses config model.cv.backtest_window by default."
+    ),
 )
 @click.option(
     "--window-step",
@@ -487,7 +530,10 @@ def features_build(
     "--purge-bars",
     type=int,
     default=None,
-    help="Bars purged before each test window to avoid horizon overlap (default: model.cv.purge_bars or 0).",
+    help=(
+        "Bars purged before each test window to avoid horizon overlap "
+        "(default: model.cv.purge_bars or 0)."
+    ),
 )
 @click.option(
     "--label-horizon",
@@ -1423,12 +1469,15 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
     db_url = str(
         _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
     )
+    _emit_monitor_startup_context(freq_val, horizon_val)
 
     try:
         init_database(db_url)
         db = AutonomousDB(db_url)
         agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
         result = agent.run_once()
+    except FileNotFoundError as exc:
+        _raise_monitor_model_preflight_error(exc)
     except SchemaCompatibilityError as exc:
         _raise_monitor_schema_error(exc, db_url)
     except MonitorDatabaseError as exc:
@@ -1465,11 +1514,14 @@ def monitor_start(freq: str | None, horizon: str | None, interval: int | None) -
         if interval is not None
         else int(_config().get("autonomous", {}).get("validation_interval", 300))
     )
+    _emit_monitor_startup_context(freq_val, horizon_val)
 
     try:
         init_database(db_url)
         db = AutonomousDB(db_url)
         agent = MonitoringAgent(db, freq=freq_val, horizon=horizon_val)
+    except FileNotFoundError as exc:
+        _raise_monitor_model_preflight_error(exc)
     except SchemaCompatibilityError as exc:
         _raise_monitor_schema_error(exc, db_url)
     except MonitorDatabaseError as exc:

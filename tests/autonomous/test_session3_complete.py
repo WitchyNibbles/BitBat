@@ -16,6 +16,12 @@ def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'session3.db'}"
 
 
+def _seed_model_artifact(tmp_path: Path, freq: str = "1h", horizon: str = "4h") -> None:
+    model_dir = tmp_path / "models" / f"{freq}_{horizon}"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "xgb.json").write_text("{}", encoding="utf-8")
+
+
 def test_session3_complete_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
@@ -56,6 +62,8 @@ def test_session3_complete_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPa
                 actual_return=0.015 if good else -0.01,
                 actual_direction="up" if good else "down",
             )
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     with db.session() as session:
         predictions = db.get_recent_predictions(

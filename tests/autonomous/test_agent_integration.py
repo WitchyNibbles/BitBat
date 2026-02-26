@@ -93,12 +93,20 @@ def _disable_ingestion(agent: MonitoringAgent) -> None:
     agent._ingest_auxiliary_data = lambda: None  # type: ignore[method-assign]
 
 
-def test_monitoring_agent_integration(tmp_path: Path) -> None:
+def _seed_model_artifact(tmp_path: Path, freq: str = "1h", horizon: str = "4h") -> None:
+    model_dir = tmp_path / "models" / f"{freq}_{horizon}"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "xgb.json").write_text("{}", encoding="utf-8")
+
+
+def test_monitoring_agent_integration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=40, correct_count=15)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
@@ -130,12 +138,14 @@ def test_monitoring_agent_integration(tmp_path: Path) -> None:
     assert snapshot_count > 0
 
 
-def test_no_drift_scenario(tmp_path: Path) -> None:
+def test_no_drift_scenario(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=40, correct_count=35)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
@@ -157,12 +167,14 @@ def test_no_drift_scenario(tmp_path: Path) -> None:
     assert result["retraining_triggered"] is False
 
 
-def test_cooldown_enforcement(tmp_path: Path) -> None:
+def test_cooldown_enforcement(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=40, correct_count=10)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
@@ -203,13 +215,32 @@ def test_schema_preflight_blocks_incompatible_legacy_schema(tmp_path: Path) -> N
         MonitoringAgent(db, "1h", "4h")
 
 
-def test_schema_preflight_allows_upgraded_legacy_schema(tmp_path: Path) -> None:
+def test_monitoring_agent_blocks_startup_without_model_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(FileNotFoundError, match="xgb.json"):
+        MonitoringAgent(db, "1h", "4h")
+
+
+def test_schema_preflight_allows_upgraded_legacy_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     _create_legacy_prediction_outcomes(database_url)
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=10, correct_count=6)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
@@ -230,12 +261,17 @@ def test_schema_preflight_allows_upgraded_legacy_schema(tmp_path: Path) -> None:
     assert result["drift_detected"] is False
 
 
-def test_monitoring_agent_surfaces_runtime_db_failure(tmp_path: Path) -> None:
+def test_monitoring_agent_surfaces_runtime_db_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     db = AutonomousDB(database_url)
     _seed_model(db)
     _seed_realized_predictions(db, total=10, correct_count=5)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
 
     agent = MonitoringAgent(db, "1h", "4h")
     _disable_ingestion(agent)
