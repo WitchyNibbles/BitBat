@@ -13,6 +13,7 @@ if pytest.importorskip("matplotlib"):
 from bitbat.model.evaluate import (
     build_candidate_report,
     compute_multiple_testing_safeguards,
+    evaluate_promotion_gate,
     regression_metrics,
     select_champion_report,
     window_diagnostics,
@@ -245,3 +246,61 @@ def test_champion_selection_blocks_failed_safeguards() -> None:
     assert decision["winner"] == "xgb"
     assert decision["promote_candidate"] is False
     assert decision["reason"] == "incumbent-retained-by-rule"
+
+
+def test_promotion_gate_requires_consecutive_outperformance_and_drawdown_safety() -> None:
+    candidate = {
+        "windows": [
+            {"window_id": "w1", "net_return": 0.03, "max_drawdown": -0.10},
+            {"window_id": "w2", "net_return": 0.04, "max_drawdown": -0.11},
+            {"window_id": "w3", "net_return": 0.02, "max_drawdown": -0.09},
+        ]
+    }
+    incumbent = {
+        "windows": [
+            {"window_id": "w1", "net_return": 0.02, "max_drawdown": -0.08},
+            {"window_id": "w2", "net_return": 0.03, "max_drawdown": -0.09},
+            {"window_id": "w3", "net_return": 0.01, "max_drawdown": -0.08},
+        ]
+    }
+
+    gate = evaluate_promotion_gate(
+        candidate_report=candidate,
+        incumbent_report=incumbent,
+        min_consecutive_outperformance=2,
+        max_drawdown_floor=-0.25,
+    )
+
+    assert gate["pass"] is True
+    assert gate["max_consecutive_outperformance"] >= 2
+    assert gate["drawdown_ok"] is True
+    assert gate["reasons"] == []
+
+
+def test_promotion_gate_rejects_for_drawdown_or_no_consecutive_wins() -> None:
+    candidate = {
+        "windows": [
+            {"window_id": "w1", "net_return": 0.03, "max_drawdown": -0.40},
+            {"window_id": "w2", "net_return": 0.01, "max_drawdown": -0.35},
+            {"window_id": "w3", "net_return": 0.02, "max_drawdown": -0.32},
+        ]
+    }
+    incumbent = {
+        "windows": [
+            {"window_id": "w1", "net_return": 0.025, "max_drawdown": -0.15},
+            {"window_id": "w2", "net_return": 0.015, "max_drawdown": -0.14},
+            {"window_id": "w3", "net_return": 0.03, "max_drawdown": -0.12},
+        ]
+    }
+
+    gate = evaluate_promotion_gate(
+        candidate_report=candidate,
+        incumbent_report=incumbent,
+        min_consecutive_outperformance=2,
+        max_drawdown_floor=-0.25,
+    )
+
+    assert gate["pass"] is False
+    assert gate["drawdown_ok"] is False
+    assert gate["max_consecutive_outperformance"] < 2
+    assert len(gate["reasons"]) >= 1

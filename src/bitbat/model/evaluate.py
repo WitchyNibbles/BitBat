@@ -244,6 +244,86 @@ def compute_multiple_testing_safeguards(
     }
 
 
+def evaluate_promotion_gate(
+    *,
+    candidate_report: dict[str, Any],
+    incumbent_report: dict[str, Any],
+    min_consecutive_outperformance: int = 2,
+    max_drawdown_floor: float = -0.25,
+) -> dict[str, Any]:
+    """Evaluate promotion safety versus incumbent across consecutive windows.
+
+    A candidate passes only when it beats the incumbent over enough consecutive
+    out-of-sample windows and stays within configured drawdown guardrails.
+    """
+    candidate_windows = list(candidate_report.get("windows", []))
+    incumbent_windows = list(incumbent_report.get("windows", []))
+    aligned_windows = min(len(candidate_windows), len(incumbent_windows))
+
+    if aligned_windows == 0:
+        return {
+            "pass": False,
+            "min_consecutive_outperformance": int(max(min_consecutive_outperformance, 1)),
+            "max_consecutive_outperformance": 0,
+            "drawdown_floor": float(max_drawdown_floor),
+            "drawdown_ok": False,
+            "window_count": 0,
+            "window_verdicts": [],
+            "reasons": ["no-window-overlap"],
+        }
+
+    required_streak = int(max(min_consecutive_outperformance, 1))
+    streak = 0
+    max_streak = 0
+    drawdown_ok = True
+    window_verdicts: list[dict[str, Any]] = []
+
+    for idx in range(aligned_windows):
+        candidate_window = candidate_windows[idx]
+        incumbent_window = incumbent_windows[idx]
+
+        candidate_return = float(candidate_window.get("net_return", 0.0))
+        incumbent_return = float(incumbent_window.get("net_return", 0.0))
+        beats_incumbent = candidate_return > incumbent_return
+
+        streak = streak + 1 if beats_incumbent else 0
+        max_streak = max(max_streak, streak)
+
+        candidate_drawdown = float(candidate_window.get("max_drawdown", 0.0))
+        window_drawdown_ok = candidate_drawdown >= float(max_drawdown_floor)
+        drawdown_ok = bool(drawdown_ok and window_drawdown_ok)
+
+        window_verdicts.append({
+            "window_id": (
+                str(candidate_window.get("window_id"))
+                if candidate_window.get("window_id") is not None
+                else f"fold-{idx + 1}"
+            ),
+            "candidate_net_return": round(candidate_return, 6),
+            "incumbent_net_return": round(incumbent_return, 6),
+            "candidate_beats_incumbent": bool(beats_incumbent),
+            "candidate_max_drawdown": round(candidate_drawdown, 6),
+            "drawdown_ok": bool(window_drawdown_ok),
+        })
+
+    reasons: list[str] = []
+    if max_streak < required_streak:
+        reasons.append("insufficient_consecutive_outperformance")
+    if not drawdown_ok:
+        reasons.append("drawdown_guardrail_violated")
+
+    return {
+        "pass": len(reasons) == 0,
+        "min_consecutive_outperformance": required_streak,
+        "max_consecutive_outperformance": int(max_streak),
+        "drawdown_floor": float(max_drawdown_floor),
+        "drawdown_ok": bool(drawdown_ok),
+        "window_count": int(aligned_windows),
+        "window_verdicts": window_verdicts,
+        "reasons": reasons,
+    }
+
+
 def build_candidate_report(
     *,
     candidate_id: str,
@@ -257,6 +337,19 @@ def build_candidate_report(
         "candidate_id": candidate_id,
         "family": family,
         "n_folds": len(folds),
+        "windows": [
+            {
+                "window_id": fold.get("window_id", f"fold-{idx + 1}"),
+                "net_return": round(float(fold.get("net_return", 0.0)), 6),
+                "max_drawdown": round(float(fold.get("max_drawdown", 0.0)), 6),
+                "directional_accuracy": round(
+                    float(fold.get("directional_accuracy", 0.0)),
+                    6,
+                ),
+                "rmse": round(float(fold.get("rmse", 0.0)), 6),
+            }
+            for idx, fold in enumerate(folds)
+        ],
         "metrics": {
             "regression": {
                 "mean_rmse": round(_fold_mean(folds, "rmse"), 6),
