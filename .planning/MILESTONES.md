@@ -40,3 +40,25 @@
 - `make test-release` passed: D1 (21 passed), D2 (86 passed), D3 (13 passed)
 
 ---
+
+## v1.2 BTC Prediction Accuracy Evolution (Shipped: 2026-02-26)
+
+**Delivered:** Shipped leakage-safe data/label contracts, reproducible retraining/evaluation rigor, and promotion guardrails that block unstable candidates.
+
+**Phases completed:** 13-16 (4 phases, 12 plans, 36 tasks)  
+**Timeline:** 2026-02-26 00:17:46+01:00 to 2026-02-26 09:28:50+01:00  
+**Git range:** `6de3d60^..ebd4a4d` (53 commits, 63 files changed, 7,028 insertions, 322 deletions)
+
+**Key accomplishments:**
+- Enforced as-of timestamp alignment and return-first label contracts to eliminate future leakage paths.
+- Added optional triple-barrier labeling mode without breaking default return/direction dataset behavior.
+- Standardized dual tree-ensemble baselines with rolling retraining windows and per-window regime/drift diagnostics.
+- Added purge/embargo leakage controls and fee/slippage-aware net-vs-gross walk-forward evaluation outputs.
+- Introduced nested walk-forward optimization with deterministic provenance and multiple-testing safeguard payloads.
+- Enforced promotion gates across CLI and autonomous retraining (consecutive outperformance + drawdown guardrails) before deployment.
+
+**Verification snapshot:**
+- Phase 16 verification passed (`16-VERIFICATION.md`): 4/4 must-haves verified, EVAL-04 + OPER-02 complete.
+- Milestone-level audit file (`v1.2-MILESTONE-AUDIT.md`) was not generated prior to closeout.
+
+---

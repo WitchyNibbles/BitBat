@@ -2,22 +2,22 @@
 
 ## Current State
 
-- **Shipped version:** v1.1 (2026-02-25)
-- **Milestone result:** UI-first simplification shipped with a five-view supported surface, retirement-safe legacy routes, and regression/smoke release gates.
+- **Shipped version:** v1.2 (2026-02-26)
+- **Milestone result:** Accuracy-evolution controls shipped with leakage-safe data/label contracts, cost-aware walk-forward evaluation, and promotion-gate deployment safety.
 - **Release acceptance command:** `make test-release`
 
-## Current Milestone: v1.2 BTC Prediction Accuracy Evolution
+## Next Milestone Candidate: v1.3 Advanced Modeling Exploration
 
-**Goal:** Improve BTC prediction accuracy by upgrading data/label quality, retraining/evaluation rigor, and model promotion safety.
+**Goal:** Extend v1.2’s robust baseline pipeline with carefully scoped advanced modeling experiments.
 
 **Target features:**
-- Return-first and leakage-safe training data contracts (with optional triple-barrier event labels for trading-aligned experiments).
-- Strong classical baselines (tree ensembles) with periodic retraining and regime/drift diagnostics.
-- Walk-forward, cost-aware evaluation and explicit promotion gates that prevent backtest overfitting.
+- Optional microstructure/LOB feature experiments behind existing leakage-safe contracts.
+- Multi-asset or portfolio-aware forecasting experiments that reuse current evaluation/promotion gates.
+- EA-driven policy or threshold optimization under strict anti-overfitting controls.
 
 ## What This Is
 
-BitBat is a local-first BTC prediction platform with CLI, API, autonomous monitoring, and a Streamlit dashboard. After v1.1, the primary operator UI is intentionally reduced to reliable core views with retired advanced paths guarded behind user-facing guidance.
+BitBat is a local-first BTC prediction platform with CLI, API, autonomous monitoring, and a Streamlit dashboard. The runtime now combines a simplified operator UI with deterministic, audit-friendly model evaluation and promotion controls.
 
 ## Core Value
 
@@ -37,27 +37,28 @@ A reliable prediction system where operators can trust that monitoring runs with
 - ✓ STAB-01/02/03: Runtime crash paths removed (`confidence`, pipeline import, backtest indexing).
 - ✓ RET-01/02: Retired-page UX and supported-surface guidance aligned.
 - ✓ QUAL-04/05/06: Simplified UI contract, crash-signature guards, and supported-view smoke coverage release-wired.
+- ✓ DATA-01/DATA-02/LABL-01: Leakage-safe as-of contracts and return-first/triple-barrier label modes shipped.
+- ✓ MODL-01/MODL-02/MODL-03: Baseline families, rolling retraining windows, and regime/drift diagnostics shipped.
+- ✓ EVAL-01/EVAL-02/EVAL-03/EVAL-04: Purge/embargo controls, cost-aware evaluation, champion reports, nested optimization safeguards shipped.
+- ✓ OPER-02: Promotion requires consecutive incumbent outperformance and drawdown-safe gate pass.
 
 ### Active (Next Milestone Planning Queue)
 
-- [ ] Upgrade the prediction dataset to leakage-safe as-of semantics and return-based targets.
-- [ ] Add optional triple-barrier labels for event-driven signal evaluation.
-- [ ] Establish tree-ensemble accuracy baselines with reproducible retraining windows.
-- [ ] Introduce cost-aware walk-forward evaluation with statistical guardrails for model selection.
-- [ ] Promote models only through explicit multi-window performance and drawdown gates.
+- [ ] MICR-01: Add optional microstructure/LOB feature pipeline for short-horizon signal experiments.
+- [ ] PORT-01: Add multi-asset portfolio-level forecasting and allocation workflow.
+- [ ] EA-01: Add EA-driven policy optimization under strict anti-overfitting controls.
 
 ### Out of Scope
 
 - Full dashboard redesign.
-- Major model strategy replacement.
-- Reintroducing advanced views without explicit operator demand and verification contracts.
-- Treating raw next-price forecasting as the primary objective instead of return/direction/trading-aligned targets.
+- Reintroducing advanced UI views without explicit operator demand and verification contracts.
+- Bypassing walk-forward and promotion-gate discipline for model experimentation.
 
 ## Context
 
-v1.1 completed in 3 phases (10-12), 8 plans, and 24 tasks. The runtime surface is now intentionally minimal, retired advanced routes fail safely, and release acceptance includes dedicated phase-level coverage for supported-surface, stability, and smoke behavior.
+v1.2 completed in 4 phases (13-16), 12 plans, and 36 tasks. The system now enforces deterministic nested optimization provenance, multiple-testing safeguards, and promotion-gate vetoes across CLI evaluation and autonomous retraining.
 
-The next milestone is grounded in `deep-research-report.md` findings: crypto prediction accuracy gains come more from leakage control, retraining discipline, and cost-aware walk-forward evaluation than from jumping directly to complex model architectures.
+Next milestone work should build on this safety baseline instead of bypassing it; new model complexity must remain subordinate to reproducible out-of-sample evidence.
 
 ## Key Decisions
 
@@ -66,23 +67,22 @@ The next milestone is grounded in `deep-research-report.md` findings: crypto pre
 | Treat this as brownfield stabilization plus targeted enhancement (scope C) | Existing app surfaces were valuable but unstable in critical paths | ✓ Shipped in v1.0 |
 | Done criteria are D1/D2/D3 | Technical acceptance gates needed to be explicit and verifiable | ✓ Enforced by canonical `make test-release` |
 | Prioritize UI-first simplification for v1.1 | Operator value concentrated in five views; advanced views were broken | ✓ Shipped in v1.1 |
-| Retire Backtest/Pipeline routes instead of patching brittle imports in place | Fastest safe path to remove user-facing tracebacks while preserving future rebuild option | ✓ Shipped in v1.1 |
-| Lock milestone behavior with dedicated phase gates plus release wiring | Prevent regressions when future work touches Streamlit/runtime contracts | ✓ Shipped in v1.1 |
-| Prioritize pipeline rigor over exotic model complexity for v1.2 | Research review indicates leakage, retraining cadence, and evaluation protocol dominate real-world crypto accuracy | — Pending |
+| Prioritize pipeline rigor over exotic model complexity for v1.2 | Leakage control, retraining cadence, and evaluation protocol dominate real-world crypto robustness | ✓ Shipped in v1.2 |
+| Require promotion gates before autonomous deployment | Single-window wins are insufficient for stable production promotion | ✓ Shipped in v1.2 |
 
 ## Next Milestone Goals
 
-1. Shift prediction contracts to return/direction-focused labels with strict as-of leakage controls.
-2. Build a reproducible retraining and walk-forward benchmark harness that includes transaction-cost realism.
-3. Add statistically safer promotion gates so “improved” models must beat incumbents out-of-sample before shipping.
+1. Define v1.3 requirements/roadmap with explicit acceptance gates before implementation starts.
+2. Evaluate advanced feature/model candidates (MICR-01/PORT-01/EA-01) within existing leakage-safe and cost-aware contracts.
+3. Preserve deterministic artifacts and auditability for all new optimization and promotion paths.
 
 <details>
-<summary>Archived v1.1 kickoff notes</summary>
+<summary>Archived v1.2 kickoff notes</summary>
 
-- Goal: reduce BitBat to actively used views and retire broken surfaces safely.
-- Targeted runtime failures: missing `confidence`, pipeline import failure, backtest indexing crash.
+- Goal: improve BTC prediction accuracy via pipeline rigor before model-complexity expansion.
+- Scope anchors: DATA-01/02, LABL-01, MODL-01/02/03, EVAL-01/02/03/04, OPER-02.
 
 </details>
 
 ---
-*Last updated: 2026-02-25 after starting v1.2 milestone*
+*Last updated: 2026-02-26 after completing v1.2 milestone*
