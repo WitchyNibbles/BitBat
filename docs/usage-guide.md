@@ -144,6 +144,23 @@ poetry run bitbat features build --start 2024-01-01T00:00:00 --end 2024-02-01T00
   Snapshot fields: `count`, `avg_p_up`, `avg_p_down`,
   `realized_count`, `hit_rate`, `updated_at`.
 
+### Monitor Operations (v1.3)
+
+For production-oriented monitor startup wiring, startup-block triage, cycle-state diagnostics,
+schema remediation, and release verification commands, use the dedicated runbook:
+[Monitor Operations Runbook](./monitor-operations-runbook.md).
+
+Supported config wiring for monitor commands:
+
+- `--config path/to/monitor.yaml`
+- `BITBAT_CONFIG=path/to/monitor.yaml`
+
+Recommended pre-deploy check:
+
+```bash
+make test-release
+```
+
 ## Testing & Quality Checks
 
 - Lint: `poetry run ruff check src tests`

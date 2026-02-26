@@ -12,6 +12,7 @@ Navigate using the links below:
 - [System Overview](./system-overview.md)
 - [Project Structure](./project-structure.md)
 - [Usage Guide](./usage-guide.md)
+- [Monitor Operations Runbook](./monitor-operations-runbook.md)
 - [Testing & Quality](./testing-quality.md)
 - [Data Contracts](./data-contracts.md)
 
