@@ -40,7 +40,7 @@ Success criteria:
 **Goal:** Lock v1.3 behavior with tests and operational documentation so misconfiguration regressions are caught pre-release.
 **Depends on:** Phase 18
 **Requirements:** [QUAL-07, QUAL-08, QUAL-09]
-**Plans:** 0/2 plans complete
+**Plans:** 0/2 plans executed
 **Status:** Pending
 
 Success criteria:
@@ -56,7 +56,7 @@ Success criteria:
 |-------|-----------|----------------|--------|-----------|
 | 17. Runtime Pair Alignment and Startup Guardrails | v1.3 | 3/3 | Complete | 2026-02-26 |
 | 18. Monitoring Cycle Semantics and Operator Diagnostics | v1.3 | 3/3 | Complete | 2026-02-26 |
-| 19. Regression Gates and Runbook Hardening | v1.3 | 0/2 | Pending | — |
+| 19. Regression Gates and Runbook Hardening | 0/2 | Planned    |  | — |
 
 ## Next
 
