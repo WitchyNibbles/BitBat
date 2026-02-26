@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Transition from completed Phase 14 into Phase 15 cost-aware evaluation planning
+**Current focus:** Phase 15 plans are drafted and ready for execution
 
 ## Current Position
 
 Milestone: v1.2 (BTC Prediction Accuracy Evolution)
-Phase: 15-cost-aware-walk-forward-evaluation (not started)
-Status: Phase 14 executed and verified; ready to plan and execute Phase 15
-Last activity: 2026-02-26 - Completed Phase 14 implementation and verification (MODL-01/02/03)
+Phase: 15-cost-aware-walk-forward-evaluation (planned)
+Status: Phase 15 plans created and checker-verified; ready for execution
+Last activity: 2026-02-26 - Planned Phase 15 for EVAL-01/EVAL-02/EVAL-03
 
 Progress: [█████░░░░░] 50% for v1.2 (2/4 phases complete)
 
@@ -44,8 +44,8 @@ Progress: [█████░░░░░] 50% for v1.2 (2/4 phases complete)
 
 ### Pending Todos
 
-- Plan Phase 15 (`$gsd-plan-phase 15`) for cost-aware walk-forward evaluation requirements (EVAL-01/02/03).
-- Execute Phase 15 after planning (`$gsd-execute-phase 15`).
+- Execute Phase 15 (`$gsd-execute-phase 15`) for cost-aware walk-forward evaluation requirements (EVAL-01/02/03).
+- Verify Phase 15 outcome and close evaluation rigor requirements.
 - Keep v1.2 model promotion tied to out-of-sample and drawdown-safe gates.
 
 ### Blockers/Concerns
@@ -55,5 +55,5 @@ Progress: [█████░░░░░] 50% for v1.2 (2/4 phases complete)
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 14 execution + verification complete
-Resume with: `$gsd-plan-phase 15`
+Stopped at: Phase 15 planning complete
+Resume with: `$gsd-execute-phase 15`

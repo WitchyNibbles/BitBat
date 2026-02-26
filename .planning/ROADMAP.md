@@ -38,8 +38,8 @@ Success criteria:
 **Goal:** Replace optimistic evaluation with realistic, leakage-resistant, and cost-aware model assessment.
 **Depends on:** Phase 14
 **Requirements:** [EVAL-01, EVAL-02, EVAL-03]
-**Plans:** 0/0 plans complete
-**Status:** Not started
+**Plans:** 0/3 plans complete
+**Status:** Planned
 
 Success criteria:
 1. Evaluation engine supports walk-forward splits with purge/embargo controls for overlapping horizons.
@@ -66,9 +66,9 @@ Success criteria:
 |-------|-----------|----------------|--------|-----------|
 | 13. Data and Label Contract Upgrade | v1.2 | 3/3 | Complete | 2026-02-25 |
 | 14. Baseline Models and Retraining Cadence | v1.2 | 3/3 | Complete | 2026-02-26 |
-| 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/0 | Not started | - |
+| 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/3 | Planned | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |
 
 ## Next
 
-- Plan and execute Phase 15 work (`$gsd-plan-phase 15`, then `$gsd-execute-phase 15`).
+- Execute Phase 15 plans with `$gsd-execute-phase 15`.
