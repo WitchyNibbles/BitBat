@@ -198,6 +198,8 @@ def test_required_contract_contains_performance_snapshot_runtime_columns() -> No
     assert "snapshot_time" in required
     assert "realized_predictions" in required
     assert "directional_accuracy" in required
+    assert "mae" in required
+    assert "rmse" in required
 
 
 def test_audit_detects_legacy_missing_column(tmp_path: Path) -> None:

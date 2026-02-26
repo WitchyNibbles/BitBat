@@ -1979,6 +1979,7 @@ def test_cli_monitor_run_once_outputs_cycle_state_semantics(
     assert "Prediction reason: insufficient_data" in out
     assert "Realization state: pending" in out
     assert "Pending validations: 4" in out
+    assert "Cycle diagnostic: insufficient_data" in out
 
 
 def test_cli_monitor_run_once_outputs_cycle_root_cause_diagnostic(

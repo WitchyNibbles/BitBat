@@ -403,8 +403,14 @@ def test_monitoring_agent_blocks_startup_without_model_artifact(
     _seed_model(db)
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(FileNotFoundError, match="xgb.json"):
+    with pytest.raises(FileNotFoundError) as exc_info:
         MonitoringAgent(db, "1h", "4h")
+
+    message = str(exc_info.value)
+    assert "xgb.json" in message
+    assert "1h/4h" in message
+    assert "--config" in message
+    assert "BITBAT_CONFIG" in message
 
 
 def test_schema_preflight_allows_upgraded_legacy_schema(
