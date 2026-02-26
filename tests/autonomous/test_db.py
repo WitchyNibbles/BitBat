@@ -166,6 +166,19 @@ def test_monitor_status_prediction_counts_are_pair_scoped(tmp_path: Path) -> Non
     assert counts["realized_predictions"] == 1
 
 
+def test_monitor_status_prediction_counts_return_zero_for_empty_pair(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    with db.session() as session:
+        counts = db.get_prediction_counts(session=session, freq="1h", horizon="4h")
+
+    assert counts["total_predictions"] == 0
+    assert counts["unrealized_predictions"] == 0
+    assert counts["realized_predictions"] == 0
+
+
 def test_deactivate_old_models_returns_updated_count(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)

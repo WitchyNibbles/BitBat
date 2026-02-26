@@ -2451,6 +2451,78 @@ def test_cli_monitor_status_outputs_pair_counts_without_snapshot(
     assert "Realized predictions: 1" in status_out
 
 
+def test_cli_monitor_status_counts_respect_selected_runtime_pair(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import init_database
+
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_status_pair_filter.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_status_pair_filter_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+
+    with db.session() as session:
+        db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now().replace(microsecond=0),
+            predicted_direction="up",
+            p_up=0.7,
+            p_down=0.2,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+            predicted_return=0.01,
+            predicted_price=100.0,
+        )
+        second_pair = db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now().replace(microsecond=0),
+            predicted_direction="down",
+            p_up=0.2,
+            p_down=0.7,
+            model_version="v2",
+            freq="5m",
+            horizon="30m",
+            predicted_return=-0.01,
+            predicted_price=99.0,
+        )
+        db.realize_prediction(
+            session=session,
+            prediction_id=second_pair.id,
+            actual_return=-0.012,
+            actual_direction="down",
+        )
+
+    monkeypatch.chdir(tmp_path)
+    argv_status = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "status",
+        "--freq",
+        "5m",
+        "--horizon",
+        "30m",
+    ]
+    monkeypatch.setattr(sys, "argv", argv_status)
+    main()
+    status_out = capsys.readouterr().out
+
+    assert "Monitoring status for 5m/30m" in status_out
+    assert "Total predictions: 1" in status_out
+    assert "Unrealized predictions: 0" in status_out
+    assert "Realized predictions: 1" in status_out
+
+
 def test_cli_monitor_status_and_snapshots_schema_error_message(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
