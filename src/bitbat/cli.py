@@ -1487,6 +1487,25 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
     click.echo(f"  Validations: {result['validations']}")
     click.echo(f"  Drift detected: {result['drift_detected']}")
     click.echo(f"  Retraining triggered: {result['retraining_triggered']}")
+    prediction_payload = result.get("prediction")
+    prediction_state = result.get("prediction_state")
+    if prediction_state is None and isinstance(prediction_payload, dict):
+        prediction_state = "generated" if prediction_payload.get("status") == "generated" else "none"
+    prediction_state = str(prediction_state or "unknown")
+
+    prediction_reason = result.get("prediction_reason")
+    if prediction_reason is None and isinstance(prediction_payload, dict):
+        prediction_reason = prediction_payload.get("reason")
+    prediction_reason = str(prediction_reason or "unknown")
+
+    realization_state = str(result.get("realization_state") or "unknown")
+    pending_validations = int(result.get("pending_validations", 0))
+
+    click.echo(f"  Prediction state: {prediction_state}")
+    click.echo(f"  Prediction reason: {prediction_reason}")
+    click.echo(f"  Realization state: {realization_state}")
+    click.echo(f"  Pending validations: {pending_validations}")
+
     metrics = result.get("metrics", {})
     diagnostics = metrics.get("window_diagnostics") if isinstance(metrics, dict) else None
     if isinstance(diagnostics, dict):
