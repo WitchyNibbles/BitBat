@@ -16,12 +16,22 @@ news_retry_limit: 30
 seed: 42
 feature_lookback: "24h"
 
+# Baseline model controls
+model:
+  baseline_family: "xgb"
+  cv:
+    train_window: ""
+    backtest_window: ""
+    window_step: ""
+
 # Continuous training configuration
 continuous_training:
   enabled: true
   retrain_interval_seconds: 1800
   min_new_samples: 6
   rolling_window_bars: 17280
+  train_window_bars: 13824
+  backtest_window_bars: 3456
 
 # Autonomous System Configuration
 autonomous:
@@ -46,6 +56,10 @@ autonomous:
     cv_improvement_threshold: 0.02
     max_training_time_seconds: 3600
     cooldown_hours: 24
+    train_window_days: 365
+    backtest_window_days: 90
+    window_step_days: 90
+    cv_windows: 3
 
   # Alerting settings
   alerts:

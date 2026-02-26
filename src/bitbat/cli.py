@@ -20,7 +20,7 @@ from bitbat.backtest.metrics import summary as summarize_backtest
 from bitbat.config.loader import get_runtime_config, set_runtime_config
 from bitbat.contracts import ensure_feature_contract, ensure_predictions_contract
 from bitbat.dataset.build import _generate_price_features, build_xy
-from bitbat.dataset.splits import walk_forward
+from bitbat.dataset.splits import generate_rolling_windows, walk_forward
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.ingest import prices as prices_module
 from bitbat.labeling.returns import forward_return
@@ -450,6 +450,21 @@ def features_build(
     help="Baseline model family selection (default: config model.baseline_family or xgb).",
 )
 @click.option(
+    "--train-window",
+    default=None,
+    help="Rolling train window duration (e.g. 365D). Uses config model.cv.train_window by default.",
+)
+@click.option(
+    "--backtest-window",
+    default=None,
+    help="Rolling backtest window duration (e.g. 90D). Uses config model.cv.backtest_window by default.",
+)
+@click.option(
+    "--window-step",
+    default=None,
+    help="Window step duration (e.g. 30D). Defaults to backtest window when unset.",
+)
+@click.option(
     "--windows",
     type=str,
     nargs=4,
@@ -462,18 +477,15 @@ def model_cv(
     freq: str | None,
     horizon: str | None,
     family: str | None,
+    train_window: str | None,
+    backtest_window: str | None,
+    window_step: str | None,
     windows: Iterable[tuple[str, str, str, str]],
 ) -> None:
     """Run walk-forward cross validation."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
     selected_families = _resolve_model_families(family)
-
-    window_spec: list[tuple[str, str, str, str]] = []
-    for a, b, c, d in windows:
-        window_spec.append((a, b, c, d))
-    if not window_spec:
-        window_spec.append((start, end, start, end))
 
     dataset = _load_feature_dataset(
         freq_val,
@@ -484,6 +496,38 @@ def model_cv(
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
     y = dataset["r_forward"]
+
+    model_cfg = _config().get("model", {})
+    cv_cfg = model_cfg.get("cv", {}) if isinstance(model_cfg, dict) else {}
+    cfg_train_window = cv_cfg.get("train_window")
+    cfg_backtest_window = cv_cfg.get("backtest_window")
+    cfg_window_step = cv_cfg.get("window_step")
+
+    resolved_train_window = train_window or cfg_train_window
+    resolved_backtest_window = backtest_window or cfg_backtest_window
+    resolved_window_step = window_step or cfg_window_step
+
+    window_spec: list[tuple[str, str, str, str]] = list(windows)
+    if not window_spec:
+        if resolved_train_window and resolved_backtest_window:
+            window_spec = generate_rolling_windows(
+                X.index,
+                train_window=str(resolved_train_window),
+                backtest_window=str(resolved_backtest_window),
+                step=(
+                    str(resolved_window_step)
+                    if resolved_window_step not in ("", None)
+                    else None
+                ),
+                start=start,
+                end=end,
+            )
+            if not window_spec:
+                raise click.ClickException(
+                    "No rolling windows generated. Adjust --start/--end or window durations."
+                )
+        else:
+            window_spec = [(start, end, start, end)]
 
     folds = walk_forward(X.index, windows=window_spec, embargo_bars=1)
 
