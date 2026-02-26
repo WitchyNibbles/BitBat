@@ -24,7 +24,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 - [x] **MON-04**: Operator can distinguish "no prediction generated", "predictions pending
   realization", and "realized metrics available" states from one cycle summary payload.
-- [ ] **MON-05**: Operator can run monitor status and view total, unrealized, and realized
+- [x] **MON-05**: Operator can run monitor status and view total, unrealized, and realized
   prediction counts for the active pair.
 - [ ] **MON-06**: Operator can identify missing-model root cause from a single monitor cycle log
   line without inspecting traceback output.
@@ -67,7 +67,7 @@ Deferred until monitor alignment and metrics integrity are complete.
 | ALGN-03 | Phase 17 | Complete |
 | SCHE-04 | Phase 17 | Complete |
 | MON-04 | Phase 18 | Complete |
-| MON-05 | Phase 18 | Pending |
+| MON-05 | Phase 18 | Complete |
 | MON-06 | Phase 18 | Pending |
 | QUAL-07 | Phase 19 | Pending |
 | QUAL-08 | Phase 19 | Pending |

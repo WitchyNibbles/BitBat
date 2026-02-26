@@ -27,7 +27,7 @@ Success criteria:
 **Goal:** Make monitor outputs unambiguous when predictions are missing, pending realization, or realized.
 **Depends on:** Phase 17
 **Requirements:** [MON-04, MON-05, MON-06]
-**Plans:** 1/3 plans complete
+**Plans:** 2/3 plans complete
 **Status:** In Progress
 
 Success criteria:
@@ -55,7 +55,7 @@ Success criteria:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 17. Runtime Pair Alignment and Startup Guardrails | v1.3 | 3/3 | Complete | 2026-02-26 |
-| 18. Monitoring Cycle Semantics and Operator Diagnostics | v1.3 | 1/3 | In Progress | — |
+| 18. Monitoring Cycle Semantics and Operator Diagnostics | v1.3 | 2/3 | In Progress | — |
 | 19. Regression Gates and Runbook Hardening | v1.3 | 0/2 | Pending | — |
 
 ## Next

@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 18 execution in progress (Plan 01 complete; Plans 02-03 pending)
+**Current focus:** Phase 18 execution in progress (Plans 01-02 complete; Plan 03 pending)
 
 ## Current Position
 
 Milestone: v1.3 (Autonomous Monitor Alignment and Metrics Integrity)
 Phase: 18 (monitoring cycle semantics and operator diagnostics)
-Status: Phase 18 in progress; explicit cycle-state semantics shipped in Plan 01
-Last activity: 2026-02-26 - Completed Phase 18 Plan 01 (MON-04) and updated monitor cycle/CLI diagnostics
+Status: Phase 18 in progress; cycle semantics and status lifecycle counts shipped in Plans 01-02
+Last activity: 2026-02-26 - Completed Phase 18 Plan 02 (MON-05) and updated monitor status count semantics
 
 Progress: [███░░░░░░░] 33% for v1.3 (1/3 phases complete)
 
@@ -38,20 +38,21 @@ Progress: [███░░░░░░░] 33% for v1.3 (1/3 phases complete)
 - Predictor no-prediction paths now emit stable status/reason diagnostics instead of ambiguous null payloads.
 - Monitoring cycle payload now includes explicit `prediction_state`, `prediction_reason`, and `realization_state`.
 - `bitbat monitor run-once` now surfaces cycle-state semantics directly in operator-facing output.
+- Monitor status now reports pair-scoped `total/unrealized/realized` prediction lifecycle counts from DB rows.
 
 ### Pending Todos
 
-- Execute Phase 18 Plan 02 (`MON-05`) to add pair-scoped total/unrealized/realized status counts.
 - Execute Phase 18 Plan 03 (`MON-06`) to propagate no-prediction root-cause diagnostics to heartbeat/log surfaces.
-- Run Phase 18 verification and completion workflow after Plans 02-03.
+- Run Phase 18 verification and completion workflow after Plan 03.
+- Confirm operator-facing heartbeat/log diagnostics remain aligned with cycle-state reason codes.
 
 ### Blockers/Concerns
 
 - No active blocker.
-- Phase 18 remaining work should preserve the new cycle-state contract while extending status counts and heartbeat diagnostics.
+- Phase 18 Plan 03 should reuse existing predictor reason codes rather than introducing divergent diagnostics.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 18 Plan 01 complete (`18-01-SUMMARY.md`)
-Resume with: `$gsd-execute-phase 18` (continues with 18-02)
+Stopped at: Phase 18 Plan 02 complete (`18-02-SUMMARY.md`)
+Resume with: `$gsd-execute-phase 18` (continues with 18-03)
