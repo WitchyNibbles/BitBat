@@ -1,7 +1,7 @@
 # Requirements: BitBat Prediction Accuracy Evolution
 
 **Defined:** 2026-02-25
-**Status:** v1.2 in progress
+**Status:** v1.2 requirements complete
 **Core Value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
 
 ## v1.2 Requirements
@@ -75,4 +75,4 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-26 after Phase 15 execution (EVAL-01/EVAL-02/EVAL-03 complete)*
+*Last updated: 2026-02-26 after Phase 16 execution (EVAL-04/OPER-02 complete)*
