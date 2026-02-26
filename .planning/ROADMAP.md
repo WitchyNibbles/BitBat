@@ -12,7 +12,7 @@
 ### Phase 17: Runtime Pair Alignment and Startup Guardrails
 **Goal:** Ensure monitor startup uses an intended runtime pair and blocks immediately on missing model artifacts.
 **Depends on:** v1.2 verified baseline
-**Requirements:** [ALGN-01, ALGN-02, ALGN-03]
+**Requirements:** [ALGN-01, ALGN-02, ALGN-03, SCHE-04]
 **Plans:** 0/3 plans complete
 **Status:** Pending
 
@@ -20,7 +20,8 @@ Success criteria:
 1. Monitor startup reports resolved config source and resolved `freq/horizon` before cycle execution.
 2. Startup fails fast with actionable remediation when `models/<freq>_<horizon>/xgb.json` is missing.
 3. Heartbeat includes config path/source metadata in addition to `freq` and `horizon`.
-4. Regression coverage verifies mismatch scenarios cannot enter silent monitoring loops.
+4. Schema compatibility contract covers `performance_snapshots` runtime columns needed by monitor status/snapshots.
+5. Regression coverage verifies mismatch scenarios cannot enter silent monitoring loops.
 
 ### Phase 18: Monitoring Cycle Semantics and Operator Diagnostics
 **Goal:** Make monitor outputs unambiguous when predictions are missing, pending realization, or realized.
@@ -38,15 +39,16 @@ Success criteria:
 ### Phase 19: Regression Gates and Runbook Hardening
 **Goal:** Lock v1.3 behavior with tests and operational documentation so misconfiguration regressions are caught pre-release.
 **Depends on:** Phase 18
-**Requirements:** [QUAL-07, QUAL-08]
+**Requirements:** [QUAL-07, QUAL-08, QUAL-09]
 **Plans:** 0/2 plans complete
 **Status:** Pending
 
 Success criteria:
 1. Automated tests fail if startup guardrails for runtime/model mismatch are bypassed.
 2. Automated tests fail if cycle/status payloads regress to ambiguous all-zero semantics.
-3. Deployment/runbook docs include supported config wiring (`--config` or `BITBAT_CONFIG`) for monitor services.
-4. Canonical release verification includes v1.3 monitor alignment/diagnostic regressions.
+3. Automated tests fail when schema compatibility omits runtime-required `performance_snapshots` columns.
+4. Deployment/runbook docs include supported config wiring (`--config` or `BITBAT_CONFIG`) for monitor services.
+5. Canonical release verification includes v1.3 monitor alignment/diagnostic regressions.
 
 ## Progress
 

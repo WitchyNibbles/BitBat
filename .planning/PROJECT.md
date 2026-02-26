@@ -62,6 +62,8 @@ active prediction flows for the configured runtime pair.
 - [ ] ALGN-02: Monitor startup fails with actionable remediation when model artifacts for the
   resolved pair are missing.
 - [ ] ALGN-03: Heartbeat and startup logs expose resolved config source and runtime pair.
+- [ ] SCHE-04: Schema compatibility checks include `performance_snapshots` runtime columns so
+  `monitor status` and snapshot writes cannot fail from silent schema drift.
 - [ ] MON-04: Cycle output distinguishes "no prediction generated", "unrealized pending", and
   "realized metrics available" states.
 - [ ] MON-05: Monitor status surfaces total/unrealized/realized counts for the active pair.

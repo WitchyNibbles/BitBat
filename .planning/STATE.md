@@ -19,8 +19,8 @@ Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
 ## Milestone Metrics
 
 - Planned phases: 3 (17-19)
-- Planned requirements: 8
-- Scope anchor: ALGN-01/02/03, MON-04/05/06, QUAL-07/08
+- Planned requirements: 10
+- Scope anchor: ALGN-01/02/03, SCHE-04, MON-04/05/06, QUAL-07/08/09
 - Research mode: skipped (workflow.research=false)
 
 ## Accumulated Context

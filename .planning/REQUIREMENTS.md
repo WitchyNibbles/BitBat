@@ -17,6 +17,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
   exists for the resolved `freq/horizon` pair.
 - [ ] **ALGN-03**: Operator can verify heartbeat metadata includes config source, `freq`, and
   `horizon` for the running process.
+- [ ] **SCHE-04**: Operator can run monitor status/snapshot commands without runtime SQL errors
+  because schema compatibility checks cover required `performance_snapshots` columns.
 
 ### Monitoring Signal Integrity
 
@@ -33,6 +35,8 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
   runtime/model mismatch.
 - [ ] **QUAL-08**: Automated tests fail if cycle/status payloads regress to ambiguous all-zero
   metrics without explicit state reasoning.
+- [ ] **QUAL-09**: Automated tests fail if schema compatibility contracts omit runtime-required
+  `performance_snapshots` columns.
 
 ## v1.4+ Requirements (Deferred)
 
@@ -61,15 +65,17 @@ Deferred until monitor alignment and metrics integrity are complete.
 | ALGN-01 | Phase 17 | Pending |
 | ALGN-02 | Phase 17 | Pending |
 | ALGN-03 | Phase 17 | Pending |
+| SCHE-04 | Phase 17 | Pending |
 | MON-04 | Phase 18 | Pending |
 | MON-05 | Phase 18 | Pending |
 | MON-06 | Phase 18 | Pending |
 | QUAL-07 | Phase 19 | Pending |
 | QUAL-08 | Phase 19 | Pending |
+| QUAL-09 | Phase 19 | Pending |
 
 **Coverage:**
-- v1.3 requirements: 8 total
-- Mapped to phases: 8
+- v1.3 requirements: 10 total
+- Mapped to phases: 10
 - Unmapped: 0 ✓
 
 ---
