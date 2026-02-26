@@ -51,7 +51,7 @@ Success criteria:
 **Goal:** Prevent overfit model promotion through statistically safer optimization and multi-window acceptance gates.
 **Depends on:** Phase 15
 **Requirements:** [EVAL-04, OPER-02]
-**Plans:** 0/3 plans executed
+**Plans:** 1/3 plans executed
 **Status:** Planned
 
 Success criteria:
@@ -67,7 +67,7 @@ Success criteria:
 | 13. Data and Label Contract Upgrade | v1.2 | 3/3 | Complete | 2026-02-25 |
 | 14. Baseline Models and Retraining Cadence | v1.2 | 3/3 | Complete | 2026-02-26 |
 | 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 3/3 | Complete | 2026-02-26 |
-| 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/3 | Planned | - |
+| 16. Promotion Guardrails and Optimization Safety | v1.2 | 1/3 | In Progress | - |
 
 ## Next
 
