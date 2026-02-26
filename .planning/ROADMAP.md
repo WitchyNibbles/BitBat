@@ -25,7 +25,7 @@ Success criteria:
 **Goal:** Establish robust baseline predictors and repeatable retraining windows before complex model expansion.
 **Depends on:** Phase 13
 **Requirements:** [MODL-01, MODL-02, MODL-03]
-**Plans:** 0/0 plans complete
+**Plans:** 0/3 plans complete
 **Status:** Not started
 
 Success criteria:
@@ -65,10 +65,10 @@ Success criteria:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. Data and Label Contract Upgrade | v1.2 | 3/3 | Complete | 2026-02-25 |
-| 14. Baseline Models and Retraining Cadence | v1.2 | 0/0 | Not started | - |
+| 14. Baseline Models and Retraining Cadence | v1.2 | 0/3 | Planned | - |
 | 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/0 | Not started | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |
 
 ## Next
 
-- Plan Phase 14 with `$gsd-plan-phase 14`.
+- Execute planned work with `$gsd-execute-phase 14`.
