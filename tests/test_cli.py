@@ -974,6 +974,142 @@ def test_cli_model_cv_persists_candidate_reports_and_champion(
     assert summary["champion_decision"]["winner"] in {"xgb", "random_forest"}
 
 
+def test_cli_model_optimize_persists_nested_summary(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "optimize_config.yaml",
+        enable_sentiment=False,
+    )
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n".join(
+                [
+                    "model:",
+                    "  optimization:",
+                    "    trials: 9",
+                    "    timeout_seconds: 120",
+                    "    train_window: \"2D\"",
+                    "    backtest_window: \"1D\"",
+                    "    window_step: \"1D\"",
+                    "    embargo_bars: 1",
+                    "    purge_bars: 0",
+                    "    label_horizon: \"4h\"",
+                ]
+            )
+            + "\n"
+        )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=96, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "feat_f2": np.linspace(1.0, 2.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 32)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.01, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, Any] = {}
+
+    class FakeResult:
+        def summary(self) -> dict[str, Any]:
+            return {
+                "mode": "nested_walk_forward",
+                "best_params": {"max_depth": 4, "eta": 0.1, "num_boost_round": 60},
+                "best_score": 0.0042,
+                "n_trials": 7,
+                "outer_folds": [
+                    {
+                        "outer_fold": 1,
+                        "inner_fold_count": 1,
+                        "selected_params": {"max_depth": 4},
+                        "outer_score": 0.0042,
+                    }
+                ],
+                "provenance": {"seed": 42},
+            }
+
+    class FakeOptimizer:
+        def __init__(
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            folds: list[Fold],
+            *,
+            seed: int = 42,
+        ) -> None:
+            captured["shape"] = (len(X), len(y))
+            captured["fold_count"] = len(folds)
+            captured["seed"] = seed
+
+        def optimize(self, n_trials: int = 50, timeout: int | None = None) -> FakeResult:
+            captured["n_trials"] = n_trials
+            captured["timeout"] = timeout
+            return FakeResult()
+
+    def fake_walk_forward(
+        indices: Any,
+        windows: list[tuple[str, str, str, str]],
+        embargo_bars: int = 0,
+        purge_bars: int = 0,
+        label_horizon: str | None = None,
+    ) -> list[Fold]:
+        captured["windows"] = list(windows)
+        captured["embargo_bars"] = embargo_bars
+        captured["purge_bars"] = purge_bars
+        captured["label_horizon"] = label_horizon
+        index = pd.Index(indices)
+        return [Fold(train=index[:64], test=index[64:96])]
+
+    monkeypatch.setattr("bitbat.cli.HyperparamOptimizer", FakeOptimizer)
+    monkeypatch.setattr("bitbat.cli.walk_forward", fake_walk_forward)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "optimize",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-05 00:00:00",
+        "--trials",
+        "7",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Optimization complete" in out
+    assert "best_rmse=0.004200" in out
+
+    assert captured["n_trials"] == 7
+    assert captured["timeout"] == 120
+    assert captured["embargo_bars"] == 1
+    assert captured["purge_bars"] == 0
+    assert captured["label_horizon"] == "4h"
+
+    summary_path = Path("metrics") / "optimization_summary.json"
+    assert summary_path.exists()
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["mode"] == "nested_walk_forward"
+    assert payload["best_score"] == 0.0042
+    assert payload["config"]["n_trials"] == 7
+
+
 def test_cli_backtest_cost_slippage_reports_net_and_gross(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

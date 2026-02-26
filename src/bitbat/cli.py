@@ -29,6 +29,7 @@ from bitbat.model.evaluate import (
     regression_metrics,
     select_champion_report,
 )
+from bitbat.model.optimize import HyperparamOptimizer
 from bitbat.model.infer import predict_bar
 from bitbat.model.persist import (
     default_model_artifact_path,
@@ -714,6 +715,211 @@ def model_cv(
             json.dumps(aggregate, indent=2),
             encoding="utf-8",
         )
+
+
+@model.command("optimize")
+@click.option("--start", required=True, help="Optimization window start (ISO8601).")
+@click.option("--end", required=True, help="Optimization window end (ISO8601).")
+@click.option("--freq", default=None, help="Bar frequency.")
+@click.option("--horizon", default=None, help="Prediction horizon.")
+@click.option(
+    "--trials",
+    type=int,
+    default=None,
+    help="Optuna trial count (default: model.optimization.trials or 20).",
+)
+@click.option(
+    "--timeout",
+    type=int,
+    default=None,
+    help="Optional optimization timeout in seconds (default: model.optimization.timeout_seconds).",
+)
+@click.option(
+    "--train-window",
+    default=None,
+    help="Rolling train window duration (e.g. 365D).",
+)
+@click.option(
+    "--backtest-window",
+    default=None,
+    help="Rolling backtest window duration (e.g. 90D).",
+)
+@click.option(
+    "--window-step",
+    default=None,
+    help="Window step duration (e.g. 30D). Defaults to backtest window when unset.",
+)
+@click.option(
+    "--windows",
+    type=str,
+    nargs=4,
+    multiple=True,
+    help="Custom nested windows (train_start train_end test_start test_end).",
+)
+@click.option(
+    "--embargo-bars",
+    type=int,
+    default=None,
+    help="Bars embargoed before each test window.",
+)
+@click.option(
+    "--purge-bars",
+    type=int,
+    default=None,
+    help="Bars purged before each test window to avoid overlap leakage.",
+)
+@click.option(
+    "--label-horizon",
+    type=str,
+    default=None,
+    help="Optional label horizon used to infer purge bars when purge is unset.",
+)
+def model_optimize(
+    start: str,
+    end: str,
+    freq: str | None,
+    horizon: str | None,
+    trials: int | None,
+    timeout: int | None,
+    train_window: str | None,
+    backtest_window: str | None,
+    window_step: str | None,
+    windows: Iterable[tuple[str, str, str, str]],
+    embargo_bars: int | None,
+    purge_bars: int | None,
+    label_horizon: str | None,
+) -> None:
+    """Run nested walk-forward hyperparameter optimization and persist provenance."""
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    dataset = _load_feature_dataset(
+        freq_val,
+        horizon_val,
+        require_label=False,
+        require_forward_return=True,
+    )
+    feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
+    if not feature_cols:
+        raise click.ClickException(
+            "No feature columns found in dataset (expected columns prefixed with 'feat_')."
+        )
+    X = dataset[feature_cols]
+    y = dataset["r_forward"]
+
+    model_cfg = _config().get("model", {})
+    optimization_cfg = (
+        model_cfg.get("optimization", {}) if isinstance(model_cfg, dict) else {}
+    )
+    cv_cfg = model_cfg.get("cv", {}) if isinstance(model_cfg, dict) else {}
+
+    resolved_trials = int(trials if trials is not None else optimization_cfg.get("trials", 20))
+    timeout_raw = timeout if timeout is not None else optimization_cfg.get("timeout_seconds")
+    resolved_timeout = (
+        int(timeout_raw)
+        if timeout_raw not in (None, "", 0, "0")
+        else None
+    )
+    resolved_train_window = (
+        train_window
+        or optimization_cfg.get("train_window")
+        or cv_cfg.get("train_window")
+    )
+    resolved_backtest_window = (
+        backtest_window
+        or optimization_cfg.get("backtest_window")
+        or cv_cfg.get("backtest_window")
+    )
+    resolved_window_step = (
+        window_step
+        or optimization_cfg.get("window_step")
+        or cv_cfg.get("window_step")
+    )
+    resolved_embargo_bars = (
+        embargo_bars
+        if embargo_bars is not None
+        else int(optimization_cfg.get("embargo_bars", cv_cfg.get("embargo_bars", 1)))
+    )
+    resolved_purge_bars = (
+        purge_bars
+        if purge_bars is not None
+        else int(optimization_cfg.get("purge_bars", cv_cfg.get("purge_bars", 0)))
+    )
+    resolved_label_horizon = (
+        label_horizon
+        if label_horizon not in (None, "")
+        else optimization_cfg.get("label_horizon")
+        or cv_cfg.get("label_horizon")
+    )
+
+    window_spec: list[tuple[str, str, str, str]] = list(windows)
+    if not window_spec:
+        if resolved_train_window and resolved_backtest_window:
+            window_spec = generate_rolling_windows(
+                X.index,
+                train_window=str(resolved_train_window),
+                backtest_window=str(resolved_backtest_window),
+                step=(
+                    str(resolved_window_step)
+                    if resolved_window_step not in ("", None)
+                    else None
+                ),
+                start=start,
+                end=end,
+            )
+            if not window_spec:
+                raise click.ClickException(
+                    "No optimization windows generated. Adjust --start/--end or window durations."
+                )
+        else:
+            window_spec = [(start, end, start, end)]
+
+    folds = walk_forward(
+        X.index,
+        windows=window_spec,
+        embargo_bars=int(resolved_embargo_bars),
+        purge_bars=int(resolved_purge_bars),
+        label_horizon=(
+            str(resolved_label_horizon)
+            if resolved_label_horizon not in (None, "")
+            else None
+        ),
+    )
+    if not folds:
+        raise click.ClickException("No optimization folds produced from requested windows.")
+
+    optimizer = HyperparamOptimizer(X, y, folds, seed=int(_config().get("seed", 0)))
+    result = optimizer.optimize(n_trials=resolved_trials, timeout=resolved_timeout)
+    summary = result.summary()
+    payload = {
+        **summary,
+        "freq": freq_val,
+        "horizon": horizon_val,
+        "feature_count": len(feature_cols),
+        "fold_count": len(folds),
+        "config": {
+            "n_trials": resolved_trials,
+            "timeout_seconds": resolved_timeout,
+            "embargo_bars": int(resolved_embargo_bars),
+            "purge_bars": int(resolved_purge_bars),
+            "label_horizon": (
+                str(resolved_label_horizon)
+                if resolved_label_horizon not in (None, "")
+                else None
+            ),
+        },
+    }
+
+    metrics_dir = Path("metrics")
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    output_path = metrics_dir / "optimization_summary.json"
+    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    click.echo(
+        "Optimization complete: "
+        f"best_rmse={float(summary.get('best_score', 0.0)):.6f}, "
+        f"trials={resolved_trials}, outer_folds={len(summary.get('outer_folds', []))}. "
+        f"Saved {output_path}"
+    )
 
 
 @model.command("train")
