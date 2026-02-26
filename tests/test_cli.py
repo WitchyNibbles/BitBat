@@ -577,8 +577,10 @@ def test_cli_model_cv_with_rolling_window_options(
         indices: Any,
         windows: list[tuple[str, str, str, str]],
         embargo_bars: int,
+        purge_bars: int = 0,
+        label_horizon: str | None = None,
     ) -> list[Fold]:
-        del embargo_bars
+        del embargo_bars, purge_bars, label_horizon
         captured_windows.extend(windows)
         index = pd.Index(indices)
         return [Fold(train=index[:120], test=index[120:168])]
@@ -642,6 +644,123 @@ def test_cli_model_cv_with_rolling_window_options(
     summary = json.loads((Path("metrics") / "cv_summary.json").read_text(encoding="utf-8"))
     assert "average_rmse" in summary
 
+
+def test_cli_model_cv_purge_embargo_controls_from_config_and_cli(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n".join(
+                [
+                    "model:",
+                    "  cv:",
+                    "    purge_bars: 2",
+                    "    embargo_bars: 1",
+                    '    label_horizon: "4h"',
+                ]
+            )
+            + "\n"
+        )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=72, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 24)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.01, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, Any] = {}
+
+    class FakeDMatrix:
+        def __init__(self, data: pd.DataFrame, **kwargs: Any) -> None:
+            self.data = data
+
+    class FakeBooster:
+        def predict(self, dmatrix: FakeDMatrix) -> np.ndarray:
+            return np.random.default_rng(2).normal(0, 0.01, len(dmatrix.data))
+
+    def fake_walk_forward(
+        indices: Any,
+        windows: list[tuple[str, str, str, str]],
+        embargo_bars: int = 0,
+        purge_bars: int = 0,
+        label_horizon: str | None = None,
+    ) -> list[Fold]:
+        captured["embargo_bars"] = embargo_bars
+        captured["purge_bars"] = purge_bars
+        captured["label_horizon"] = label_horizon
+        index = pd.Index(indices)
+        del windows
+        return [Fold(train=index[:48], test=index[48:72])]
+
+    def fake_fit_xgb(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeBooster, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeBooster(), {}
+
+    def fake_metrics(*args: Any, **kwargs: Any) -> dict[str, float]:
+        del args, kwargs
+        return {
+            "rmse": 0.004,
+            "mae": 0.003,
+            "r2": 0.1,
+            "directional_accuracy": 0.55,
+            "correlation": 0.3,
+            "n_samples": 24,
+        }
+
+    monkeypatch.setattr("bitbat.cli.walk_forward", fake_walk_forward)
+    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "cv",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-04 00:00:00",
+        "--windows",
+        "2024-01-01 00:00:00",
+        "2024-01-03 00:00:00",
+        "2024-01-03 00:00:00",
+        "2024-01-04 00:00:00",
+        "--purge-bars",
+        "5",
+        "--embargo-bars",
+        "3",
+        "--label-horizon",
+        "6h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    assert captured["purge_bars"] == 5
+    assert captured["embargo_bars"] == 3
+    assert captured["label_horizon"] == "6h"
 
 def test_cli_model_cv_family_both(
     monkeypatch: pytest.MonkeyPatch,

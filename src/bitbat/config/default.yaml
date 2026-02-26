@@ -23,6 +23,9 @@ model:
     train_window: ""
     backtest_window: ""
     window_step: ""
+    embargo_bars: 1
+    purge_bars: 0
+    label_horizon: ""
 
 # Continuous training configuration
 continuous_training:

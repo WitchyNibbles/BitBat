@@ -471,6 +471,24 @@ def features_build(
     multiple=True,
     help="Custom walk-forward windows (train_start train_end test_start test_end).",
 )
+@click.option(
+    "--embargo-bars",
+    type=int,
+    default=None,
+    help="Bars embargoed before each test window (default: model.cv.embargo_bars or 1).",
+)
+@click.option(
+    "--purge-bars",
+    type=int,
+    default=None,
+    help="Bars purged before each test window to avoid horizon overlap (default: model.cv.purge_bars or 0).",
+)
+@click.option(
+    "--label-horizon",
+    type=str,
+    default=None,
+    help="Optional label horizon (for example 4h) used to infer purge bars when purge is unset.",
+)
 def model_cv(
     start: str,
     end: str,
@@ -481,6 +499,9 @@ def model_cv(
     backtest_window: str | None,
     window_step: str | None,
     windows: Iterable[tuple[str, str, str, str]],
+    embargo_bars: int | None,
+    purge_bars: int | None,
+    label_horizon: str | None,
 ) -> None:
     """Run walk-forward cross validation."""
     freq_val = _resolve_setting(freq, "freq")
@@ -502,10 +523,26 @@ def model_cv(
     cfg_train_window = cv_cfg.get("train_window")
     cfg_backtest_window = cv_cfg.get("backtest_window")
     cfg_window_step = cv_cfg.get("window_step")
+    cfg_embargo_bars = cv_cfg.get("embargo_bars")
+    cfg_purge_bars = cv_cfg.get("purge_bars")
+    cfg_label_horizon = cv_cfg.get("label_horizon")
 
     resolved_train_window = train_window or cfg_train_window
     resolved_backtest_window = backtest_window or cfg_backtest_window
     resolved_window_step = window_step or cfg_window_step
+    resolved_embargo_bars = (
+        embargo_bars
+        if embargo_bars is not None
+        else int(cfg_embargo_bars) if cfg_embargo_bars not in (None, "") else 1
+    )
+    resolved_purge_bars = (
+        purge_bars
+        if purge_bars is not None
+        else int(cfg_purge_bars) if cfg_purge_bars not in (None, "") else 0
+    )
+    resolved_label_horizon = (
+        label_horizon if label_horizon not in (None, "") else cfg_label_horizon
+    )
 
     window_spec: list[tuple[str, str, str, str]] = list(windows)
     if not window_spec:
@@ -529,7 +566,17 @@ def model_cv(
         else:
             window_spec = [(start, end, start, end)]
 
-    folds = walk_forward(X.index, windows=window_spec, embargo_bars=1)
+    folds = walk_forward(
+        X.index,
+        windows=window_spec,
+        embargo_bars=int(resolved_embargo_bars),
+        purge_bars=int(resolved_purge_bars),
+        label_horizon=(
+            str(resolved_label_horizon)
+            if resolved_label_horizon not in (None, "")
+            else None
+        ),
+    )
 
     summary_by_family: dict[str, list[dict[str, Any]]] = {
         model_family: [] for model_family in selected_families
