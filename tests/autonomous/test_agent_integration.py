@@ -3,12 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from sqlalchemy import text
 
 from bitbat.autonomous.agent import MonitoringAgent
 from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import PerformanceSnapshot, init_database
+from bitbat.autonomous.predictor import LivePredictor
 from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 
 
@@ -97,6 +99,73 @@ def _seed_model_artifact(tmp_path: Path, freq: str = "1h", horizon: str = "4h") 
     model_dir = tmp_path / "models" / f"{freq}_{horizon}"
     model_dir.mkdir(parents=True, exist_ok=True)
     (model_dir / "xgb.json").write_text("{}", encoding="utf-8")
+
+
+def _stub_runtime_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = {
+        "data_dir": str(tmp_path / "data"),
+        "enable_sentiment": False,
+        "enable_garch": False,
+        "enable_macro": False,
+        "enable_onchain": False,
+    }
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.get_runtime_config",
+        lambda: config,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.load_config",
+        lambda: config,
+    )
+
+
+def test_predict_latest_returns_missing_model_reason(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _stub_runtime_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    result = predictor.predict_latest()
+
+    assert result is not None
+    assert result["status"] == "no_prediction"
+    assert result["reason"] == "missing_model"
+
+
+def test_predict_latest_returns_insufficient_data_reason(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _stub_runtime_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    monkeypatch.setattr(predictor, "_load_model", lambda: object())
+
+    few_bars = pd.DataFrame(
+        {"close": [100.0] * 12},
+        index=pd.date_range("2026-01-01", periods=12, freq="h"),
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor._load_ingested_prices",
+        lambda data_dir, freq: few_bars,
+    )
+
+    result = predictor.predict_latest()
+
+    assert result is not None
+    assert result["status"] == "no_prediction"
+    assert result["reason"] == "insufficient_data"
+    assert result["details"]["available_bars"] == 12
+    assert result["details"]["required_bars"] == 30
 
 
 def test_monitoring_agent_integration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -22,6 +22,7 @@ from bitbat.model.infer import predict_bar
 from bitbat.model.persist import load as load_model
 
 logger = logging.getLogger(__name__)
+MIN_BARS_REQUIRED = 30
 
 
 def _utcnow() -> datetime:
@@ -117,31 +118,72 @@ class LivePredictor:
 
         return __version__
 
-    def predict_latest(self) -> dict[str, Any] | None:
+    @staticmethod
+    def _result(
+        *,
+        status: str,
+        reason: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+        **payload: Any,
+    ) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "status": status,
+            "reason": reason,
+            "message": message,
+        }
+        if details:
+            result["details"] = details
+        result.update(payload)
+        return result
+
+    def predict_latest(self) -> dict[str, Any]:
         """Generate a prediction for the most recent bar and store it.
 
-        Returns the prediction details dict, or None if prediction could not
-        be made (e.g. insufficient data, missing model).
+        Returns a structured result that always includes:
+        - ``status``: ``generated`` or ``no_prediction``
+        - ``reason``: stable reason code for operator diagnostics
+        - ``message``: concise human-readable explanation
         """
         # Load model
         try:
             booster = self._load_model()
         except FileNotFoundError:
             logger.error("No model artifact found at %s — skipping prediction", self._model_path())
-            return None
+            return self._result(
+                status="no_prediction",
+                reason="missing_model",
+                message="Model artifact not found for runtime pair",
+                details={"model_path": str(self._model_path())},
+            )
 
         # Load ingested prices
         try:
             prices = _load_ingested_prices(self.data_dir, self.freq)
         except RuntimeError as exc:
             logger.error("Cannot generate prediction: %s", exc)
-            return None
-
-        if len(prices) < 30:
-            logger.warning(
-                "Only %d price bars available — need at least 30 for features", len(prices)
+            return self._result(
+                status="no_prediction",
+                reason="missing_prices",
+                message="No price data available for prediction",
+                details={"error": str(exc)},
             )
-            return None
+
+        if len(prices) < MIN_BARS_REQUIRED:
+            logger.warning(
+                "Only %d price bars available — need at least %d for features",
+                len(prices),
+                MIN_BARS_REQUIRED,
+            )
+            return self._result(
+                status="no_prediction",
+                reason="insufficient_data",
+                message="Insufficient price bars for feature generation",
+                details={
+                    "available_bars": int(len(prices)),
+                    "required_bars": MIN_BARS_REQUIRED,
+                },
+            )
 
         # Generate features
         try:
@@ -201,23 +243,41 @@ class LivePredictor:
             features = features.rename(columns=rename_mapping)
         except Exception as exc:
             logger.error("Feature generation failed: %s", exc)
-            return None
+            return self._result(
+                status="no_prediction",
+                reason="feature_generation_failed",
+                message="Feature generation failed",
+                details={"error": str(exc)},
+            )
 
         if features.empty:
             logger.warning("Feature generation produced no usable rows")
-            return None
+            return self._result(
+                status="no_prediction",
+                reason="no_features",
+                message="Feature generation produced no usable rows",
+            )
 
         # Align features to model's expected columns
         expected_features = list(booster.feature_names or [])
         if not expected_features:
             logger.error("Model artifact missing feature names — cannot align features")
-            return None
+            return self._result(
+                status="no_prediction",
+                reason="missing_feature_names",
+                message="Model artifact missing feature names",
+            )
 
         available = set(features.columns)
         missing = sorted(set(expected_features) - available)
         if missing:
             logger.error("Features missing columns expected by model: %s", missing)
-            return None
+            return self._result(
+                status="no_prediction",
+                reason="feature_mismatch",
+                message="Model feature set does not match generated features",
+                details={"missing_columns": missing},
+            )
 
         aligned = features[expected_features]
         latest_ts = aligned.index.max()
@@ -243,7 +303,12 @@ class LivePredictor:
                 pred_ts = pred_ts.tz_localize(None)
             if pred_ts == pd.Timestamp(latest_ts):
                 logger.info("Prediction for %s already exists — skipping", latest_ts)
-                return None
+                return self._result(
+                    status="no_prediction",
+                    reason="duplicate_bar",
+                    message="Prediction for latest bar already exists",
+                    details={"timestamp_utc": str(latest_ts)},
+                )
 
         # Run inference
         feature_row = aligned.loc[latest_ts]
@@ -294,10 +359,13 @@ class LivePredictor:
             model_version,
         )
 
-        return {
-            "timestamp_utc": timestamp_py,
-            "predicted_direction": direction,
-            "predicted_return": predicted_return,
-            "predicted_price": predicted_price,
-            "model_version": model_version,
-        }
+        return self._result(
+            status="generated",
+            reason="prediction_generated",
+            message="Prediction generated and stored",
+            timestamp_utc=timestamp_py,
+            predicted_direction=direction,
+            predicted_return=predicted_return,
+            predicted_price=predicted_price,
+            model_version=model_version,
+        )
