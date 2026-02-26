@@ -26,7 +26,7 @@ Success criteria:
 **Depends on:** Phase 13
 **Requirements:** [MODL-01, MODL-02, MODL-03]
 **Plans:** 3/3 plans complete
-**Status:** Not started
+**Status:** Complete
 
 Success criteria:
 1. XGBoost and RandomForest baselines train from the v1.2 dataset contract and produce versioned artifacts.
@@ -65,10 +65,10 @@ Success criteria:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. Data and Label Contract Upgrade | v1.2 | 3/3 | Complete | 2026-02-25 |
-| 14. Baseline Models and Retraining Cadence | 3/3 | Complete   | 2026-02-26 | - |
+| 14. Baseline Models and Retraining Cadence | v1.2 | 3/3 | Complete | 2026-02-26 |
 | 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 0/0 | Not started | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |
 
 ## Next
 
-- Execute planned work with `$gsd-execute-phase 14`.
+- Plan and execute Phase 15 work (`$gsd-plan-phase 15`, then `$gsd-execute-phase 15`).

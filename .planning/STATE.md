@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 14 execution prep for baseline model and retraining cadence upgrades
+**Current focus:** Transition from completed Phase 14 into Phase 15 cost-aware evaluation planning
 
 ## Current Position
 
 Milestone: v1.2 (BTC Prediction Accuracy Evolution)
-Phase: 14-baseline-models-and-retraining-cadence (planned)
-Status: Phase 14 plans created and verified; ready for execution
-Last activity: 2026-02-26 - Planned Phase 14 from v1.2 requirements and deep-research guidance
+Phase: 15-cost-aware-walk-forward-evaluation (not started)
+Status: Phase 14 executed and verified; ready to plan and execute Phase 15
+Last activity: 2026-02-26 - Completed Phase 14 implementation and verification (MODL-01/02/03)
 
-Progress: [██░░░░░░░░] 25% for v1.2 (1/4 phases complete)
+Progress: [█████░░░░░] 50% for v1.2 (2/4 phases complete)
 
 ## Milestone Metrics
 
 - Planned phases: 4 (13-16)
 - Planned requirements: 11
-- Plans: 6 (Phases 13-14)
-- Tasks: 9 complete (plans 13-01, 13-02, and 13-03)
+- Plans: 6 complete (Phases 13-14)
+- Tasks: 18 complete (plans 13-01..03 and 14-01..03)
 - Source context: `deep-research-report.md`
 
 ## Accumulated Context
@@ -38,12 +38,14 @@ Progress: [██░░░░░░░░] 25% for v1.2 (1/4 phases complete)
 - As-of alignment with no-future-match enforcement is now a dataset-level invariant (DATA-01).
 - Return targets (`r_forward`) and direction labels now share one horizon-aware labeling path (DATA-02).
 - Triple-barrier event labels are available as an optional dataset/CLI mode while default return-direction behavior is unchanged (LABL-01).
-- Phase 14 planning uses a tree-baseline-first approach: dual baselines, windowed retraining cadence, and per-window drift diagnostics.
+- Phase 14 shipped dual baseline family support (`xgb`, `random_forest`) with comparable persistence artifacts (MODL-01).
+- Retraining and CV now use explicit rolling train/backtest windows configurable through CLI/config and autonomous flows (MODL-02).
+- Per-window regime/drift diagnostics are emitted in evaluation, retraining artifacts, and monitor CLI output (MODL-03).
 
 ### Pending Todos
 
-- Execute Phase 14 (`$gsd-execute-phase 14`).
-- Verify Phase 14 outcome against MODL-01/MODL-02/MODL-03 requirements.
+- Plan Phase 15 (`$gsd-plan-phase 15`) for cost-aware walk-forward evaluation requirements (EVAL-01/02/03).
+- Execute Phase 15 after planning (`$gsd-execute-phase 15`).
 - Keep v1.2 model promotion tied to out-of-sample and drawdown-safe gates.
 
 ### Blockers/Concerns
@@ -52,6 +54,6 @@ Progress: [██░░░░░░░░] 25% for v1.2 (1/4 phases complete)
 
 ## Session Continuity
 
-Last session: 2026-02-25
-Stopped at: phase 14 planning complete
-Resume with: `$gsd-execute-phase 14`
+Last session: 2026-02-26
+Stopped at: Phase 14 execution + verification complete
+Resume with: `$gsd-plan-phase 15`
