@@ -105,7 +105,11 @@ def classify_monitor_db_error(
     else:
         lower = raw_detail.lower()
         report: SchemaAuditReport | None = None
-        if "no such column" in lower or "prediction_outcomes" in lower:
+        if (
+            "no such column" in lower
+            or "prediction_outcomes" in lower
+            or "performance_snapshots" in lower
+        ):
             try:
                 report = audit_schema_compatibility(database_url=database_url, engine=engine)
             except Exception:

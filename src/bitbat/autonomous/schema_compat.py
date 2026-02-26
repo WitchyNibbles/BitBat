@@ -174,8 +174,34 @@ PREDICTION_OUTCOMES_CONTRACT: dict[str, ColumnContract] = {
 }
 
 
+PERFORMANCE_SNAPSHOTS_CONTRACT: dict[str, ColumnContract] = {
+    # Non-additive required columns are expected to exist once table creation succeeds.
+    "id": ColumnContract("INTEGER", nullable=False, additive=False),
+    "model_version": ColumnContract("VARCHAR(64)", nullable=False, additive=False),
+    "freq": ColumnContract("VARCHAR(16)", nullable=False, additive=False),
+    "horizon": ColumnContract("VARCHAR(16)", nullable=False, additive=False),
+    "snapshot_time": ColumnContract("DATETIME", nullable=False, additive=False),
+    "window_days": ColumnContract("INTEGER", nullable=False, additive=False),
+    "total_predictions": ColumnContract("INTEGER", nullable=False, additive=False),
+    "realized_predictions": ColumnContract("INTEGER", nullable=False, additive=False),
+    "created_at": ColumnContract("DATETIME", nullable=False, additive=False),
+    # Additive/runtime compatibility columns for legacy DBs.
+    "hit_rate": ColumnContract("FLOAT", nullable=True, additive=True),
+    "sharpe_ratio": ColumnContract("FLOAT", nullable=True, additive=True),
+    "avg_return": ColumnContract("FLOAT", nullable=True, additive=True),
+    "max_drawdown": ColumnContract("FLOAT", nullable=True, additive=True),
+    "win_streak": ColumnContract("INTEGER", nullable=True, additive=True),
+    "lose_streak": ColumnContract("INTEGER", nullable=True, additive=True),
+    "calibration_score": ColumnContract("FLOAT", nullable=True, additive=True),
+    "mae": ColumnContract("FLOAT", nullable=True, additive=True),
+    "rmse": ColumnContract("FLOAT", nullable=True, additive=True),
+    "directional_accuracy": ColumnContract("FLOAT", nullable=True, additive=True),
+}
+
+
 RUNTIME_SCHEMA_CONTRACT: dict[str, dict[str, ColumnContract]] = {
     "prediction_outcomes": PREDICTION_OUTCOMES_CONTRACT,
+    "performance_snapshots": PERFORMANCE_SNAPSHOTS_CONTRACT,
 }
 
 

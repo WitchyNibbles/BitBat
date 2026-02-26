@@ -161,3 +161,26 @@ def test_classify_monitor_db_error_surfaces_schema_remediation(tmp_path: Path) -
     assert "schema" in classified.detail.lower() or "no such column" in classified.detail.lower()
     assert "--audit" in classified.remediation
     assert "--upgrade" in classified.remediation
+
+
+def test_classify_monitor_db_error_surfaces_snapshot_schema_remediation(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    raw_error = OperationalError(
+        "SELECT directional_accuracy FROM performance_snapshots",
+        {},
+        sqlite3.OperationalError("no such column: performance_snapshots.directional_accuracy"),
+    )
+    classified = classify_monitor_db_error(
+        raw_error,
+        step="monitor.status.query_snapshot",
+        database_url=database_url,
+        engine=db.engine,
+    )
+
+    assert isinstance(classified, MonitorDatabaseError)
+    assert classified.step == "monitor.status.query_snapshot"
+    assert "performance_snapshots" in classified.detail
+    assert "--upgrade" in classified.remediation

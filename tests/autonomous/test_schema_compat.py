@@ -14,7 +14,7 @@ except ImportError:  # pragma: no cover - optional dependency
 from sqlalchemy import text
 
 from bitbat.autonomous.db import AutonomousDB
-from bitbat.autonomous.models import create_database_engine
+from bitbat.autonomous.models import create_database_engine, init_database
 from bitbat.autonomous.schema_compat import (
     audit_schema_compatibility,
     format_schema_audit,
@@ -36,6 +36,7 @@ def _create_legacy_prediction_outcomes(
     with_row: bool = False,
 ) -> None:
     engine = create_database_engine(database_url)
+    init_database(database_url, engine=engine)
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
         conn.execute(text(
@@ -104,6 +105,78 @@ def _create_legacy_prediction_outcomes(
     engine.dispose()
 
 
+def _create_legacy_performance_snapshots(
+    database_url: str,
+    *,
+    with_row: bool = False,
+) -> None:
+    engine = create_database_engine(database_url)
+    init_database(database_url, engine=engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS performance_snapshots"))
+        conn.execute(text(
+            """
+            CREATE TABLE performance_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_version VARCHAR(64) NOT NULL,
+                freq VARCHAR(16) NOT NULL,
+                horizon VARCHAR(16) NOT NULL,
+                snapshot_time DATETIME NOT NULL,
+                window_days INTEGER NOT NULL,
+                total_predictions INTEGER NOT NULL,
+                realized_predictions INTEGER NOT NULL,
+                hit_rate FLOAT,
+                sharpe_ratio FLOAT,
+                avg_return FLOAT,
+                max_drawdown FLOAT,
+                win_streak INTEGER,
+                lose_streak INTEGER,
+                calibration_score FLOAT,
+                created_at DATETIME NOT NULL
+            )
+            """
+        ))
+        if with_row:
+            conn.execute(text(
+                """
+                INSERT INTO performance_snapshots (
+                    model_version,
+                    freq,
+                    horizon,
+                    snapshot_time,
+                    window_days,
+                    total_predictions,
+                    realized_predictions,
+                    hit_rate,
+                    sharpe_ratio,
+                    avg_return,
+                    max_drawdown,
+                    win_streak,
+                    lose_streak,
+                    calibration_score,
+                    created_at
+                ) VALUES (
+                    'legacy-v1',
+                    '1h',
+                    '4h',
+                    '2026-02-24 00:00:00',
+                    30,
+                    10,
+                    8,
+                    0.5,
+                    0.1,
+                    0.001,
+                    -0.1,
+                    2,
+                    1,
+                    0.7,
+                    '2026-02-24 00:00:00'
+                )
+                """
+            ))
+    engine.dispose()
+
+
 def _prediction_columns(database_url: str) -> set[str]:
     engine = create_database_engine(database_url)
     with engine.connect() as conn:
@@ -120,6 +193,13 @@ def test_required_contract_contains_runtime_columns() -> None:
     assert "prediction_timestamp" in required
 
 
+def test_required_contract_contains_performance_snapshot_runtime_columns() -> None:
+    required = required_columns_for_table("performance_snapshots")
+    assert "snapshot_time" in required
+    assert "realized_predictions" in required
+    assert "directional_accuracy" in required
+
+
 def test_audit_detects_legacy_missing_column(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path, "legacy_missing_predicted_price.db")
     _create_legacy_prediction_outcomes(database_url)
@@ -130,9 +210,25 @@ def test_audit_detects_legacy_missing_column(tmp_path: Path) -> None:
     assert report.can_auto_upgrade is True
     assert report.missing_columns == {"prediction_outcomes": ("predicted_price",)}
 
-    table = report.tables[0]
+    table = next(t for t in report.tables if t.table_name == "prediction_outcomes")
     assert table.addable_missing_columns == ("predicted_price",)
     assert table.blocking_missing_columns == ()
+
+
+def test_audit_detects_legacy_performance_snapshots_missing_columns(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path, "legacy_missing_perf_cols.db")
+    _create_legacy_prediction_outcomes(database_url)
+    _create_legacy_performance_snapshots(database_url)
+
+    report = audit_schema_compatibility(database_url=database_url)
+
+    assert report.is_compatible is False
+    assert report.can_auto_upgrade is True
+    assert report.missing_columns["performance_snapshots"] == (
+        "directional_accuracy",
+        "mae",
+        "rmse",
+    )
 
 
 def test_formatted_audit_is_actionable(tmp_path: Path) -> None:
@@ -198,6 +294,25 @@ def test_upgrade_is_idempotent_and_preserves_rows(tmp_path: Path) -> None:
     assert row[0] == "up"
     assert pytest.approx(float(row[1]), abs=1e-9) == 0.005
     assert row[2] == "legacy-v1"
+
+
+def test_upgrade_adds_legacy_performance_snapshot_columns(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path, "legacy_perf_upgrade.db")
+    _create_legacy_prediction_outcomes(database_url, with_row=True)
+    _create_legacy_performance_snapshots(database_url, with_row=True)
+
+    result = upgrade_schema_compatibility(database_url=database_url)
+
+    assert result.is_compatible is True
+    assert ("performance_snapshots", "mae") in {
+        (action.table_name, action.column_name) for action in result.actions
+    }
+    assert ("performance_snapshots", "rmse") in {
+        (action.table_name, action.column_name) for action in result.actions
+    }
+    assert ("performance_snapshots", "directional_accuracy") in {
+        (action.table_name, action.column_name) for action in result.actions
+    }
 
 
 def test_autonomous_db_init_applies_upgrade_for_legacy_schema(tmp_path: Path) -> None:
