@@ -25,7 +25,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 - [x] **EVAL-01**: Walk-forward evaluation enforces time-ordered splits and supports purge/embargo-style controls for overlapping label horizons.
 - [x] **EVAL-02**: Backtest evaluation reports net metrics with transaction fees and slippage, not only gross predictive performance.
 - [x] **EVAL-03**: Candidate model reports include regression, directional, and risk-aware metrics with an explicit champion-selection rule.
-- [ ] **EVAL-04**: Hyperparameter/threshold optimization uses nested validation and records multiple-testing safeguards before candidate promotion.
+- [x] **EVAL-04**: Hyperparameter/threshold optimization uses nested validation and records multiple-testing safeguards before candidate promotion.
 
 ### Promotion and Operations Safety
 
@@ -65,7 +65,7 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 | EVAL-01 | Phase 15 | Complete |
 | EVAL-02 | Phase 15 | Complete |
 | EVAL-03 | Phase 15 | Complete |
-| EVAL-04 | Phase 16 | Pending |
+| EVAL-04 | Phase 16 | Complete |
 | OPER-02 | Phase 16 | Pending |
 
 **Coverage:**
