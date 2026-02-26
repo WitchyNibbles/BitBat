@@ -14,6 +14,7 @@ from bitbat.model.evaluate import (
     build_candidate_report,
     compute_multiple_testing_safeguards,
     regression_metrics,
+    select_champion_report,
     window_diagnostics,
     write_window_diagnostics,
 )
@@ -199,3 +200,48 @@ def test_multiple_testing_safeguards_fail_for_unstable_results() -> None:
     assert safeguards["pass"] is False
     assert safeguards["overfit_probability"] >= 0.35
     assert len(safeguards["reasons"]) >= 1
+
+
+def test_champion_selection_blocks_failed_safeguards() -> None:
+    candidate_reports = {
+        "xgb": {
+            "candidate_id": "xgb",
+            "family": "xgb",
+            "metrics": {
+                "regression": {"mean_rmse": 0.012, "mean_mae": 0.009},
+                "directional": {"mean_directional_accuracy": 0.56, "mean_correlation": 0.22},
+                "risk": {
+                    "mean_net_sharpe": 0.95,
+                    "mean_net_return": 0.10,
+                    "mean_max_drawdown": -0.12,
+                },
+            },
+            "safeguards": {"pass": True, "reasons": []},
+        },
+        "random_forest": {
+            "candidate_id": "random_forest",
+            "family": "random_forest",
+            "metrics": {
+                "regression": {"mean_rmse": 0.010, "mean_mae": 0.008},
+                "directional": {"mean_directional_accuracy": 0.59, "mean_correlation": 0.25},
+                "risk": {
+                    "mean_net_sharpe": 1.10,
+                    "mean_net_return": 0.14,
+                    "mean_max_drawdown": -0.10,
+                },
+            },
+            "safeguards": {
+                "pass": False,
+                "reasons": ["overfit_probability_above_threshold"],
+            },
+        },
+    }
+
+    decision = select_champion_report(
+        candidate_reports=candidate_reports,
+        incumbent_id="xgb",
+    )
+
+    assert decision["winner"] == "xgb"
+    assert decision["promote_candidate"] is False
+    assert decision["reason"] == "incumbent-retained-by-rule"

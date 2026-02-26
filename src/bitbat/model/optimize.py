@@ -11,6 +11,7 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat.dataset.splits import Fold
+from bitbat.model.evaluate import compute_multiple_testing_safeguards
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +272,12 @@ class HyperparamOptimizer:
             # Keep deterministic outputs stable by not persisting runtime clock values.
             "wall_clock": {"clock_captured": False, "started_at_utc": None, "completed_at_utc": None},
         }
+        trial_count = int(sum(len(item.get("trials", [])) for item in all_trial_history))
+        safeguards = compute_multiple_testing_safeguards(
+            outer_folds,
+            trial_count=trial_count if trial_count > 0 else int(n_trials),
+        )
+        provenance["safeguards"] = safeguards
 
         return OptimizationResult(
             best_params=self._json_safe(best_params),
@@ -280,6 +287,7 @@ class HyperparamOptimizer:
             mode="nested_walk_forward",
             outer_folds=outer_folds,
             provenance=provenance,
+            safeguards=safeguards,
         )
 
 
@@ -296,6 +304,7 @@ class OptimizationResult:
         mode: str = "nested_walk_forward",
         outer_folds: list[dict[str, Any]] | None = None,
         provenance: dict[str, Any] | None = None,
+        safeguards: dict[str, Any] | None = None,
     ) -> None:
         self.best_params = best_params
         self.best_score = best_score
@@ -304,6 +313,7 @@ class OptimizationResult:
         self.mode = mode
         self.outer_folds = list(outer_folds or [])
         self.provenance = dict(provenance or {})
+        self.safeguards = dict(safeguards or {})
 
     def to_xgb_params(self) -> tuple[dict[str, Any], int]:
         """Return XGBoost-compatible params dict and num_boost_round separately.
@@ -324,4 +334,5 @@ class OptimizationResult:
             "mode": self.mode,
             "outer_folds": self.outer_folds,
             "provenance": self.provenance,
+            "safeguards": self.safeguards,
         }

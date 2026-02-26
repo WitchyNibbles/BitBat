@@ -249,6 +249,7 @@ def build_candidate_report(
     candidate_id: str,
     family: str,
     fold_metrics: list[dict[str, Any]],
+    safeguards: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic multi-metric candidate report for model selection."""
     folds = list(fold_metrics)
@@ -279,6 +280,8 @@ def build_candidate_report(
             },
         },
     }
+    if safeguards is not None:
+        report["safeguards"] = safeguards
     return report
 
 
@@ -309,16 +312,23 @@ def select_champion_report(
         directional = metrics.get("directional", {})
         risk = metrics.get("risk", {})
         regression = metrics.get("regression", {})
+        safeguards = report.get("safeguards", {})
 
         directional_accuracy = float(directional.get("mean_directional_accuracy", 0.0))
         net_sharpe = float(risk.get("mean_net_sharpe", 0.0))
         net_return = float(risk.get("mean_net_return", 0.0))
         max_drawdown = float(risk.get("mean_max_drawdown", 0.0))
         mean_rmse = float(regression.get("mean_rmse", 0.0))
+        safeguards_pass = (
+            bool(safeguards.get("pass"))
+            if isinstance(safeguards, dict) and "pass" in safeguards
+            else True
+        )
 
         eligible = int(
             directional_accuracy >= min_directional_accuracy
             and max_drawdown >= max_drawdown_floor
+            and safeguards_pass
         )
         # Ordered tuple keeps ranking deterministic and transparent.
         score = (
@@ -335,14 +345,24 @@ def select_champion_report(
     winner_metrics = winner_report.get("metrics", {})
     winner_directional = winner_metrics.get("directional", {})
     winner_risk = winner_metrics.get("risk", {})
+    winner_safeguards = winner_report.get("safeguards", {})
+    winner_safeguards_pass = (
+        bool(winner_safeguards.get("pass"))
+        if isinstance(winner_safeguards, dict) and "pass" in winner_safeguards
+        else True
+    )
 
     winner_eligible = (
         float(winner_directional.get("mean_directional_accuracy", 0.0))
         >= min_directional_accuracy
         and float(winner_risk.get("mean_max_drawdown", 0.0)) >= max_drawdown_floor
+        and winner_safeguards_pass
     )
     promote_candidate = bool(winner_eligible)
-    reason = "winner-meets-thresholds"
+    reason = "winner-meets-thresholds" if winner_safeguards_pass else "winner-failed-safeguards"
+    if incumbent_id and winner_id == incumbent_id:
+        promote_candidate = False
+        reason = "incumbent-retained-by-rule"
 
     if incumbent_id and incumbent_id in candidate_reports and winner_id != incumbent_id:
         incumbent = candidate_reports[incumbent_id]
@@ -367,6 +387,9 @@ def select_champion_report(
         reason = (
             "candidate-beats-incumbent" if promote_candidate else "incumbent-retained-by-rule"
         )
+        if not winner_safeguards_pass:
+            reason = "winner-failed-safeguards"
+            promote_candidate = False
 
     return {
         "winner": winner_id,
@@ -377,5 +400,6 @@ def select_champion_report(
             "max_drawdown_floor": max_drawdown_floor,
         },
         "winner_metrics": winner_metrics,
+        "safeguards": winner_safeguards,
         "reason": reason,
     }

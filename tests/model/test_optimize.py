@@ -221,6 +221,14 @@ class TestOptimizationResult:
         assert "wall_clock" in provenance
         assert provenance["wall_clock"]["clock_captured"] is False
 
+    def test_summary_includes_safeguard_payload(self, result: OptimizationResult) -> None:
+        summary = result.summary()
+        safeguards = summary.get("safeguards")
+        assert isinstance(safeguards, dict)
+        assert "pass" in safeguards
+        assert "deflated_sharpe" in safeguards
+        assert "overfit_probability" in safeguards
+
 
 # -----------------------------------------------------------
 # Edge cases
