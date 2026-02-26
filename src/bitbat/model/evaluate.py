@@ -205,3 +205,102 @@ def build_candidate_report(
         },
     }
     return report
+
+
+def select_champion_report(
+    *,
+    candidate_reports: dict[str, dict[str, Any]],
+    incumbent_id: str | None = None,
+    min_directional_accuracy: float = 0.50,
+    max_drawdown_floor: float = -0.35,
+) -> dict[str, Any]:
+    """Select champion from candidate reports with explicit deterministic rules."""
+    if not candidate_reports:
+        return {
+            "winner": None,
+            "incumbent": incumbent_id,
+            "promote_candidate": False,
+            "rule": {
+                "min_directional_accuracy": min_directional_accuracy,
+                "max_drawdown_floor": max_drawdown_floor,
+            },
+            "reason": "no-candidates",
+        }
+
+    ranked: list[tuple[tuple[float, float, float, float, float], str, dict[str, Any]]] = []
+    for candidate_id in sorted(candidate_reports):
+        report = candidate_reports[candidate_id]
+        metrics = report.get("metrics", {})
+        directional = metrics.get("directional", {})
+        risk = metrics.get("risk", {})
+        regression = metrics.get("regression", {})
+
+        directional_accuracy = float(directional.get("mean_directional_accuracy", 0.0))
+        net_sharpe = float(risk.get("mean_net_sharpe", 0.0))
+        net_return = float(risk.get("mean_net_return", 0.0))
+        max_drawdown = float(risk.get("mean_max_drawdown", 0.0))
+        mean_rmse = float(regression.get("mean_rmse", 0.0))
+
+        eligible = int(
+            directional_accuracy >= min_directional_accuracy
+            and max_drawdown >= max_drawdown_floor
+        )
+        # Ordered tuple keeps ranking deterministic and transparent.
+        score = (
+            float(eligible),
+            net_sharpe,
+            net_return,
+            -mean_rmse,
+            max_drawdown,
+        )
+        ranked.append((score, candidate_id, report))
+
+    ranked.sort(reverse=True)
+    _, winner_id, winner_report = ranked[0]
+    winner_metrics = winner_report.get("metrics", {})
+    winner_directional = winner_metrics.get("directional", {})
+    winner_risk = winner_metrics.get("risk", {})
+
+    winner_eligible = (
+        float(winner_directional.get("mean_directional_accuracy", 0.0))
+        >= min_directional_accuracy
+        and float(winner_risk.get("mean_max_drawdown", 0.0)) >= max_drawdown_floor
+    )
+    promote_candidate = bool(winner_eligible)
+    reason = "winner-meets-thresholds"
+
+    if incumbent_id and incumbent_id in candidate_reports and winner_id != incumbent_id:
+        incumbent = candidate_reports[incumbent_id]
+        incumbent_metrics = incumbent.get("metrics", {})
+        incumbent_directional = incumbent_metrics.get("directional", {})
+        incumbent_risk = incumbent_metrics.get("risk", {})
+        winner_directional_acc = float(winner_directional.get("mean_directional_accuracy", 0.0))
+        winner_net_sharpe = float(winner_risk.get("mean_net_sharpe", 0.0))
+        winner_net_return = float(winner_risk.get("mean_net_return", 0.0))
+        incumbent_directional_acc = float(
+            incumbent_directional.get("mean_directional_accuracy", 0.0)
+        )
+        incumbent_net_sharpe = float(incumbent_risk.get("mean_net_sharpe", 0.0))
+        incumbent_net_return = float(incumbent_risk.get("mean_net_return", 0.0))
+
+        promote_candidate = bool(
+            winner_eligible
+            and winner_directional_acc >= incumbent_directional_acc
+            and winner_net_sharpe >= incumbent_net_sharpe
+            and winner_net_return >= incumbent_net_return
+        )
+        reason = (
+            "candidate-beats-incumbent" if promote_candidate else "incumbent-retained-by-rule"
+        )
+
+    return {
+        "winner": winner_id,
+        "incumbent": incumbent_id,
+        "promote_candidate": promote_candidate,
+        "rule": {
+            "min_directional_accuracy": min_directional_accuracy,
+            "max_drawdown_floor": max_drawdown_floor,
+        },
+        "winner_metrics": winner_metrics,
+        "reason": reason,
+    }

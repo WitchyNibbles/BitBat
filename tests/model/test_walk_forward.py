@@ -115,6 +115,15 @@ class TestWalkForwardValidator:
         assert "fold_diagnostics" in s
         assert s["n_folds"] == 2
 
+    def test_summary_includes_candidate_report_payload(
+        self, result: WalkForwardResult
+    ) -> None:
+        s = result.summary()
+        assert "candidate_report" in s
+        assert "regression" in s["candidate_report"]
+        assert "directional" in s["candidate_report"]
+        assert "risk" in s["candidate_report"]
+
     def test_custom_xgb_params(
         self, synthetic_data: tuple
     ) -> None:

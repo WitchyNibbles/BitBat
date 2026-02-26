@@ -43,6 +43,7 @@ class AutoRetrainer:
         self.window_step_days = int(retraining_cfg.get("window_step_days", 90))
         self.cv_window_count = int(retraining_cfg.get("cv_windows", 3))
         self.data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
+        self._last_cv_summary: dict[str, Any] = {}
 
     def _run_command(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         """Run an external command and raise on non-zero exit status."""
@@ -62,13 +63,30 @@ class AutoRetrainer:
         path = self._cv_summary_path()
         if not path.exists():
             logger.warning("CV summary not found at %s; defaulting score to 0.0", path)
+            self._last_cv_summary = {}
             return 0.0
 
         payload = json.loads(path.read_text(encoding="utf-8"))
+        self._last_cv_summary = payload
         score = payload.get("average_balanced_accuracy")
-        if score is None:
-            return 0.0
-        return float(score)
+        if score is not None:
+            return float(score)
+
+        champion = payload.get("champion_decision", {})
+        winner = champion.get("winner") if isinstance(champion, dict) else None
+        reports = payload.get("candidate_reports", {})
+        if winner and isinstance(reports, dict):
+            winner_report = reports.get(winner, {})
+            directional = winner_report.get("metrics", {}).get("directional", {})
+            winner_score = directional.get("mean_directional_accuracy")
+            if winner_score is not None:
+                return float(winner_score)
+
+        fallback_rmse = payload.get("average_rmse")
+        if fallback_rmse is not None:
+            return max(0.0, 1.0 - float(fallback_rmse))
+
+        return 0.0
 
     def _training_sample_count(self) -> int:
         dataset_path = (
@@ -108,6 +126,12 @@ class AutoRetrainer:
         old_cv = float(old_model["cv_score"]) if old_model and old_model.get("cv_score") else 0.0
         new_cv = float(new_model.get("cv_score", 0.0))
         holdout_hit_rate = float(new_model.get("holdout_hit_rate", new_cv))
+        champion_decision = new_model.get("champion_decision", {})
+        if (
+            isinstance(champion_decision, dict)
+            and champion_decision.get("promote_candidate") is False
+        ):
+            return False
 
         improvement = new_cv - old_cv
         return improvement >= self.cv_improvement_threshold and holdout_hit_rate >= 0.55
@@ -228,12 +252,18 @@ class AutoRetrainer:
                             "window_step_days": self.window_step_days,
                             "cv_windows": self.cv_window_count,
                         },
+                        "champion_decision": self._last_cv_summary.get("champion_decision"),
+                        "candidate_reports": self._last_cv_summary.get("candidate_reports"),
                     },
                     is_active=False,
                 )
 
             deploy = self.should_deploy(
-                new_model={"cv_score": new_cv_score, "holdout_hit_rate": new_cv_score},
+                new_model={
+                    "cv_score": new_cv_score,
+                    "holdout_hit_rate": new_cv_score,
+                    "champion_decision": self._last_cv_summary.get("champion_decision", {}),
+                },
                 old_model={"cv_score": old_cv_score} if old_version else None,
             )
             if deploy:
