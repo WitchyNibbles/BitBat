@@ -29,7 +29,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Promotion and Operations Safety
 
-- [ ] **OPER-02**: A model is promoted only when it beats the incumbent across consecutive out-of-sample windows without violating drawdown guardrails.
+- [x] **OPER-02**: A model is promoted only when it beats the incumbent across consecutive out-of-sample windows without violating drawdown guardrails.
 
 ## v1.3+ Requirements (Deferred)
 
@@ -66,7 +66,7 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 | EVAL-02 | Phase 15 | Complete |
 | EVAL-03 | Phase 15 | Complete |
 | EVAL-04 | Phase 16 | Complete |
-| OPER-02 | Phase 16 | Pending |
+| OPER-02 | Phase 16 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 11 total
