@@ -168,6 +168,25 @@ def test_predict_latest_returns_insufficient_data_reason(
     assert result["details"]["required_bars"] == 30
 
 
+def test_predict_latest_exposes_stable_diagnostic_reason_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _stub_runtime_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    result = predictor.predict_latest()
+
+    assert result["status"] == "no_prediction"
+    assert result["reason"] == "missing_model"
+    assert result["diagnostic_reason"] == "missing_model"
+    assert "model artifact" in result["diagnostic_message"].lower()
+
+
 def test_run_once_reports_cycle_state_for_missing_model_no_predictions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

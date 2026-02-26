@@ -131,6 +131,8 @@ class LivePredictor:
             "status": status,
             "reason": reason,
             "message": message,
+            "diagnostic_reason": reason,
+            "diagnostic_message": message,
         }
         if details:
             result["details"] = details
