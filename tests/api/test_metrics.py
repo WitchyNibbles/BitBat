@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
-from bitbat.autonomous.models import create_database_engine
+from bitbat.autonomous.models import create_database_engine, init_database
 
 
 @pytest.fixture()
@@ -60,6 +60,9 @@ def incompatible_schema_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> P
     db_path = tmp_path / "data" / "autonomous.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Start from current runtime schema, then downgrade only prediction_outcomes
+    # so compatibility checks represent a targeted additive-upgrade scenario.
+    init_database(f"sqlite:///{db_path}")
     engine = create_database_engine(f"sqlite:///{db_path}")
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
