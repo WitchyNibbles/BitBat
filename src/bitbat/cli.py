@@ -671,12 +671,19 @@ def model_cv(
             {"folds": [], "average_rmse": 0.0, "average_mae": 0.0},
         )
         optimization_cfg = model_cfg.get("optimization", {}) if isinstance(model_cfg, dict) else {}
+        promotion_cfg = model_cfg.get("promotion_gate", {}) if isinstance(model_cfg, dict) else {}
         safeguard_trial_count = int(
             optimization_cfg.get("trials", max(len(primary_metrics["folds"]), 1))
         )
         safeguard_min_deflated_sharpe = float(optimization_cfg.get("min_deflated_sharpe", 0.0))
         safeguard_max_overfit_probability = float(
             optimization_cfg.get("max_overfit_probability", 0.50)
+        )
+        promotion_min_consecutive = int(
+            promotion_cfg.get("min_consecutive_outperformance", 2)
+        )
+        promotion_drawdown_floor = float(
+            promotion_cfg.get("max_drawdown_floor", -0.35)
         )
 
         candidate_reports: dict[str, dict[str, Any]] = {}
@@ -701,6 +708,8 @@ def model_cv(
         champion_decision = select_champion_report(
             candidate_reports=candidate_reports,
             incumbent_id=primary_family if primary_family in candidate_reports else None,
+            max_drawdown_floor=promotion_drawdown_floor,
+            min_consecutive_outperformance=promotion_min_consecutive,
         )
         if champion_decision.get("winner"):
             click.echo(

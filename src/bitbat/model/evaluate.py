@@ -384,6 +384,7 @@ def select_champion_report(
     incumbent_id: str | None = None,
     min_directional_accuracy: float = 0.50,
     max_drawdown_floor: float = -0.35,
+    min_consecutive_outperformance: int = 2,
 ) -> dict[str, Any]:
     """Select champion from candidate reports with explicit deterministic rules."""
     if not candidate_reports:
@@ -394,6 +395,11 @@ def select_champion_report(
             "rule": {
                 "min_directional_accuracy": min_directional_accuracy,
                 "max_drawdown_floor": max_drawdown_floor,
+                "min_consecutive_outperformance": int(max(min_consecutive_outperformance, 1)),
+            },
+            "promotion_gate": {
+                "pass": False,
+                "reasons": ["no-candidates"],
             },
             "reason": "no-candidates",
         }
@@ -453,9 +459,21 @@ def select_champion_report(
     )
     promote_candidate = bool(winner_eligible)
     reason = "winner-meets-thresholds" if winner_safeguards_pass else "winner-failed-safeguards"
+    promotion_gate: dict[str, Any] = {
+        "pass": bool(promote_candidate),
+        "min_consecutive_outperformance": int(max(min_consecutive_outperformance, 1)),
+        "max_consecutive_outperformance": 0,
+        "drawdown_floor": float(max_drawdown_floor),
+        "drawdown_ok": bool(float(winner_risk.get("mean_max_drawdown", 0.0)) >= max_drawdown_floor),
+        "window_count": int(len(winner_report.get("windows", []))),
+        "window_verdicts": [],
+        "reasons": [],
+    }
     if incumbent_id and winner_id == incumbent_id:
         promote_candidate = False
         reason = "incumbent-retained-by-rule"
+        promotion_gate["pass"] = False
+        promotion_gate["reasons"] = ["incumbent-retained"]
 
     if incumbent_id and incumbent_id in candidate_reports and winner_id != incumbent_id:
         incumbent = candidate_reports[incumbent_id]
@@ -480,6 +498,15 @@ def select_champion_report(
         reason = (
             "candidate-beats-incumbent" if promote_candidate else "incumbent-retained-by-rule"
         )
+        promotion_gate = evaluate_promotion_gate(
+            candidate_report=winner_report,
+            incumbent_report=incumbent,
+            min_consecutive_outperformance=int(max(min_consecutive_outperformance, 1)),
+            max_drawdown_floor=float(max_drawdown_floor),
+        )
+        if not promotion_gate.get("pass", False):
+            promote_candidate = False
+            reason = "promotion-gate-failed"
         if not winner_safeguards_pass:
             reason = "winner-failed-safeguards"
             promote_candidate = False
@@ -491,8 +518,10 @@ def select_champion_report(
         "rule": {
             "min_directional_accuracy": min_directional_accuracy,
             "max_drawdown_floor": max_drawdown_floor,
+            "min_consecutive_outperformance": int(max(min_consecutive_outperformance, 1)),
         },
         "winner_metrics": winner_metrics,
         "safeguards": winner_safeguards,
+        "promotion_gate": promotion_gate,
         "reason": reason,
     }

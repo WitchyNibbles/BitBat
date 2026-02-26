@@ -39,6 +39,9 @@ model:
     embargo_bars: 1
     purge_bars: 0
     label_horizon: ""
+  promotion_gate:
+    min_consecutive_outperformance: 2
+    max_drawdown_floor: -0.35
 
 # Continuous training configuration
 continuous_training:

@@ -1242,6 +1242,176 @@ def test_cli_model_cv_persists_safeguard_payloads_and_block_reason(
     assert summary["champion_decision"]["reason"] == "incumbent-retained-by-rule"
 
 
+def test_cli_model_cv_persists_promotion_gate_details(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "cv_promotion_gate_config.yaml",
+        enable_sentiment=False,
+    )
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n".join(
+                [
+                    "model:",
+                    "  promotion_gate:",
+                    "    min_consecutive_outperformance: 2",
+                    "    max_drawdown_floor: -0.25",
+                ]
+            )
+            + "\n"
+        )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=72, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 24)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.01, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    state: dict[str, float] = {"mean_pred": 0.0}
+
+    class FakeDMatrix:
+        def __init__(self, data: pd.DataFrame, **kwargs: Any) -> None:
+            self.data = data
+
+    class FakeXGBModel:
+        def predict(self, dmatrix: FakeDMatrix) -> np.ndarray:
+            return np.full(len(dmatrix.data), 0.004)
+
+    class FakeRFModel:
+        def predict(self, features: pd.DataFrame) -> np.ndarray:
+            return np.full(len(features), 0.008)
+
+    def fake_fit_xgb(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeXGBModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeXGBModel(), {}
+
+    def fake_fit_random_forest(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeRFModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeRFModel(), {}
+
+    def fake_metrics(y_true: Any, y_pred: Any) -> dict[str, float]:
+        del y_true
+        mean_value = float(np.mean(np.asarray(y_pred, dtype="float64")))
+        return {
+            "rmse": max(0.001, 0.02 - mean_value),
+            "mae": 0.003,
+            "r2": 0.1,
+            "directional_accuracy": 0.58,
+            "correlation": 0.3,
+            "n_samples": 24,
+        }
+
+    def fake_run_strategy(
+        close: pd.Series,
+        predicted_returns: pd.Series,
+        *,
+        allow_short: bool,
+        cost_bps: float,
+        fee_bps: float | None = None,
+        slippage_bps: float | None = None,
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        del close, allow_short, cost_bps, fee_bps, slippage_bps
+        state["mean_pred"] = float(predicted_returns.mean())
+        idx_local = predicted_returns.index
+        trades = pd.DataFrame({"position": np.ones(len(idx_local))}, index=idx_local)
+        equity = pd.Series(np.linspace(1.0, 1.02, len(idx_local)), index=idx_local)
+        return trades, equity
+
+    def fake_summary(equity: pd.Series, trades: pd.DataFrame) -> dict[str, float]:
+        del equity, trades
+        if state["mean_pred"] > 0.006:
+            return {
+                "net_sharpe": 1.4,
+                "gross_sharpe": 1.5,
+                "max_drawdown": -0.10,
+                "net_return": 0.16,
+                "gross_return": 0.18,
+                "total_costs": 0.0,
+                "total_fee_costs": 0.0,
+                "total_slippage_costs": 0.0,
+            }
+        return {
+            "net_sharpe": 1.0,
+            "gross_sharpe": 1.1,
+            "max_drawdown": -0.10,
+            "net_return": 0.10,
+            "gross_return": 0.12,
+            "total_costs": 0.0,
+            "total_fee_costs": 0.0,
+            "total_slippage_costs": 0.0,
+        }
+
+    def fake_safeguards(
+        outer_folds: list[dict[str, Any]],
+        *,
+        trial_count: int,
+        min_deflated_sharpe: float = 0.0,
+        max_overfit_probability: float = 0.50,
+    ) -> dict[str, Any]:
+        del outer_folds, trial_count, min_deflated_sharpe, max_overfit_probability
+        return {"pass": True, "reasons": [], "deflated_sharpe": 0.5, "overfit_probability": 0.2}
+
+    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.run_strategy", fake_run_strategy)
+    monkeypatch.setattr("bitbat.cli.summarize_backtest", fake_summary)
+    monkeypatch.setattr("bitbat.cli.compute_multiple_testing_safeguards", fake_safeguards)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "cv",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "both",
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-03 00:00:00",
+        "--windows",
+        "2024-01-01 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-03 00:00:00",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    summary = json.loads((Path("metrics") / "cv_summary.json").read_text(encoding="utf-8"))
+    champion = summary["champion_decision"]
+    assert champion["winner"] == "random_forest"
+    assert champion["promote_candidate"] is False
+    assert champion["reason"] == "promotion-gate-failed"
+    assert "promotion_gate" in champion
+    assert champion["promotion_gate"]["pass"] is False
+    assert champion["promotion_gate"]["min_consecutive_outperformance"] == 2
+
+
 def test_cli_backtest_cost_slippage_reports_net_and_gross(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
