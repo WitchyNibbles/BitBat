@@ -82,6 +82,15 @@ class TestWalkForwardValidator:
             assert "regime" in fr.diagnostics
             assert fr.diagnostics["n_samples"] == fr.test_size
 
+    def test_fold_metadata_captures_leakage_controls(
+        self, result: WalkForwardResult
+    ) -> None:
+        for fr in result.fold_results:
+            assert "embargo_bars" in fr.window_metadata
+            assert "purge_bars" in fr.window_metadata
+            assert fr.window_metadata["embargo_bars"] >= 0
+            assert fr.window_metadata["purge_bars"] >= 0
+
     def test_all_predictions_concatenated(
         self, result: WalkForwardResult
     ) -> None:

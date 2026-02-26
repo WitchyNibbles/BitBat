@@ -230,6 +230,8 @@ class WalkForwardValidator:
                 "train_end": X_tr.index.max().isoformat(),
                 "test_start": X_te.index.min().isoformat(),
                 "test_end": X_te.index.max().isoformat(),
+                "embargo_bars": int(getattr(fold, "embargo_bars", 0)),
+                "purge_bars": int(getattr(fold, "purge_bars", 0)),
             }
             diagnostics = window_diagnostics(
                 y_te,
