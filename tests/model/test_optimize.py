@@ -208,6 +208,19 @@ class TestOptimizationResult:
         assert one["outer_folds"] == two["outer_folds"]
         assert one["provenance"] == two["provenance"]
 
+    def test_provenance_contains_search_lineage_and_wall_clock_metadata(
+        self, result: OptimizationResult
+    ) -> None:
+        provenance = result.summary()["provenance"]
+        assert provenance["seed"] == 42
+        assert provenance["n_trials_requested"] == 5
+        assert "search_space" in provenance
+        assert "folds" in provenance
+        assert "trial_history" in provenance
+        assert "best_trial_lineage" in provenance
+        assert "wall_clock" in provenance
+        assert provenance["wall_clock"]["clock_captured"] is False
+
 
 # -----------------------------------------------------------
 # Edge cases

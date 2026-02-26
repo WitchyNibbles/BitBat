@@ -174,6 +174,7 @@ class HyperparamOptimizer:
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         outer_folds: list[dict[str, Any]] = []
         all_trial_history: list[dict[str, Any]] = []
+        best_trial_lineage: list[dict[str, Any]] = []
         best_params: dict[str, Any] = {}
         best_study: optuna.Study | None = None
         best_outer_score = float("inf")
@@ -220,6 +221,12 @@ class HyperparamOptimizer:
                 "seed": int(outer_seed),
                 "trials": self._trial_history(study),
             })
+            best_trial_lineage.append({
+                "outer_fold": outer_idx + 1,
+                "trial_number": int(study.best_trial.number),
+                "inner_score": round(float(study.best_trial.value), 6),
+                "params": self._json_safe(selected_params),
+            })
 
             if outer_score < best_outer_score:
                 best_outer_score = outer_score
@@ -259,9 +266,10 @@ class HyperparamOptimizer:
             "folds": [self._fold_window(fold) for fold in self.folds],
             "outer_folds": outer_folds,
             "trial_history": all_trial_history,
+            "best_trial_lineage": best_trial_lineage,
             "aggregate_outer_score": round(aggregate_score, 6),
             # Keep deterministic outputs stable by not persisting runtime clock values.
-            "timing": {"clock_captured": False},
+            "wall_clock": {"clock_captured": False, "started_at_utc": None, "completed_at_utc": None},
         }
 
         return OptimizationResult(
