@@ -32,6 +32,7 @@ class FoldResult:
     gross_sharpe: float = 0.0
     total_costs: float = 0.0
     net_return: float = 0.0
+    window_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -79,6 +80,7 @@ class WalkForwardResult:
             "fold_rmses": [round(f.rmse, 6) for f in self.fold_results],
             "fold_sizes": [f.test_size for f in self.fold_results],
             "total_test_samples": sum(f.test_size for f in self.fold_results),
+            "fold_windows": [f.window_metadata for f in self.fold_results],
         }
         if any(f.net_sharpe != 0.0 or f.total_costs != 0.0 for f in self.fold_results):
             result["mean_net_sharpe"] = round(
@@ -220,6 +222,12 @@ class WalkForwardValidator:
             net_sharpe, gross_sharpe, total_costs, net_return = self._cost_metrics(
                 X_te.index, predicted
             )
+            window_metadata = {
+                "train_start": X_tr.index.min().isoformat(),
+                "train_end": X_tr.index.max().isoformat(),
+                "test_start": X_te.index.min().isoformat(),
+                "test_end": X_te.index.max().isoformat(),
+            }
 
             result.fold_results.append(
                 FoldResult(
@@ -234,6 +242,7 @@ class WalkForwardValidator:
                     gross_sharpe=gross_sharpe,
                     total_costs=total_costs,
                     net_return=net_return,
+                    window_metadata=window_metadata,
                 )
             )
 

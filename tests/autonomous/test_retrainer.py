@@ -70,3 +70,32 @@ def test_retrainer_records_failed_event(tmp_path: Path, monkeypatch) -> None:
         event = session.query(RetrainingEvent).order_by(RetrainingEvent.id.desc()).first()
     assert event is not None
     assert event.status == "failed"
+
+
+def test_retrainer_cv_command_uses_configured_windows(tmp_path: Path, monkeypatch) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    retrainer = AutoRetrainer(db, "1h", "4h")
+
+    retrainer.train_window_days = 30
+    retrainer.backtest_window_days = 10
+    retrainer.window_step_days = 10
+    retrainer.cv_window_count = 2
+
+    commands: list[list[str]] = []
+
+    def _capture(command: list[str]) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        if command[3:5] == ["model", "cv"]:
+            raise subprocess.CalledProcessError(returncode=1, cmd=command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(retrainer, "_run_command", _capture)
+    result = retrainer.retrain()
+
+    assert result["status"] == "failed"
+    cv_command = next(command for command in commands if command[3:5] == ["model", "cv"])
+    assert cv_command.count("--windows") == 2
+    first_window = cv_command[cv_command.index("--windows") + 1 : cv_command.index("--windows") + 5]
+    assert len(first_window) == 4

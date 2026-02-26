@@ -37,6 +37,11 @@ class ContinuousTrainer:
         self.retrain_interval = int(ct_cfg.get("retrain_interval_seconds", 1800))
         self.min_new_samples = int(ct_cfg.get("min_new_samples", 6))
         self.rolling_window_bars = int(ct_cfg.get("rolling_window_bars", 17280))
+        default_train_bars = int(ct_cfg.get("train_window_bars", max(self.rolling_window_bars // 2, 1)))
+        self.train_window_bars = max(default_train_bars, 1)
+        self.backtest_window_bars = int(
+            ct_cfg.get("backtest_window_bars", max(self.rolling_window_bars - self.train_window_bars, 1))
+        )
         self._last_retrain_time: datetime | None = None
         self._last_realized_count: int = 0
 
@@ -172,12 +177,28 @@ class ContinuousTrainer:
         if len(features) < 50:
             raise ValueError(f"Too few valid samples after feature generation: {len(features)}")
 
-        # Split: last 20% holdout
-        split_idx = int(len(features) * 0.8)
-        X_train = features.iloc[:split_idx]
-        y_train = y_returns.iloc[:split_idx]
-        X_holdout = features.iloc[split_idx:]
-        y_holdout = y_returns.iloc[split_idx:]
+        required_samples = self.train_window_bars + self.backtest_window_bars
+        if len(features) < required_samples:
+            raise ValueError(
+                "Not enough samples for configured windows: "
+                f"{len(features)} < {required_samples}"
+            )
+
+        scoped_features = features.iloc[-required_samples:]
+        scoped_returns = y_returns.iloc[-required_samples:]
+        X_train = scoped_features.iloc[: self.train_window_bars]
+        y_train = scoped_returns.iloc[: self.train_window_bars]
+        X_holdout = scoped_features.iloc[self.train_window_bars :]
+        y_holdout = scoped_returns.iloc[self.train_window_bars :]
+
+        window_metadata = {
+            "train_window_bars": self.train_window_bars,
+            "backtest_window_bars": self.backtest_window_bars,
+            "train_start": X_train.index.min().isoformat(),
+            "train_end": X_train.index.max().isoformat(),
+            "backtest_start": X_holdout.index.min().isoformat(),
+            "backtest_end": X_holdout.index.max().isoformat(),
+        }
 
         # Train new model
         X_train.attrs["freq"] = self.freq
@@ -238,7 +259,11 @@ class ContinuousTrainer:
                     cv_score=new_metrics["rmse"],
                     features=list(X_train.columns),
                     hyperparameters=None,
-                    training_metadata={"trigger": "continuous", "holdout_metrics": new_metrics},
+                    training_metadata={
+                        "trigger": "continuous",
+                        "holdout_metrics": new_metrics,
+                        "window_metadata": window_metadata,
+                    },
                     is_active=True,
                 )
 
@@ -251,6 +276,7 @@ class ContinuousTrainer:
             "rmse_improvement": rmse_improvement,
             "training_samples": len(X_train),
             "holdout_samples": len(X_holdout),
+            "window_metadata": window_metadata,
         }
 
     def _load_prices(self) -> pd.DataFrame:

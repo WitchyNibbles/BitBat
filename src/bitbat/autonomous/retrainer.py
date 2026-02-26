@@ -38,6 +38,10 @@ class AutoRetrainer:
         retraining_cfg = autonomous.get("retraining", {})
         self.cv_improvement_threshold = float(retraining_cfg.get("cv_improvement_threshold", 0.02))
         self.max_training_time_seconds = int(retraining_cfg.get("max_training_time_seconds", 3600))
+        self.train_window_days = int(retraining_cfg.get("train_window_days", 365))
+        self.backtest_window_days = int(retraining_cfg.get("backtest_window_days", 90))
+        self.window_step_days = int(retraining_cfg.get("window_step_days", 90))
+        self.cv_window_count = int(retraining_cfg.get("cv_windows", 3))
         self.data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
 
     def _run_command(self, command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -78,6 +82,22 @@ class AutoRetrainer:
     def _next_model_version(self) -> str:
         timestamp = _utcnow().strftime("%Y%m%d%H%M%S")
         return f"{__version__}-{timestamp}"
+
+    def _build_cv_windows(self, anchor_end: datetime) -> list[tuple[datetime, datetime, datetime, datetime]]:
+        """Build rolling train/backtest windows for the CV command."""
+        train_delta = timedelta(days=self.train_window_days)
+        backtest_delta = timedelta(days=self.backtest_window_days)
+        step_delta = timedelta(days=max(self.window_step_days, 1))
+        window_count = max(self.cv_window_count, 1)
+
+        windows: list[tuple[datetime, datetime, datetime, datetime]] = []
+        for offset in range(window_count - 1, -1, -1):
+            test_start = anchor_end - backtest_delta - (step_delta * offset)
+            test_end = test_start + backtest_delta
+            train_end = test_start
+            train_start = train_end - train_delta
+            windows.append((train_start, train_end, test_start, test_end))
+        return windows
 
     def should_deploy(
         self,
@@ -131,9 +151,11 @@ class AutoRetrainer:
 
         try:
             end_dt = _utcnow()
-            start_dt = end_dt - timedelta(days=365)
+            windows = self._build_cv_windows(end_dt)
+            start_dt = windows[0][0]
+            cv_end_dt = windows[-1][3]
             start_iso = start_dt.strftime("%Y-%m-%d %H:%M:%S")
-            end_iso = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+            end_iso = cv_end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
             self._run_command([
                 "poetry",
@@ -158,6 +180,16 @@ class AutoRetrainer:
                 start_iso,
                 "--end",
                 end_iso,
+            ] + [
+                arg
+                for train_start, train_end, test_start, test_end in windows
+                for arg in (
+                    "--windows",
+                    train_start.strftime("%Y-%m-%d %H:%M:%S"),
+                    train_end.strftime("%Y-%m-%d %H:%M:%S"),
+                    test_start.strftime("%Y-%m-%d %H:%M:%S"),
+                    test_end.strftime("%Y-%m-%d %H:%M:%S"),
+                )
             ])
             self._run_command([
                 "poetry",
@@ -187,7 +219,16 @@ class AutoRetrainer:
                     cv_score=new_cv_score,
                     features=[],
                     hyperparameters={},
-                    training_metadata={"tau": self.tau, "source": "auto_retrainer"},
+                    training_metadata={
+                        "tau": self.tau,
+                        "source": "auto_retrainer",
+                        "window_config": {
+                            "train_window_days": self.train_window_days,
+                            "backtest_window_days": self.backtest_window_days,
+                            "window_step_days": self.window_step_days,
+                            "cv_windows": self.cv_window_count,
+                        },
+                    },
                     is_active=False,
                 )
 
