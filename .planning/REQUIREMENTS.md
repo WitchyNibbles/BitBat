@@ -1,7 +1,7 @@
 # Requirements: BitBat Prediction Accuracy Evolution
 
 **Defined:** 2026-02-25
-**Status:** v1.2 planned
+**Status:** v1.2 in progress
 **Core Value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
 
 ## v1.2 Requirements
@@ -22,9 +22,9 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Evaluation and Selection Rigor
 
-- [ ] **EVAL-01**: Walk-forward evaluation enforces time-ordered splits and supports purge/embargo-style controls for overlapping label horizons.
-- [ ] **EVAL-02**: Backtest evaluation reports net metrics with transaction fees and slippage, not only gross predictive performance.
-- [ ] **EVAL-03**: Candidate model reports include regression, directional, and risk-aware metrics with an explicit champion-selection rule.
+- [x] **EVAL-01**: Walk-forward evaluation enforces time-ordered splits and supports purge/embargo-style controls for overlapping label horizons.
+- [x] **EVAL-02**: Backtest evaluation reports net metrics with transaction fees and slippage, not only gross predictive performance.
+- [x] **EVAL-03**: Candidate model reports include regression, directional, and risk-aware metrics with an explicit champion-selection rule.
 - [ ] **EVAL-04**: Hyperparameter/threshold optimization uses nested validation and records multiple-testing safeguards before candidate promotion.
 
 ### Promotion and Operations Safety
@@ -62,9 +62,9 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 | MODL-01 | Phase 14 | Complete |
 | MODL-02 | Phase 14 | Complete |
 | MODL-03 | Phase 14 | Complete |
-| EVAL-01 | Phase 15 | Pending |
-| EVAL-02 | Phase 15 | Pending |
-| EVAL-03 | Phase 15 | Pending |
+| EVAL-01 | Phase 15 | Complete |
+| EVAL-02 | Phase 15 | Complete |
+| EVAL-03 | Phase 15 | Complete |
 | EVAL-04 | Phase 16 | Pending |
 | OPER-02 | Phase 16 | Pending |
 
@@ -75,4 +75,4 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after Phase 13 execution (DATA-01/DATA-02/LABL-01 complete)*
+*Last updated: 2026-02-26 after Phase 15 execution (EVAL-01/EVAL-02/EVAL-03 complete)*

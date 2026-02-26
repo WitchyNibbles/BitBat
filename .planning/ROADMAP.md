@@ -71,4 +71,4 @@ Success criteria:
 
 ## Next
 
-- Execute Phase 15 plans with `$gsd-execute-phase 15`.
+- Plan and execute Phase 16 guardrail work (`$gsd-plan-phase 16` → `$gsd-execute-phase 16`).
