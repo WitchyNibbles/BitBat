@@ -16,7 +16,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Model Baselines and Retraining
 
-- [ ] **MODL-01**: Tree-ensemble baselines (XGBoost and RandomForest) train and produce comparable prediction artifacts from the same dataset contract.
+- [x] **MODL-01**: Tree-ensemble baselines (XGBoost and RandomForest) train and produce comparable prediction artifacts from the same dataset contract.
 - [ ] **MODL-02**: Retraining/backtest windows are configurable and run as rolling walk-forward cycles (train window + backtest window) without manual intervention.
 - [ ] **MODL-03**: Regime/drift diagnostics are computed per retrain window and surfaced in model evaluation outputs.
 
@@ -59,7 +59,7 @@ Explicitly excluded for v1.2 to keep scope focused on measurable accuracy gains.
 | DATA-01 | Phase 13 | Complete |
 | DATA-02 | Phase 13 | Complete |
 | LABL-01 | Phase 13 | Complete |
-| MODL-01 | Phase 14 | Pending |
+| MODL-01 | Phase 14 | Complete |
 | MODL-02 | Phase 14 | Pending |
 | MODL-03 | Phase 14 | Pending |
 | EVAL-01 | Phase 15 | Pending |
