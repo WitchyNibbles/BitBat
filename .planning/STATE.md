@@ -4,25 +4,24 @@
 
 See: .planning/PROJECT.md (updated 2026-02-26)
 
-**Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Milestone v1.2 archived; ready to define v1.3
+**Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
+**Current focus:** Milestone v1.3 definition (autonomous monitor alignment + metrics integrity)
 
 ## Current Position
 
-Milestone: v1.2 (BTC Prediction Accuracy Evolution) — archived
-Phase: None (milestone boundary)
-Status: Ready for next milestone definition
-Last activity: 2026-02-26 - Archived v1.2 roadmap/requirements and completed milestone closeout
+Milestone: v1.3 (Autonomous Monitor Alignment and Metrics Integrity)
+Phase: Not started (defining requirements)
+Status: Defining requirements
+Last activity: 2026-02-26 - Started v1.3 from monitor empty-metrics investigation
 
-Progress: [██████████] 100% for v1.2 (4/4 phases complete)
+Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
 
 ## Milestone Metrics
 
-- Completed phases: 4 (13-16)
-- Completed plans: 12
-- Completed tasks: 36
-- Timeline: 2026-02-26 00:17:46+01:00 → 2026-02-26 09:28:50+01:00
-- Source context: `deep-research-report.md`
+- Planned phases: 3 (17-19)
+- Planned requirements: 8
+- Scope anchor: ALGN-01/02/03, MON-04/05/06, QUAL-07/08
+- Research mode: skipped (workflow.research=false)
 
 ## Accumulated Context
 
@@ -32,19 +31,22 @@ Progress: [██████████] 100% for v1.2 (4/4 phases complete)
 - Multiple-testing safeguards are persisted in optimization and CV candidate artifacts.
 - Champion decisions now include promotion-gate payloads with explicit rejection reasons.
 - Autonomous retrainer deployment is vetoed when promotion-gate constraints fail.
+- Monitoring loops can produce valid but confusing all-zero summaries when runtime pair has no
+  model/history; v1.3 addresses this with alignment and diagnostics.
 
 ### Pending Todos
 
-- Start v1.3 milestone framing with `$gsd-new-milestone`.
-- Define fresh requirements and roadmap for post-v1.2 scope.
+- Finalize v1.3 requirements confirmation.
+- Execute Phase 17 implementation (`$gsd-plan-phase 17` then `$gsd-execute-phase 17`).
 
 ### Blockers/Concerns
 
-- No active blockers.
-- Milestone-level audit file was not generated for v1.2 closeout.
+- No active blocker for planning.
+- Runtime currently observed at `5m/30m` while local artifacts/history are `1h`-based; requires
+  implementation alignment.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: v1.2 milestone archived and tagged locally
-Resume with: `$gsd-new-milestone`
+Stopped at: v1.3 requirements/roadmap definition kickoff
+Resume with: `$gsd-plan-phase 17`
