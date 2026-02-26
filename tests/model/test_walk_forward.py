@@ -183,3 +183,30 @@ def test_walk_forward_with_generated_windows_preserves_ordering() -> None:
         if fold.train.empty or fold.test.empty:
             continue
         assert fold.train.max() < fold.test.min()
+
+
+def test_walk_forward_summary_includes_cost_fee_and_slippage_totals() -> None:
+    rng = np.random.default_rng(7)
+    idx = pd.date_range("2024-01-01", periods=120, freq="1h")
+    X = pd.DataFrame(
+        {"a": rng.normal(size=len(idx)), "b": rng.normal(size=len(idx))},
+        index=idx,
+    )
+    y = pd.Series(rng.normal(0.0, 0.01, size=len(idx)), index=idx, dtype="float64")
+    prices = pd.Series(100.0 * np.cumprod(1.0 + y.to_numpy()), index=idx)
+    folds = [Fold(train=idx[:80], test=idx[80:120])]
+
+    validator = WalkForwardValidator(
+        X,
+        y,
+        folds,
+        num_boost_round=5,
+        prices=prices,
+        fee_bps=3.0,
+        slippage_bps=2.0,
+    )
+    result = validator.run().summary()
+
+    assert "total_fee_costs" in result
+    assert "total_slippage_costs" in result
+    assert "mean_gross_return" in result

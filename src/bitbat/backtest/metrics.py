@@ -55,16 +55,28 @@ def summary(
 
     turnover = 0.0
     total_costs = 0.0
+    total_fee_costs = 0.0
+    total_slippage_costs = 0.0
     gross_sharpe = 0.0
     net_return = float(equity_curve.iloc[-1] - 1) if len(equity_curve) > 0 else 0.0
+    gross_return = net_return
 
     if trades is not None:
         if "position" in trades.columns:
             turnover = trades["position"].diff().abs().sum()
+        if "fee_costs" in trades.columns:
+            total_fee_costs = float(trades["fee_costs"].sum())
+        if "slippage_costs" in trades.columns:
+            total_slippage_costs = float(trades["slippage_costs"].sum())
         if "costs" in trades.columns:
             total_costs = float(trades["costs"].sum())
+        elif total_fee_costs > 0 or total_slippage_costs > 0:
+            total_costs = float(total_fee_costs + total_slippage_costs)
         if "gross_pnl" in trades.columns:
             gross_sharpe = _sharpe(trades["gross_pnl"])
+            gross_curve = (1.0 + trades["gross_pnl"]).cumprod()
+            if len(gross_curve) > 0:
+                gross_return = float(gross_curve.iloc[-1] - 1.0)
 
     metrics: dict[str, float] = {
         "sharpe": float(net_sharpe),
@@ -74,7 +86,10 @@ def summary(
         "hit_rate": float(hit_rate),
         "avg_return": float(avg_ret),
         "net_return": float(net_return),
+        "gross_return": float(gross_return),
         "total_costs": float(total_costs),
+        "total_fee_costs": float(total_fee_costs),
+        "total_slippage_costs": float(total_slippage_costs),
         "turnover": float(turnover),
     }
 

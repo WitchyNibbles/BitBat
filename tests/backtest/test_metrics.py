@@ -37,6 +37,8 @@ def test_summary_contains_cost_metrics(tmp_path: Path, monkeypatch: pytest.Monke
     trades = pd.DataFrame(
         {
             "position": np.random.choice([0, 1], size=len(idx)),
+            "fee_costs": np.full(len(idx), 0.0006),
+            "slippage_costs": np.full(len(idx), 0.0004),
             "costs": np.full(len(idx), 0.001),
             "gross_pnl": np.random.normal(0.001, 0.01, size=len(idx)),
             "pnl": np.random.normal(0.0005, 0.01, size=len(idx)),
@@ -50,6 +52,11 @@ def test_summary_contains_cost_metrics(tmp_path: Path, monkeypatch: pytest.Monke
     assert "net_sharpe" in metrics
     assert "gross_sharpe" in metrics
     assert "total_costs" in metrics
+    assert "total_fee_costs" in metrics
+    assert "total_slippage_costs" in metrics
     assert "net_return" in metrics
+    assert "gross_return" in metrics
     assert metrics["sharpe"] == metrics["net_sharpe"]
     assert metrics["total_costs"] > 0
+    assert metrics["total_fee_costs"] > 0
+    assert metrics["total_slippage_costs"] > 0
