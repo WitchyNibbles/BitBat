@@ -38,7 +38,7 @@ Success criteria:
 **Goal:** Replace optimistic evaluation with realistic, leakage-resistant, and cost-aware model assessment.
 **Depends on:** Phase 14
 **Requirements:** [EVAL-01, EVAL-02, EVAL-03]
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 **Status:** In Progress
 
 Success criteria:
@@ -66,7 +66,7 @@ Success criteria:
 |-------|-----------|----------------|--------|-----------|
 | 13. Data and Label Contract Upgrade | v1.2 | 3/3 | Complete | 2026-02-25 |
 | 14. Baseline Models and Retraining Cadence | v1.2 | 3/3 | Complete | 2026-02-26 |
-| 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 1/3 | In Progress | - |
+| 15. Cost-Aware Walk-Forward Evaluation | v1.2 | 2/3 | In Progress | - |
 | 16. Promotion Guardrails and Optimization Safety | v1.2 | 0/0 | Not started | - |
 
 ## Next
