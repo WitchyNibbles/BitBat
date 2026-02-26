@@ -2366,6 +2366,91 @@ def test_cli_monitor_status_and_snapshots(
     assert "Recent snapshots" in snapshots_out
 
 
+def test_cli_monitor_status_outputs_pair_counts_without_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from bitbat.autonomous.db import AutonomousDB
+    from bitbat.autonomous.models import init_database
+
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_status_counts.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_status_counts_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    init_database(db_url)
+    db = AutonomousDB(db_url)
+
+    with db.session() as session:
+        first = db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now().replace(microsecond=0),
+            predicted_direction="up",
+            p_up=0.7,
+            p_down=0.2,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+            predicted_return=0.01,
+            predicted_price=100.0,
+        )
+        db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now().replace(microsecond=0),
+            predicted_direction="down",
+            p_up=0.2,
+            p_down=0.7,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+            predicted_return=-0.01,
+            predicted_price=99.0,
+        )
+        db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now().replace(microsecond=0),
+            predicted_direction="up",
+            p_up=0.6,
+            p_down=0.3,
+            model_version="v2",
+            freq="5m",
+            horizon="30m",
+            predicted_return=0.02,
+            predicted_price=101.0,
+        )
+        db.realize_prediction(
+            session=session,
+            prediction_id=first.id,
+            actual_return=0.015,
+            actual_direction="up",
+        )
+
+    monkeypatch.chdir(tmp_path)
+    argv_status = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "status",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv_status)
+    main()
+    status_out = capsys.readouterr().out
+
+    assert "Monitoring status for 1h/4h" in status_out
+    assert "Latest snapshot: none" in status_out
+    assert "Total predictions: 2" in status_out
+    assert "Unrealized predictions: 1" in status_out
+    assert "Realized predictions: 1" in status_out
+
+
 def test_cli_monitor_status_and_snapshots_schema_error_message(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

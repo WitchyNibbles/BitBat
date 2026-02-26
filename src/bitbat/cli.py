@@ -1573,6 +1573,11 @@ def monitor_status(freq: str | None, horizon: str | None) -> None:
         _raise_monitor_schema_error(exc, db_url)
 
     with db.session() as session:
+        lifecycle_counts = db.get_prediction_counts(
+            session=session,
+            freq=freq_val,
+            horizon=horizon_val,
+        )
         latest_snapshot = (
             session.query(PerformanceSnapshot)
             .filter(
@@ -1585,16 +1590,12 @@ def monitor_status(freq: str | None, horizon: str | None) -> None:
         last_retraining = (
             session.query(RetrainingEvent).order_by(RetrainingEvent.started_at.desc()).first()
         )
-        pending_count = len(
-            db.get_unrealized_predictions(
-                session=session,
-                freq=freq_val,
-                horizon=horizon_val,
-            )
-        )
 
     click.echo(f"Monitoring status for {freq_val}/{horizon_val}")
-    click.echo(f"  Pending validations: {pending_count}")
+    click.echo(f"  Total predictions: {int(lifecycle_counts['total_predictions'])}")
+    click.echo(f"  Unrealized predictions: {int(lifecycle_counts['unrealized_predictions'])}")
+    click.echo(f"  Realized predictions: {int(lifecycle_counts['realized_predictions'])}")
+    click.echo(f"  Pending validations: {int(lifecycle_counts['unrealized_predictions'])}")
     if latest_snapshot is None:
         click.echo("  Latest snapshot: none")
     else:
