@@ -22,7 +22,7 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Monitoring Signal Integrity
 
-- [ ] **MON-04**: Operator can distinguish "no prediction generated", "predictions pending
+- [x] **MON-04**: Operator can distinguish "no prediction generated", "predictions pending
   realization", and "realized metrics available" states from one cycle summary payload.
 - [ ] **MON-05**: Operator can run monitor status and view total, unrealized, and realized
   prediction counts for the active pair.
@@ -66,7 +66,7 @@ Deferred until monitor alignment and metrics integrity are complete.
 | ALGN-02 | Phase 17 | Complete |
 | ALGN-03 | Phase 17 | Complete |
 | SCHE-04 | Phase 17 | Complete |
-| MON-04 | Phase 18 | Pending |
+| MON-04 | Phase 18 | Complete |
 | MON-05 | Phase 18 | Pending |
 | MON-06 | Phase 18 | Pending |
 | QUAL-07 | Phase 19 | Pending |

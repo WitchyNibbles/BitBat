@@ -27,8 +27,8 @@ Success criteria:
 **Goal:** Make monitor outputs unambiguous when predictions are missing, pending realization, or realized.
 **Depends on:** Phase 17
 **Requirements:** [MON-04, MON-05, MON-06]
-**Plans:** 0/3 plans complete
-**Status:** Pending
+**Plans:** 1/3 plans complete
+**Status:** In Progress
 
 Success criteria:
 1. Cycle summary includes explicit status fields for prediction generation, pending validations, and realized sample availability.
@@ -55,10 +55,10 @@ Success criteria:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 17. Runtime Pair Alignment and Startup Guardrails | v1.3 | 3/3 | Complete | 2026-02-26 |
-| 18. Monitoring Cycle Semantics and Operator Diagnostics | v1.3 | 0/3 | Pending | — |
+| 18. Monitoring Cycle Semantics and Operator Diagnostics | v1.3 | 1/3 | In Progress | — |
 | 19. Regression Gates and Runbook Hardening | v1.3 | 0/2 | Pending | — |
 
 ## Next
 
-- Start with `$gsd-discuss-phase 18` to confirm monitoring-cycle diagnostic semantics.
-- Then run `$gsd-plan-phase 18` to generate executable plans.
+- Continue with `$gsd-execute-phase 18` to run Plans 18-02 and 18-03.
+- Then run phase verification (`$gsd-verify-work 18` or execute-phase verifier step) before completion.
