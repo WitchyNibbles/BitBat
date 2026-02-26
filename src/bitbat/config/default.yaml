@@ -31,6 +31,8 @@ model:
   optimization:
     trials: 20
     timeout_seconds: 0
+    min_deflated_sharpe: 0.0
+    max_overfit_probability: 0.5
     train_window: ""
     backtest_window: ""
     window_step: ""

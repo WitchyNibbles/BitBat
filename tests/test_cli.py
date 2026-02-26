@@ -1110,6 +1110,138 @@ def test_cli_model_optimize_persists_nested_summary(
     assert payload["config"]["n_trials"] == 7
 
 
+def test_cli_model_cv_persists_safeguard_payloads_and_block_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "cv_safeguards_config.yaml",
+        enable_sentiment=False,
+    )
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n".join(
+                [
+                    "model:",
+                    "  optimization:",
+                    "    trials: 25",
+                ]
+            )
+            + "\n"
+        )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=72, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 24)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.01, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+
+    class FakeDMatrix:
+        def __init__(self, data: pd.DataFrame, **kwargs: Any) -> None:
+            self.data = data
+
+    class FakeXGBModel:
+        def predict(self, dmatrix: FakeDMatrix) -> np.ndarray:
+            return np.full(len(dmatrix.data), 0.006)
+
+    class FakeRFModel:
+        def predict(self, features: pd.DataFrame) -> np.ndarray:
+            return np.full(len(features), 0.008)
+
+    def fake_fit_xgb(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeXGBModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeXGBModel(), {}
+
+    def fake_fit_random_forest(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeRFModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeRFModel(), {}
+
+    def fake_metrics(y_true: Any, y_pred: Any) -> dict[str, float]:
+        del y_true
+        mean_value = float(np.mean(np.asarray(y_pred, dtype="float64")))
+        return {
+            "rmse": max(0.001, 0.02 - mean_value),
+            "mae": 0.003,
+            "r2": 0.1,
+            "directional_accuracy": 0.56,
+            "correlation": 0.3,
+            "n_samples": 24,
+        }
+
+    def fake_safeguards(
+        outer_folds: list[dict[str, Any]],
+        *,
+        trial_count: int,
+        min_deflated_sharpe: float = 0.0,
+        max_overfit_probability: float = 0.50,
+    ) -> dict[str, Any]:
+        del trial_count, min_deflated_sharpe, max_overfit_probability
+        outer_score = float(outer_folds[0]["outer_score"])
+        if outer_score >= 0.013:
+            return {"pass": True, "reasons": [], "deflated_sharpe": 0.8, "overfit_probability": 0.2}
+        return {
+            "pass": False,
+            "reasons": ["overfit_probability_above_threshold"],
+            "deflated_sharpe": -0.4,
+            "overfit_probability": 0.7,
+        }
+
+    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.compute_multiple_testing_safeguards", fake_safeguards)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "cv",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "both",
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-03 00:00:00",
+        "--windows",
+        "2024-01-01 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-03 00:00:00",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    summary = json.loads((Path("metrics") / "cv_summary.json").read_text(encoding="utf-8"))
+    assert "safeguards" in summary["candidate_reports"]["xgb"]
+    assert "safeguards" in summary["candidate_reports"]["random_forest"]
+    assert summary["candidate_reports"]["random_forest"]["safeguards"]["pass"] is False
+    assert summary["champion_decision"]["promote_candidate"] is False
+    assert summary["champion_decision"]["reason"] == "incumbent-retained-by-rule"
+
+
 def test_cli_backtest_cost_slippage_reports_net_and_gross(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

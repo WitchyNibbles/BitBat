@@ -26,6 +26,7 @@ from bitbat.ingest import prices as prices_module
 from bitbat.labeling.returns import forward_return
 from bitbat.model.evaluate import (
     build_candidate_report,
+    compute_multiple_testing_safeguards,
     regression_metrics,
     select_champion_report,
 )
@@ -669,15 +670,34 @@ def model_cv(
             primary_family,
             {"folds": [], "average_rmse": 0.0, "average_mae": 0.0},
         )
-        candidate_reports = {
-            model_family: build_candidate_report(
+        optimization_cfg = model_cfg.get("optimization", {}) if isinstance(model_cfg, dict) else {}
+        safeguard_trial_count = int(
+            optimization_cfg.get("trials", max(len(primary_metrics["folds"]), 1))
+        )
+        safeguard_min_deflated_sharpe = float(optimization_cfg.get("min_deflated_sharpe", 0.0))
+        safeguard_max_overfit_probability = float(
+            optimization_cfg.get("max_overfit_probability", 0.50)
+        )
+
+        candidate_reports: dict[str, dict[str, Any]] = {}
+        for model_family, folds_summary in summary_by_family.items():
+            if not folds_summary:
+                continue
+            safeguards = compute_multiple_testing_safeguards(
+                [
+                    {"outer_score": float(fold_metric.get("rmse", 0.0))}
+                    for fold_metric in folds_summary
+                ],
+                trial_count=safeguard_trial_count,
+                min_deflated_sharpe=safeguard_min_deflated_sharpe,
+                max_overfit_probability=safeguard_max_overfit_probability,
+            )
+            candidate_reports[model_family] = build_candidate_report(
                 candidate_id=model_family,
                 family=model_family,
                 fold_metrics=folds_summary,
+                safeguards=safeguards,
             )
-            for model_family, folds_summary in summary_by_family.items()
-            if folds_summary
-        }
         champion_decision = select_champion_report(
             candidate_reports=candidate_reports,
             incumbent_id=primary_family if primary_family in candidate_reports else None,
