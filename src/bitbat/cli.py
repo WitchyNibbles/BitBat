@@ -24,7 +24,11 @@ from bitbat.dataset.splits import generate_rolling_windows, walk_forward
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.ingest import prices as prices_module
 from bitbat.labeling.returns import forward_return
-from bitbat.model.evaluate import regression_metrics
+from bitbat.model.evaluate import (
+    build_candidate_report,
+    regression_metrics,
+    select_champion_report,
+)
 from bitbat.model.infer import predict_bar
 from bitbat.model.persist import (
     default_model_artifact_path,
@@ -581,6 +585,10 @@ def model_cv(
     summary_by_family: dict[str, list[dict[str, Any]]] = {
         model_family: [] for model_family in selected_families
     }
+    cv_cost_bps = float(_config().get("cost_bps", 4.0))
+    cv_fee_bps = float(_config().get("fee_bps", cv_cost_bps))
+    cv_slippage_bps = float(_config().get("slippage_bps", 0.0))
+    cv_allow_short = bool(_config().get("allow_short", False))
     for idx, fold in enumerate(folds):
         if fold.train.empty or fold.test.empty:
             continue
@@ -605,7 +613,35 @@ def model_cv(
                 )
 
             predicted = _predict_baseline(model_family, model, X_test)
-            metrics = regression_metrics(y_test, predicted)
+            regression = regression_metrics(y_test, predicted)
+            predicted_series = pd.Series(predicted, index=X_test.index, dtype="float64")
+            realized_returns = y_test.astype("float64")
+            synthetic_close = pd.Series(
+                100.0 * np.cumprod(1.0 + realized_returns.to_numpy()),
+                index=realized_returns.index,
+                dtype="float64",
+            )
+            trades, equity = run_strategy(
+                synthetic_close,
+                predicted_series,
+                allow_short=cv_allow_short,
+                cost_bps=cv_cost_bps,
+                fee_bps=cv_fee_bps,
+                slippage_bps=cv_slippage_bps,
+            )
+            risk = summarize_backtest(equity, trades)
+
+            metrics = {
+                **regression,
+                "net_sharpe": float(risk.get("net_sharpe", risk.get("sharpe", 0.0))),
+                "gross_sharpe": float(risk.get("gross_sharpe", 0.0)),
+                "max_drawdown": float(risk.get("max_drawdown", 0.0)),
+                "net_return": float(risk.get("net_return", 0.0)),
+                "gross_return": float(risk.get("gross_return", 0.0)),
+                "total_costs": float(risk.get("total_costs", 0.0)),
+                "total_fee_costs": float(risk.get("total_fee_costs", 0.0)),
+                "total_slippage_costs": float(risk.get("total_slippage_costs", 0.0)),
+            }
             summary_by_family[model_family].append(metrics)
             click.echo(
                 "Fold "
@@ -628,7 +664,37 @@ def model_cv(
 
     if family_metrics:
         primary_family = selected_families[0]
-        primary_metrics = family_metrics.get(primary_family, {"folds": [], "average_rmse": 0.0, "average_mae": 0.0})
+        primary_metrics = family_metrics.get(
+            primary_family,
+            {"folds": [], "average_rmse": 0.0, "average_mae": 0.0},
+        )
+        candidate_reports = {
+            model_family: build_candidate_report(
+                candidate_id=model_family,
+                family=model_family,
+                fold_metrics=folds_summary,
+            )
+            for model_family, folds_summary in summary_by_family.items()
+            if folds_summary
+        }
+        champion_decision = select_champion_report(
+            candidate_reports=candidate_reports,
+            incumbent_id=primary_family if primary_family in candidate_reports else None,
+        )
+        if champion_decision.get("winner"):
+            click.echo(
+                "Champion "
+                f"[{champion_decision['winner']}]: "
+                f"promote={champion_decision['promote_candidate']} "
+                f"({champion_decision.get('reason', 'rule-applied')})"
+            )
+
+        primary_report = candidate_reports.get(primary_family, {})
+        primary_directional = (
+            primary_report.get("metrics", {}).get("directional", {})
+            if isinstance(primary_report, dict)
+            else {}
+        )
         aggregate = {
             "primary_family": primary_family,
             "selected_families": selected_families,
@@ -636,6 +702,11 @@ def model_cv(
             "folds": primary_metrics["folds"],
             "average_rmse": primary_metrics["average_rmse"],
             "average_mae": primary_metrics["average_mae"],
+            "average_balanced_accuracy": float(
+                primary_directional.get("mean_directional_accuracy", 0.0)
+            ),
+            "candidate_reports": candidate_reports,
+            "champion_decision": champion_decision,
         }
         metrics_dir = Path("metrics")
         metrics_dir.mkdir(parents=True, exist_ok=True)
