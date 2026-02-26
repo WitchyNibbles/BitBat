@@ -1144,6 +1144,61 @@ def test_cli_monitor_run_once(
     assert "Validations: 2" in out
 
 
+def test_cli_monitor_run_once_reports_regime_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_diag.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_diag_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class FakeAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def run_once(self) -> dict[str, Any]:
+            return {
+                "validations": 1,
+                "correct": 1,
+                "hit_rate": 1.0,
+                "drift_detected": False,
+                "retraining_triggered": False,
+                "validation_errors": [],
+                "metrics": {
+                    "window_diagnostics": {
+                        "regime": "medium_volatility",
+                        "drift_score": 0.0123,
+                    }
+                },
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", FakeAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "run-once",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Regime: medium_volatility" in out
+    assert "Drift score: 0.012300" in out
+
+
 def test_cli_monitor_run_once_schema_error_message(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

@@ -1051,6 +1051,11 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
     click.echo(f"  Validations: {result['validations']}")
     click.echo(f"  Drift detected: {result['drift_detected']}")
     click.echo(f"  Retraining triggered: {result['retraining_triggered']}")
+    metrics = result.get("metrics", {})
+    diagnostics = metrics.get("window_diagnostics") if isinstance(metrics, dict) else None
+    if isinstance(diagnostics, dict):
+        click.echo(f"  Regime: {diagnostics.get('regime', 'unknown')}")
+        click.echo(f"  Drift score: {float(diagnostics.get('drift_score', 0.0)):.6f}")
 
 
 @monitor.command("start")

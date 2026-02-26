@@ -10,6 +10,7 @@ from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.autonomous.models import RetrainingEvent
 from bitbat.config.loader import get_runtime_config, load_config
+from bitbat.model.evaluate import window_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,32 @@ class DriftDetector:
             drift_cfg.get("directional_accuracy_threshold", 0.50)
         )
         self.rmse_increase_threshold = float(drift_cfg.get("rmse_increase_threshold", 1.5))
+        self.drift_score_threshold = float(drift_cfg.get("drift_score_threshold", 0.02))
         self.cooldown_hours = int(retrain_cfg.get("cooldown_hours", 24))
+
+    def _window_diagnostics(self, predictions: list[Any]) -> dict[str, Any]:
+        actual_values: list[float] = []
+        predicted_values: list[float] = []
+        for row in predictions:
+            if row.actual_return is None or row.predicted_return is None:
+                continue
+            actual_values.append(float(row.actual_return))
+            predicted_values.append(float(row.predicted_return))
+
+        if not actual_values:
+            return {
+                "window_id": f"{self.window_days}d",
+                "regime": "low_volatility",
+                "drift_score": 0.0,
+                "n_samples": 0,
+            }
+
+        return window_diagnostics(
+            actual_values,
+            predicted_values,
+            window_id=f"{self.window_days}d",
+            family=None,
+        )
 
     def get_baseline_metrics(self) -> dict[str, Any]:
         """Return baseline metrics from active model metadata."""
@@ -87,8 +113,13 @@ class DriftDetector:
 
         metrics = PerformanceMetrics(predictions).to_dict()
         baseline = self.get_baseline_metrics()
+        diagnostics = self._window_diagnostics(predictions)
         metrics["baseline_hit_rate"] = baseline["baseline_hit_rate"]
         metrics["baseline_model_version"] = baseline["model_version"]
+        metrics["window_days"] = self.window_days
+        metrics["window_diagnostics"] = diagnostics
+        metrics["regime"] = diagnostics.get("regime")
+        metrics["drift_score"] = float(diagnostics.get("drift_score", 0.0))
 
         realized_predictions = int(metrics["realized_predictions"])
         if realized_predictions < self.min_predictions_required:
@@ -102,6 +133,7 @@ class DriftDetector:
         mae = float(metrics.get("mae", 0.0))
         directional_accuracy = float(metrics.get("directional_accuracy", 1.0))
         lose_streak = int(metrics["lose_streak"])
+        drift_score = float(metrics.get("drift_score", 0.0))
 
         reasons: list[str] = []
 
@@ -118,6 +150,12 @@ class DriftDetector:
 
         if lose_streak >= 10:
             reasons.append(f"Losing streak too long: {lose_streak}")
+
+        if drift_score > self.drift_score_threshold:
+            reasons.append(
+                f"Window drift score exceeds threshold: "
+                f"{drift_score:.6f} > {self.drift_score_threshold:.6f}"
+            )
 
         if not reasons:
             return (False, "No drift detected", metrics)

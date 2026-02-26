@@ -23,6 +23,8 @@ def test_drift_detector_empty_returns_no_drift(tmp_path: Path) -> None:
     assert drift is False
     assert "Insufficient" in reason
     assert metrics["realized_predictions"] == 0
+    assert metrics["drift_score"] == 0.0
+    assert metrics["window_diagnostics"]["n_samples"] == 0
 
 
 def test_drift_detector_detects_hit_rate_degradation(tmp_path: Path) -> None:
@@ -72,6 +74,8 @@ def test_drift_detector_detects_hit_rate_degradation(tmp_path: Path) -> None:
     assert drift is True
     assert "Hit-rate degradation" in reason or "Losing streak" in reason
     assert metrics["realized_predictions"] == 40
+    assert "window_diagnostics" in metrics
+    assert "regime" in metrics["window_diagnostics"]
 
 
 def test_drift_detector_cooldown(tmp_path: Path) -> None:
