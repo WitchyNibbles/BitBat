@@ -194,20 +194,42 @@ class MonitoringAgent:
         validation_summary = self.validator.validate_all()
 
         # Step 2: Generate a new prediction for the latest bar.
-        prediction_result = None
+        prediction_result: dict[str, Any]
         try:
-            prediction_result = self.predictor.predict_latest()
-            if prediction_result is not None:
+            raw_prediction = self.predictor.predict_latest()
+            if raw_prediction is None:
+                prediction_result = {
+                    "status": "no_prediction",
+                    "reason": "unknown",
+                    "message": "Predictor returned no payload",
+                }
+            else:
+                prediction_result = dict(raw_prediction)
+            if prediction_result.get("status") == "generated":
                 logger.info("New prediction: %s", prediction_result)
             else:
-                logger.info("No new prediction generated this cycle")
+                logger.info(
+                    "No new prediction generated this cycle (%s)",
+                    prediction_result.get("reason", "unknown"),
+                )
         except MonitorDatabaseError:
             raise
-        except Exception:
+        except Exception as exc:
             logger.exception("Prediction generation failed")
+            prediction_result = {
+                "status": "no_prediction",
+                "reason": "prediction_exception",
+                "message": "Prediction generation failed",
+                "details": {"error": str(exc)},
+            }
 
         try:
             with self.db.session() as session:
+                pending_predictions = self.db.get_unrealized_predictions(
+                    session=session,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                )
                 recent_predictions = self.db.get_recent_predictions(
                     session=session,
                     freq=self.freq,
@@ -224,8 +246,23 @@ class MonitoringAgent:
             ) from exc
 
         metrics = PerformanceMetrics(recent_predictions).to_dict()
+        pending_count = int(len(pending_predictions))
+        realized_count = int(metrics.get("realized_predictions", 0))
+        prediction_state = (
+            "generated" if prediction_result.get("status") == "generated" else "none"
+        )
+        prediction_reason = str(prediction_result.get("reason", "unknown"))
+        prediction_message = str(prediction_result.get("message", ""))
+
+        if realized_count > 0:
+            realization_state = "realized"
+        elif pending_count > 0:
+            realization_state = "pending"
+        else:
+            realization_state = "none"
+
         model_version = self._active_model_version()
-        if int(metrics["realized_predictions"]) > 0:
+        if realized_count > 0:
             self._store_performance_snapshot(metrics, model_version=model_version)
 
         drift_detected, drift_reason, drift_metrics = self.drift_detector.check_drift()
@@ -250,6 +287,16 @@ class MonitoringAgent:
 
         result = {
             "prediction": prediction_result,
+            "prediction_state": prediction_state,
+            "prediction_reason": prediction_reason,
+            "prediction_message": prediction_message,
+            "realization_state": realization_state,
+            "pending_validations": pending_count,
+            "cycle_state": {
+                "prediction_state": prediction_state,
+                "prediction_reason": prediction_reason,
+                "realization_state": realization_state,
+            },
             "validations": int(validation_summary.get("validated_count", 0)),
             "correct": int(validation_summary.get("correct_count", 0)),
             "hit_rate": float(validation_summary.get("hit_rate", 0.0)),
@@ -261,6 +308,13 @@ class MonitoringAgent:
             "metrics": metrics,
         }
 
+        logger.info(
+            "Cycle state: prediction_state=%s reason=%s realization_state=%s pending=%d",
+            prediction_state,
+            prediction_reason,
+            realization_state,
+            pending_count,
+        )
         logger.info("Monitoring cycle complete: %s", result)
         return result
 

@@ -168,6 +168,96 @@ def test_predict_latest_returns_insufficient_data_reason(
     assert result["details"]["required_bars"] == 30
 
 
+def test_run_once_reports_cycle_state_for_missing_model_no_predictions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    agent = MonitoringAgent(db, "1h", "4h")
+    _disable_ingestion(agent)
+    agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
+        "validated_count": 0,
+        "correct_count": 0,
+        "hit_rate": 0.0,
+        "errors": [],
+    }
+    agent.predictor.predict_latest = lambda: {  # type: ignore[method-assign]
+        "status": "no_prediction",
+        "reason": "missing_model",
+        "message": "Model artifact not found",
+    }
+    agent.drift_detector.check_drift = lambda: (  # type: ignore[method-assign]
+        False,
+        "No drift detected",
+        {"hit_rate": 0.0},
+    )
+    agent.continuous_trainer.should_retrain = lambda: False  # type: ignore[method-assign]
+
+    result = agent.run_once()
+
+    assert result["prediction_state"] == "none"
+    assert result["prediction_reason"] == "missing_model"
+    assert result["realization_state"] == "none"
+
+
+def test_run_once_reports_cycle_state_for_pending_realizations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    with db.session() as session:
+        db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now(UTC).replace(tzinfo=None),
+            predicted_direction="up",
+            p_up=0.6,
+            p_down=0.3,
+            model_version="v1.0.0",
+            freq="1h",
+            horizon="4h",
+            predicted_return=0.01,
+            predicted_price=100.0,
+        )
+
+    agent = MonitoringAgent(db, "1h", "4h")
+    _disable_ingestion(agent)
+    agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
+        "validated_count": 0,
+        "correct_count": 0,
+        "hit_rate": 0.0,
+        "errors": [],
+    }
+    agent.predictor.predict_latest = lambda: {  # type: ignore[method-assign]
+        "status": "no_prediction",
+        "reason": "duplicate_bar",
+        "message": "Prediction already exists",
+    }
+    agent.drift_detector.check_drift = lambda: (  # type: ignore[method-assign]
+        False,
+        "No drift detected",
+        {"hit_rate": 0.0},
+    )
+    agent.continuous_trainer.should_retrain = lambda: False  # type: ignore[method-assign]
+
+    result = agent.run_once()
+
+    assert result["prediction_state"] == "none"
+    assert result["prediction_reason"] == "duplicate_bar"
+    assert result["realization_state"] == "pending"
+
+
 def test_monitoring_agent_integration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
