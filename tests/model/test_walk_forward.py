@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from bitbat.dataset.splits import Fold
+from bitbat.dataset.splits import Fold, generate_rolling_windows, walk_forward
 from bitbat.model.walk_forward import (
     FoldResult,
     WalkForwardResult,
@@ -123,3 +123,50 @@ class TestWalkForwardValidator:
         r = v.run()
         assert r.n_folds == 0
         assert r.mean_rmse == 0.0
+
+
+def test_generate_rolling_windows_is_deterministic() -> None:
+    idx = pd.date_range("2024-01-01 00:00:00", periods=24 * 25, freq="1h")
+    windows = generate_rolling_windows(
+        idx,
+        train_window="5D",
+        backtest_window="2D",
+        step="2D",
+        start="2024-01-01 00:00:00",
+        end="2024-01-20 00:00:00",
+    )
+
+    assert len(windows) == 7
+    assert windows[0] == (
+        "2024-01-01 00:00:00",
+        "2024-01-06 00:00:00",
+        "2024-01-06 00:00:00",
+        "2024-01-08 00:00:00",
+    )
+    assert windows[-1] == (
+        "2024-01-13 00:00:00",
+        "2024-01-18 00:00:00",
+        "2024-01-18 00:00:00",
+        "2024-01-20 00:00:00",
+    )
+
+
+def test_walk_forward_with_generated_windows_preserves_ordering() -> None:
+    idx = pd.date_range("2024-01-01 00:00:00", periods=24 * 30, freq="1h")
+    windows = generate_rolling_windows(
+        idx,
+        train_window="4D",
+        backtest_window="2D",
+        step="2D",
+        start="2024-01-01 00:00:00",
+        end="2024-01-21 00:00:00",
+    )
+
+    folds = walk_forward(indices=idx, windows=windows, embargo_bars=1)
+    assert len(folds) == len(windows)
+    assert len(folds) > 0
+    assert any(not fold.train.empty and not fold.test.empty for fold in folds)
+    for fold in folds:
+        if fold.train.empty or fold.test.empty:
+            continue
+        assert fold.train.max() < fold.test.min()

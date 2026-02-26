@@ -14,6 +14,57 @@ class Fold:
     test: pd.Index
 
 
+def _as_timedelta(value: str | pd.Timedelta) -> pd.Timedelta:
+    if isinstance(value, pd.Timedelta):
+        return value
+    parsed = pd.to_timedelta(value)
+    if parsed <= pd.Timedelta(0):
+        raise ValueError(f"Window duration must be positive: {value}")
+    return parsed
+
+
+def generate_rolling_windows(
+    indices: Iterable[pd.Timestamp],
+    *,
+    train_window: str | pd.Timedelta,
+    backtest_window: str | pd.Timedelta,
+    step: str | pd.Timedelta | None = None,
+    start: str | pd.Timestamp | None = None,
+    end: str | pd.Timestamp | None = None,
+) -> list[tuple[str, str, str, str]]:
+    """Generate deterministic rolling train/backtest windows from duration controls."""
+    index = pd.Index(sorted(pd.to_datetime(list(indices))), name="timestamp")
+    if index.empty:
+        return []
+
+    train_delta = _as_timedelta(train_window)
+    backtest_delta = _as_timedelta(backtest_window)
+    step_delta = _as_timedelta(step) if step is not None else backtest_delta
+
+    start_bound = pd.Timestamp(start) if start is not None else index.min()
+    end_bound = pd.Timestamp(end) if end is not None else index.max()
+    if start_bound >= end_bound:
+        return []
+
+    cursor = start_bound + train_delta
+    windows: list[tuple[str, str, str, str]] = []
+    while cursor + backtest_delta <= end_bound:
+        train_start = cursor - train_delta
+        train_end = cursor
+        test_start = cursor
+        test_end = cursor + backtest_delta
+
+        windows.append((
+            train_start.isoformat(sep=" "),
+            train_end.isoformat(sep=" "),
+            test_start.isoformat(sep=" "),
+            test_end.isoformat(sep=" "),
+        ))
+        cursor += step_delta
+
+    return windows
+
+
 def walk_forward(
     indices: Iterable[pd.Timestamp],
     windows: list[tuple[str, str, str, str]],
