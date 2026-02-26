@@ -168,6 +168,46 @@ class TestOptimizationResult:
         score_str = str(s["best_score"])
         assert len(score_str.split(".")[-1]) <= 6
 
+    def test_summary_includes_nested_outer_fold_metadata(
+        self, result: OptimizationResult
+    ) -> None:
+        summary = result.summary()
+        assert summary.get("mode") == "nested_walk_forward"
+        outer = summary.get("outer_folds")
+        assert isinstance(outer, list)
+        assert len(outer) == 2
+        first = outer[0]
+        assert "outer_fold" in first
+        assert "inner_fold_count" in first
+        assert "selected_params" in first
+        assert "outer_score" in first
+
+    def test_summary_nested_provenance_is_deterministic_for_fixed_seed(self) -> None:
+        rng = np.random.default_rng(1337)
+        n = 90
+        idx = pd.date_range("2024-01-01", periods=n, freq="1h")
+        X = pd.DataFrame(
+            {
+                "feat_a": rng.normal(size=n),
+                "feat_b": rng.normal(size=n),
+            },
+            index=idx,
+        )
+        y = pd.Series(rng.normal(0.0, 0.01, size=n), index=idx, dtype="float64")
+        folds = [
+            Fold(train=idx[:45], test=idx[45:60]),
+            Fold(train=idx[:60], test=idx[60:75]),
+            Fold(train=idx[:75], test=idx[75:90]),
+        ]
+
+        one = HyperparamOptimizer(X, y, folds, seed=99).optimize(n_trials=2, timeout=30).summary()
+        two = HyperparamOptimizer(X, y, folds, seed=99).optimize(n_trials=2, timeout=30).summary()
+
+        assert one["best_params"] == two["best_params"]
+        assert one["best_score"] == two["best_score"]
+        assert one["outer_folds"] == two["outer_folds"]
+        assert one["provenance"] == two["provenance"]
+
 
 # -----------------------------------------------------------
 # Edge cases
