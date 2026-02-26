@@ -113,6 +113,59 @@ def test_model_and_retraining_events_flow(tmp_path: Path) -> None:
         )
 
 
+def test_monitor_status_prediction_counts_are_pair_scoped(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    with db.session() as session:
+        first_pair = []
+        for idx in range(3):
+            first_pair.append(
+                db.store_prediction(
+                    session=session,
+                    timestamp_utc=datetime(2026, 2, 1, idx, 0, 0),
+                    predicted_direction="up",
+                    p_up=0.55,
+                    p_down=0.35,
+                    model_version="v1",
+                    freq="1h",
+                    horizon="4h",
+                )
+            )
+
+        db.realize_prediction(
+            session=session,
+            prediction_id=first_pair[0].id,
+            actual_return=0.01,
+            actual_direction="up",
+        )
+
+        for idx in range(2):
+            pred = db.store_prediction(
+                session=session,
+                timestamp_utc=datetime(2026, 2, 2, idx, 0, 0),
+                predicted_direction="down",
+                p_up=0.2,
+                p_down=0.7,
+                model_version="v2",
+                freq="5m",
+                horizon="30m",
+            )
+            db.realize_prediction(
+                session=session,
+                prediction_id=pred.id,
+                actual_return=-0.01,
+                actual_direction="down",
+            )
+
+        counts = db.get_prediction_counts(session=session, freq="1h", horizon="4h")
+
+    assert counts["total_predictions"] == 3
+    assert counts["unrealized_predictions"] == 2
+    assert counts["realized_predictions"] == 1
+
+
 def test_deactivate_old_models_returns_updated_count(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)

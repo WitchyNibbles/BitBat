@@ -242,6 +242,25 @@ class AutonomousDB:
             query = query.filter(PredictionOutcome.timestamp_utc < cutoff_time)
         return list(query.order_by(PredictionOutcome.timestamp_utc.asc()).all())
 
+    def get_prediction_counts(self, session: Session, freq: str, horizon: str) -> dict[str, int | str]:
+        """Return pair-scoped total/unrealized/realized prediction counts."""
+        base_query = session.query(PredictionOutcome).filter(
+            PredictionOutcome.freq == freq,
+            PredictionOutcome.horizon == horizon,
+        )
+        total_predictions = int(base_query.count())
+        realized_predictions = int(
+            base_query.filter(PredictionOutcome.actual_return.is_not(None)).count()
+        )
+        unrealized_predictions = total_predictions - realized_predictions
+        return {
+            "freq": freq,
+            "horizon": horizon,
+            "total_predictions": total_predictions,
+            "unrealized_predictions": unrealized_predictions,
+            "realized_predictions": realized_predictions,
+        }
+
     def realize_prediction(
         self,
         session: Session,
