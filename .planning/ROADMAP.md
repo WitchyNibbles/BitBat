@@ -13,8 +13,8 @@
 **Goal:** Ensure monitor startup uses an intended runtime pair and blocks immediately on missing model artifacts.
 **Depends on:** v1.2 verified baseline
 **Requirements:** [ALGN-01, ALGN-02, ALGN-03, SCHE-04]
-**Plans:** 0/3 plans complete
-**Status:** Pending
+**Plans:** 3/3 plans complete
+**Status:** Complete (2026-02-26)
 
 Success criteria:
 1. Monitor startup reports resolved config source and resolved `freq/horizon` before cycle execution.
@@ -54,11 +54,11 @@ Success criteria:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 17. Runtime Pair Alignment and Startup Guardrails | v1.3 | 0/3 | Pending | — |
+| 17. Runtime Pair Alignment and Startup Guardrails | v1.3 | 3/3 | Complete | 2026-02-26 |
 | 18. Monitoring Cycle Semantics and Operator Diagnostics | v1.3 | 0/3 | Pending | — |
 | 19. Regression Gates and Runbook Hardening | v1.3 | 0/2 | Pending | — |
 
 ## Next
 
-- Start with `$gsd-discuss-phase 17` to confirm implementation strategy.
-- Then run `$gsd-plan-phase 17` to generate executable plans.
+- Start with `$gsd-discuss-phase 18` to confirm monitoring-cycle diagnostic semantics.
+- Then run `$gsd-plan-phase 18` to generate executable plans.

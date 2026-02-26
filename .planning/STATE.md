@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.3 roadmap approved; ready for Phase 17 planning
+**Current focus:** Phase 17 complete; preparing Phase 18 planning/execution
 
 ## Current Position
 
 Milestone: v1.3 (Autonomous Monitor Alignment and Metrics Integrity)
-Phase: 17 (runtime pair alignment and startup guardrails)
-Status: Ready for phase discussion/planning
-Last activity: 2026-02-26 - Created v1.3 roadmap (Phases 17-19)
+Phase: 18 (monitoring cycle semantics and operator diagnostics)
+Status: Phase 17 executed and verified; ready for Phase 18 planning
+Last activity: 2026-02-26 - Completed Phase 17 plans, verification, and requirement updates
 
-Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
+Progress: [███░░░░░░░] 33% for v1.3 (1/3 phases complete)
 
 ## Milestone Metrics
 
@@ -31,22 +31,24 @@ Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
 - Multiple-testing safeguards are persisted in optimization and CV candidate artifacts.
 - Champion decisions now include promotion-gate payloads with explicit rejection reasons.
 - Autonomous retrainer deployment is vetoed when promotion-gate constraints fail.
-- Monitoring loops can produce valid but confusing all-zero summaries when runtime pair has no
-  model/history; v1.3 addresses this with alignment and diagnostics.
+- Monitor startup now reports resolved config source/path + runtime pair before execution.
+- Monitor startup now fails fast when `models/{freq}_{horizon}/xgb.json` is missing.
+- Heartbeat payload now includes runtime config provenance (`config_source`, `config_path`).
+- Runtime schema compatibility now covers monitor-critical `performance_snapshots` columns.
 
 ### Pending Todos
 
-- Discuss and finalize Phase 17 implementation approach (`$gsd-discuss-phase 17`).
-- Generate execution plans for Phase 17 (`$gsd-plan-phase 17`).
+- Discuss and finalize Phase 18 implementation approach (`$gsd-discuss-phase 18`).
+- Generate execution plans for Phase 18 (`$gsd-plan-phase 18`).
+- Execute Phase 18 after planning (`$gsd-execute-phase 18`).
 
 ### Blockers/Concerns
 
-- No active blocker for planning.
-- Runtime currently observed at `5m/30m` while local artifacts/history are `1h`-based; requires
-  implementation alignment.
+- No active blocker.
+- Phase 18 should preserve Phase 17 startup alignment semantics while clarifying no-data cycle/status states.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: v1.3 initialized with requirements and roadmap
-Resume with: `$gsd-discuss-phase 17` or `$gsd-plan-phase 17`
+Stopped at: Phase 17 completed and verified
+Resume with: `$gsd-discuss-phase 18` or `$gsd-plan-phase 18`

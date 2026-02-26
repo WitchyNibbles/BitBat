@@ -11,13 +11,13 @@ Requirements for this milestone. Each maps to exactly one roadmap phase.
 
 ### Runtime Alignment and Startup Safety
 
-- [ ] **ALGN-01**: Operator can start monitoring with an explicit config source and see the
+- [x] **ALGN-01**: Operator can start monitoring with an explicit config source and see the
   resolved `freq/horizon` pair before the first cycle runs.
-- [ ] **ALGN-02**: Operator receives a startup-blocking, actionable error when no model artifact
+- [x] **ALGN-02**: Operator receives a startup-blocking, actionable error when no model artifact
   exists for the resolved `freq/horizon` pair.
-- [ ] **ALGN-03**: Operator can verify heartbeat metadata includes config source, `freq`, and
+- [x] **ALGN-03**: Operator can verify heartbeat metadata includes config source, `freq`, and
   `horizon` for the running process.
-- [ ] **SCHE-04**: Operator can run monitor status/snapshot commands without runtime SQL errors
+- [x] **SCHE-04**: Operator can run monitor status/snapshot commands without runtime SQL errors
   because schema compatibility checks cover required `performance_snapshots` columns.
 
 ### Monitoring Signal Integrity
@@ -62,10 +62,10 @@ Deferred until monitor alignment and metrics integrity are complete.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ALGN-01 | Phase 17 | Pending |
-| ALGN-02 | Phase 17 | Pending |
-| ALGN-03 | Phase 17 | Pending |
-| SCHE-04 | Phase 17 | Pending |
+| ALGN-01 | Phase 17 | Complete |
+| ALGN-02 | Phase 17 | Complete |
+| ALGN-03 | Phase 17 | Complete |
+| SCHE-04 | Phase 17 | Complete |
 | MON-04 | Phase 18 | Pending |
 | MON-05 | Phase 18 | Pending |
 | MON-06 | Phase 18 | Pending |
@@ -80,4 +80,4 @@ Deferred until monitor alignment and metrics integrity are complete.
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after v1.3 initialization from monitor metrics investigation*
+*Last updated: 2026-02-26 after Phase 17 execution and verification*
