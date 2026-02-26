@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.3 definition (autonomous monitor alignment + metrics integrity)
+**Current focus:** Milestone v1.3 roadmap approved; ready for Phase 17 planning
 
 ## Current Position
 
 Milestone: v1.3 (Autonomous Monitor Alignment and Metrics Integrity)
-Phase: Not started (defining requirements)
-Status: Defining requirements
-Last activity: 2026-02-26 - Started v1.3 from monitor empty-metrics investigation
+Phase: 17 (runtime pair alignment and startup guardrails)
+Status: Ready for phase discussion/planning
+Last activity: 2026-02-26 - Created v1.3 roadmap (Phases 17-19)
 
 Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
 
@@ -36,8 +36,8 @@ Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
 
 ### Pending Todos
 
-- Finalize v1.3 requirements confirmation.
-- Execute Phase 17 implementation (`$gsd-plan-phase 17` then `$gsd-execute-phase 17`).
+- Discuss and finalize Phase 17 implementation approach (`$gsd-discuss-phase 17`).
+- Generate execution plans for Phase 17 (`$gsd-plan-phase 17`).
 
 ### Blockers/Concerns
 
@@ -48,5 +48,5 @@ Progress: [░░░░░░░░░░] 0% for v1.3 (0/3 phases complete)
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: v1.3 requirements/roadmap definition kickoff
-Resume with: `$gsd-plan-phase 17`
+Stopped at: v1.3 initialized with requirements and roadmap
+Resume with: `$gsd-discuss-phase 17` or `$gsd-plan-phase 17`
