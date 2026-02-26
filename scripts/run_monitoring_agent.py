@@ -19,7 +19,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from bitbat.autonomous.agent import MonitoringAgent
 from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import init_database
-from bitbat.config.loader import set_runtime_config
+from bitbat.config.loader import (
+    get_runtime_config_path,
+    get_runtime_config_source,
+    set_runtime_config,
+)
 
 
 def _configure_logging() -> None:
@@ -60,6 +64,8 @@ def _write_heartbeat(
     horizon: str,
     interval: int,
     db_url: str,
+    config_source: str,
+    config_path: str,
     error: str | None = None,
 ) -> None:
     payload = {
@@ -67,6 +73,8 @@ def _write_heartbeat(
         "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
         "freq": freq,
         "horizon": horizon,
+        "config_source": config_source,
+        "config_path": config_path,
         "interval_seconds": int(interval),
         "database_url": db_url,
     }
@@ -96,6 +104,8 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _signal_handler)
 
     config = set_runtime_config(args.config)
+    config_source = get_runtime_config_source()
+    config_path = str(get_runtime_config_path())
     autonomous = config.get("autonomous", {})
     db_url = str(autonomous.get("database_url", "sqlite:///data/autonomous.db"))
     freq = str(config.get("freq", "1h"))
@@ -121,6 +131,8 @@ def main() -> int:
         horizon=horizon,
         interval=interval,
         db_url=db_url,
+        config_source=config_source,
+        config_path=config_path,
     )
 
     while not shutdown["requested"]:
@@ -133,6 +145,8 @@ def main() -> int:
                 horizon=horizon,
                 interval=interval,
                 db_url=db_url,
+                config_source=config_source,
+                config_path=config_path,
             )
         except MonitorDatabaseError as exc:
             logger.error(
@@ -148,6 +162,8 @@ def main() -> int:
                 horizon=horizon,
                 interval=interval,
                 db_url=db_url,
+                config_source=config_source,
+                config_path=config_path,
                 error=f"{exc.step}: {exc.detail}. {exc.remediation}",
             )
         except Exception:  # pragma: no cover - defensive top-level loop
@@ -159,6 +175,8 @@ def main() -> int:
                 horizon=horizon,
                 interval=interval,
                 db_url=db_url,
+                config_source=config_source,
+                config_path=config_path,
                 error="Monitoring cycle failed",
             )
         if not shutdown["requested"]:
@@ -172,6 +190,8 @@ def main() -> int:
         horizon=horizon,
         interval=interval,
         db_url=db_url,
+        config_source=config_source,
+        config_path=config_path,
     )
     return 0
 
