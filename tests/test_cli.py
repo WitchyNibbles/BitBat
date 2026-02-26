@@ -537,6 +537,204 @@ def test_cli_model_cv(
     assert "average_rmse" in summary
 
 
+def test_cli_model_cv_family_both(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=48, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 16)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.01, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+
+    class FakeDMatrix:
+        def __init__(self, data: pd.DataFrame, **kwargs: Any) -> None:
+            self.data = data
+
+    class FakeXGBModel:
+        def predict(self, dmatrix: FakeDMatrix) -> np.ndarray:
+            return np.full(len(dmatrix.data), 0.004)
+
+    class FakeRFModel:
+        def predict(self, features: pd.DataFrame) -> np.ndarray:
+            return np.full(len(features), 0.006)
+
+    def fake_fit_xgb(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeXGBModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeXGBModel(), {}
+
+    def fake_fit_random_forest(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeRFModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeRFModel(), {}
+
+    def fake_metrics(y_true: Any, y_pred: Any) -> dict[str, float]:
+        del y_true
+        mean_value = float(np.mean(np.asarray(y_pred, dtype="float64")))
+        return {
+            "rmse": mean_value,
+            "mae": mean_value / 2.0,
+            "r2": 0.1,
+            "directional_accuracy": 0.55,
+            "correlation": 0.3,
+            "n_samples": 24,
+        }
+
+    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "cv",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "both",
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-03 00:00:00",
+        "--windows",
+        "2024-01-01 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-03 00:00:00",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Aggregate [xgb]" in out
+    assert "Aggregate [random_forest]" in out
+
+    summary_path = Path("metrics") / "cv_summary.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary["selected_families"] == ["xgb", "random_forest"]
+    assert set(summary["family_metrics"]) == {"xgb", "random_forest"}
+    assert summary["primary_family"] == "xgb"
+    assert "average_rmse" in summary
+
+
+def test_cli_model_train_family_both(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=32, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "label": pd.Series((["down", "up"] * 16)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.02, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+
+    class FakeXGBModel:
+        pass
+
+    class FakeRFModel:
+        pass
+
+    saved_calls: list[tuple[str, Path]] = []
+
+    def fake_fit_xgb(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeXGBModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeXGBModel(), {}
+
+    def fake_fit_random_forest(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeRFModel, dict[str, float]]:
+        del X_train, y_train, kwargs
+        return FakeRFModel(), {}
+
+    def fake_save_baseline_artifact(
+        model: Any,
+        *,
+        family: str,
+        freq: str,
+        horizon: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        del model, metadata
+        filename = "xgb.json" if family == "xgb" else "random_forest.pkl"
+        path = Path("models") / f"{freq}_{horizon}" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("artifact", encoding="utf-8")
+        saved_calls.append((family, path))
+        return path
+
+    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.save_baseline_artifact", fake_save_baseline_artifact)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "train",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "both",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Trained xgb model saved to" in out
+    assert "Trained random_forest model saved to" in out
+    assert {family for family, _path in saved_calls} == {"xgb", "random_forest"}
+
+
 def test_cli_batch_run(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

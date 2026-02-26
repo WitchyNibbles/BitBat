@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, Literal, NoReturn
 
 import click
 import numpy as np
@@ -26,8 +26,12 @@ from bitbat.ingest import prices as prices_module
 from bitbat.labeling.returns import forward_return
 from bitbat.model.evaluate import regression_metrics
 from bitbat.model.infer import predict_bar
-from bitbat.model.persist import load as load_model
-from bitbat.model.train import fit_xgb
+from bitbat.model.persist import (
+    default_model_artifact_path,
+    load as load_model,
+    save_baseline_artifact,
+)
+from bitbat.model.train import fit_random_forest, fit_xgb
 from bitbat.timealign.calendar import ensure_utc
 
 if TYPE_CHECKING:
@@ -134,7 +138,32 @@ def _predictions_path(freq: str, horizon: str) -> Path:
 
 
 def _model_path(freq: str, horizon: str) -> Path:
-    return Path("models") / f"{freq}_{horizon}" / "xgb.json"
+    return default_model_artifact_path(freq, horizon, family="xgb")
+
+
+def _resolve_model_families(selection: str | None) -> list[Literal["xgb", "random_forest"]]:
+    configured = _config().get("model", {})
+    default_family = str(configured.get("baseline_family", "xgb")).strip().lower()
+    requested = str(selection or default_family).strip().lower()
+
+    if requested == "both":
+        return ["xgb", "random_forest"]
+    if requested not in {"xgb", "random_forest"}:
+        raise click.ClickException(
+            f"Unsupported model family '{requested}'. Expected xgb, random_forest, or both."
+        )
+    return [requested]
+
+
+def _predict_baseline(
+    family: str,
+    model: Any,
+    features: pd.DataFrame,
+) -> np.ndarray:
+    if family == "xgb":
+        dtest = xgb.DMatrix(features, feature_names=list(features.columns))
+        return np.asarray(model.predict(dtest), dtype="float64")
+    return np.asarray(model.predict(features.astype(float)), dtype="float64")
 
 
 def _raise_monitor_schema_error(exc: SchemaCompatibilityError, db_url: str) -> NoReturn:
@@ -415,6 +444,12 @@ def features_build(
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
 @click.option(
+    "--family",
+    type=click.Choice(["xgb", "random_forest", "both"], case_sensitive=False),
+    default=None,
+    help="Baseline model family selection (default: config model.baseline_family or xgb).",
+)
+@click.option(
     "--windows",
     type=str,
     nargs=4,
@@ -426,11 +461,13 @@ def model_cv(
     end: str,
     freq: str | None,
     horizon: str | None,
+    family: str | None,
     windows: Iterable[tuple[str, str, str, str]],
 ) -> None:
     """Run walk-forward cross validation."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
+    selected_families = _resolve_model_families(family)
 
     window_spec: list[tuple[str, str, str, str]] = []
     for a, b, c, d in windows:
@@ -450,7 +487,9 @@ def model_cv(
 
     folds = walk_forward(X.index, windows=window_spec, embargo_bars=1)
 
-    summary: list[dict[str, Any]] = []
+    summary_by_family: dict[str, list[dict[str, Any]]] = {
+        model_family: [] for model_family in selected_families
+    }
     for idx, fold in enumerate(folds):
         if fold.train.empty or fold.test.empty:
             continue
@@ -463,24 +502,49 @@ def model_cv(
         X_train.attrs["freq"] = freq_val
         X_train.attrs["horizon"] = horizon_val
 
-        booster, _ = fit_xgb(X_train, y_train, seed=int(_config()["seed"]))
-        dtest = xgb.DMatrix(X_test, feature_names=list(X_test.columns))
-        predicted = booster.predict(dtest)
-        metrics = regression_metrics(y_test, predicted)
-        summary.append(metrics)
-        click.echo(
-            "Fold "
-            f"{idx + 1}: rmse={metrics['rmse']:.6f}, "
-            f"mae={metrics['mae']:.6f}"
-        )
+        for model_family in selected_families:
+            if model_family == "xgb":
+                model, _ = fit_xgb(X_train, y_train, seed=int(_config()["seed"]), persist=False)
+            else:
+                model, _ = fit_random_forest(
+                    X_train,
+                    y_train,
+                    seed=int(_config()["seed"]),
+                    persist=False,
+                )
 
-    if summary:
-        avg_rmse = float(np.mean([metric["rmse"] for metric in summary]))
-        avg_mae = float(np.mean([metric["mae"] for metric in summary]))
-        aggregate = {
-            "folds": summary,
+            predicted = _predict_baseline(model_family, model, X_test)
+            metrics = regression_metrics(y_test, predicted)
+            summary_by_family[model_family].append(metrics)
+            click.echo(
+                "Fold "
+                f"{idx + 1} [{model_family}]: rmse={metrics['rmse']:.6f}, "
+                f"mae={metrics['mae']:.6f}"
+            )
+
+    family_metrics: dict[str, dict[str, Any]] = {}
+    for model_family, folds_summary in summary_by_family.items():
+        if not folds_summary:
+            continue
+        avg_rmse = float(np.mean([metric["rmse"] for metric in folds_summary]))
+        avg_mae = float(np.mean([metric["mae"] for metric in folds_summary]))
+        family_metrics[model_family] = {
+            "folds": folds_summary,
             "average_rmse": avg_rmse,
             "average_mae": avg_mae,
+        }
+        click.echo(f"Aggregate [{model_family}]: rmse={avg_rmse:.6f}, mae={avg_mae:.6f}")
+
+    if family_metrics:
+        primary_family = selected_families[0]
+        primary_metrics = family_metrics.get(primary_family, {"folds": [], "average_rmse": 0.0, "average_mae": 0.0})
+        aggregate = {
+            "primary_family": primary_family,
+            "selected_families": selected_families,
+            "family_metrics": family_metrics,
+            "folds": primary_metrics["folds"],
+            "average_rmse": primary_metrics["average_rmse"],
+            "average_mae": primary_metrics["average_mae"],
         }
         metrics_dir = Path("metrics")
         metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -488,19 +552,26 @@ def model_cv(
             json.dumps(aggregate, indent=2),
             encoding="utf-8",
         )
-        click.echo(f"Aggregate: rmse={avg_rmse:.6f}, mae={avg_mae:.6f}")
 
 
 @model.command("train")
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
+@click.option(
+    "--family",
+    type=click.Choice(["xgb", "random_forest", "both"], case_sensitive=False),
+    default=None,
+    help="Baseline model family selection (default: config model.baseline_family or xgb).",
+)
 def model_train(
     freq: str | None,
     horizon: str | None,
+    family: str | None,
 ) -> None:
-    """Train the XGBoost model."""
+    """Train baseline model families."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
+    selected_families = _resolve_model_families(family)
 
     dataset = _load_feature_dataset(
         freq_val,
@@ -514,9 +585,26 @@ def model_train(
     X.attrs["freq"] = freq_val
     X.attrs["horizon"] = horizon_val
 
-    booster, _ = fit_xgb(X, y, seed=int(_config()["seed"]))
-    model_path = _model_path(freq_val, horizon_val)
-    click.echo(f"Trained model saved to {model_path}")
+    trained_paths: list[tuple[str, Path]] = []
+    for model_family in selected_families:
+        if model_family == "xgb":
+            model, _ = fit_xgb(X, y, seed=int(_config()["seed"]), persist=False)
+        else:
+            model, _ = fit_random_forest(X, y, seed=int(_config()["seed"]), persist=False)
+        model_path = save_baseline_artifact(
+            model,
+            family=model_family,
+            freq=freq_val,
+            horizon=horizon_val,
+            metadata={"source": "cli:model-train"},
+        )
+        trained_paths.append((model_family, model_path))
+
+    if len(trained_paths) == 1 and trained_paths[0][0] == "xgb":
+        click.echo(f"Trained model saved to {trained_paths[0][1]}")
+    else:
+        for model_family, model_path in trained_paths:
+            click.echo(f"Trained {model_family} model saved to {model_path}")
 
 
 @model.command("infer")
