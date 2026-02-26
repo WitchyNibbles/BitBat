@@ -81,6 +81,10 @@ Alerts can route to:
 
 ## Execution Model
 
-- Manual test run: `poetry run bitbat monitor run-once`
-- Continuous mode: `poetry run bitbat monitor start --interval 3600`
-- Service mode: `scripts/run_monitoring_agent.py` via systemd or container process manager
+- Manual test run: `poetry run bitbat --config config/monitor.yaml monitor run-once`
+- Continuous mode: `poetry run bitbat --config config/monitor.yaml monitor start --interval 3600`
+- Service mode: `scripts/run_monitoring_agent.py --config "$BITBAT_CONFIG"` via systemd or container process manager
+
+For startup guardrail handling, cycle-state/cycle diagnostic interpretation, `monitor status`
+lifecycle counts, and schema remediation procedures, follow
+[Monitor Operations Runbook](./monitor-operations-runbook.md).

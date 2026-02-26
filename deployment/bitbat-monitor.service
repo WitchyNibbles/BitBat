@@ -6,7 +6,8 @@ After=network.target
 Type=simple
 User=bitbat
 WorkingDirectory=/opt/bitbat
-ExecStart=/opt/bitbat/.venv/bin/python scripts/run_monitoring_agent.py
+Environment=BITBAT_CONFIG=/etc/bitbat/monitor.yaml
+ExecStart=/opt/bitbat/.venv/bin/python scripts/run_monitoring_agent.py --config ${BITBAT_CONFIG}
 Restart=always
 RestartSec=10
 StandardOutput=append:/var/log/bitbat/monitor.log
