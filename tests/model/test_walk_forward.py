@@ -78,6 +78,9 @@ class TestWalkForwardValidator:
             assert fr.train_size > 0
             assert fr.test_size > 0
             assert fr.rmse > 0
+            assert fr.diagnostics["window_id"].startswith("fold-")
+            assert "regime" in fr.diagnostics
+            assert fr.diagnostics["n_samples"] == fr.test_size
 
     def test_all_predictions_concatenated(
         self, result: WalkForwardResult
@@ -100,6 +103,7 @@ class TestWalkForwardValidator:
         assert "n_folds" in s
         assert "mean_rmse" in s
         assert "total_test_samples" in s
+        assert "fold_diagnostics" in s
         assert s["n_folds"] == 2
 
     def test_custom_xgb_params(

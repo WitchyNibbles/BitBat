@@ -146,7 +146,11 @@ class ContinuousTrainer:
     def _do_retrain(self, old_version: str) -> dict[str, Any]:
         from bitbat.dataset.build import _generate_price_features
         from bitbat.labeling.returns import forward_return
-        from bitbat.model.evaluate import regression_metrics
+        from bitbat.model.evaluate import (
+            regression_metrics,
+            window_diagnostics,
+            write_window_diagnostics,
+        )
         from bitbat.model.infer import _ensure_model
         from bitbat.model.train import fit_xgb
 
@@ -211,6 +215,16 @@ class ContinuousTrainer:
         dtest = xgb.DMatrix(X_holdout, feature_names=list(X_holdout.columns))
         new_preds = new_booster.predict(dtest)
         new_metrics = regression_metrics(y_holdout, new_preds)
+        new_diagnostics = window_diagnostics(
+            y_holdout,
+            new_preds,
+            window_id="continuous-holdout",
+            family="xgb",
+        )
+        diagnostics_path = write_window_diagnostics(
+            new_diagnostics,
+            output_path=Path("metrics") / f"continuous_diagnostics_{self.freq}_{self.horizon}.json",
+        )
 
         # Compare to current model
         model_path = Path("models") / f"{self.freq}_{self.horizon}" / "xgb.json"
@@ -263,6 +277,8 @@ class ContinuousTrainer:
                         "trigger": "continuous",
                         "holdout_metrics": new_metrics,
                         "window_metadata": window_metadata,
+                        "window_diagnostics": new_diagnostics,
+                        "window_diagnostics_path": str(diagnostics_path),
                     },
                     is_active=True,
                 )
@@ -277,6 +293,8 @@ class ContinuousTrainer:
             "training_samples": len(X_train),
             "holdout_samples": len(X_holdout),
             "window_metadata": window_metadata,
+            "window_diagnostics": new_diagnostics,
+            "window_diagnostics_path": str(diagnostics_path),
         }
 
     def _load_prices(self) -> pd.DataFrame:

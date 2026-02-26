@@ -15,6 +15,7 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat.dataset.splits import Fold
+from bitbat.model.evaluate import window_diagnostics
 
 
 @dataclass
@@ -33,6 +34,7 @@ class FoldResult:
     total_costs: float = 0.0
     net_return: float = 0.0
     window_metadata: dict[str, Any] = field(default_factory=dict)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -81,6 +83,7 @@ class WalkForwardResult:
             "fold_sizes": [f.test_size for f in self.fold_results],
             "total_test_samples": sum(f.test_size for f in self.fold_results),
             "fold_windows": [f.window_metadata for f in self.fold_results],
+            "fold_diagnostics": [f.diagnostics for f in self.fold_results],
         }
         if any(f.net_sharpe != 0.0 or f.total_costs != 0.0 for f in self.fold_results):
             result["mean_net_sharpe"] = round(
@@ -228,6 +231,12 @@ class WalkForwardValidator:
                 "test_start": X_te.index.min().isoformat(),
                 "test_end": X_te.index.max().isoformat(),
             }
+            diagnostics = window_diagnostics(
+                y_te,
+                predicted,
+                window_id=f"fold-{i + 1}",
+                family=str(self.xgb_params.get("family", "xgb")),
+            )
 
             result.fold_results.append(
                 FoldResult(
@@ -243,6 +252,7 @@ class WalkForwardValidator:
                     total_costs=total_costs,
                     net_return=net_return,
                     window_metadata=window_metadata,
+                    diagnostics=diagnostics,
                 )
             )
 
