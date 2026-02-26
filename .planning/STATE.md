@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 16 plans drafted; ready for execution
+**Current focus:** Phase 16 executed and verified; milestone v1.2 ready for completion
 
 ## Current Position
 
 Milestone: v1.2 (BTC Prediction Accuracy Evolution)
-Phase: 16-promotion-guardrails-and-optimization-safety (planned)
-Status: Phase 16 plans created and checker-verified; ready for execution
-Last activity: 2026-02-26 - Planned Phase 16 for EVAL-04/OPER-02
+Phase: 16-promotion-guardrails-and-optimization-safety (complete)
+Status: Phase 16 complete and verified; promotion gate safety shipped
+Last activity: 2026-02-26 - Executed and verified Phase 16 (EVAL-04/OPER-02)
 
-Progress: [███████░░░] 75% for v1.2 (3/4 phases complete)
+Progress: [██████████] 100% for v1.2 (4/4 phases complete)
 
 ## Milestone Metrics
 
 - Planned phases: 4 (13-16)
 - Planned requirements: 11
-- Plans: 9 complete (Phases 13-15)
-- Tasks: 27 complete (plans 13-01..03, 14-01..03, 15-01..03)
+- Plans: 12 complete (Phases 13-16)
+- Tasks: 36 complete (plans 13-01..03, 14-01..03, 15-01..03, 16-01..03)
 - Source context: `deep-research-report.md`
 
 ## Accumulated Context
@@ -44,19 +44,21 @@ Progress: [███████░░░] 75% for v1.2 (3/4 phases complete)
 - Walk-forward evaluation now enforces explicit purge/embargo leakage controls from CLI/config (EVAL-01).
 - Backtest and walk-forward metrics now include explicit fee/slippage attribution and net-vs-gross reporting (EVAL-02).
 - Candidate reports and champion decisions are persisted, deterministic, and enforced in retrainer deployment gates (EVAL-03).
+- Nested walk-forward optimization and deterministic provenance are now the default tuning contract (EVAL-04).
+- Multiple-testing safeguards and promotion-gate outputs are persisted in CLI artifacts and champion decisions (EVAL-04/OPER-02).
+- Autonomous retrainer deployment is now vetoed when promotion-gate constraints fail (OPER-02).
 
 ### Pending Todos
 
-- Execute Phase 16 (`$gsd-execute-phase 16`) for optimization safety and promotion-guardrail requirements (EVAL-04/OPER-02).
-- Verify Phase 16 outcome and close v1.2 milestone requirements.
-- Keep autonomous promotion tied to incumbent-beating out-of-sample and drawdown-safe decisions.
+- Close milestone v1.2 with `$gsd-complete-milestone v1.2`.
+- Archive v1.2 artifacts and prepare v1.3 requirement intake.
 
 ### Blockers/Concerns
 
-- No active blockers. Main risk remains overfitting during optimization/promotion workflows in Phase 16.
+- No active blockers.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 16 planning complete
-Resume with: `$gsd-execute-phase 16`
+Stopped at: Phase 16 complete and verified
+Resume with: `$gsd-complete-milestone v1.2`

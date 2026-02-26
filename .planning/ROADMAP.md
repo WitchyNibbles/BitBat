@@ -71,4 +71,4 @@ Success criteria:
 
 ## Next
 
-- Execute Phase 16 plans with `$gsd-execute-phase 16`.
+- Complete milestone v1.2 with `$gsd-complete-milestone v1.2`.
