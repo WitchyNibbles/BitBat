@@ -1981,6 +1981,60 @@ def test_cli_monitor_run_once_outputs_cycle_state_semantics(
     assert "Pending validations: 4" in out
 
 
+def test_cli_monitor_run_once_outputs_cycle_root_cause_diagnostic(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    db_url = f"sqlite:///{tmp_path / 'data' / 'monitor_cycle_diagnostic.db'}"
+    config_path = _write_test_config(
+        tmp_path / "monitor_cycle_diagnostic_config.yaml",
+        enable_sentiment=False,
+        database_url=db_url,
+    )
+
+    class FakeAgent:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+        def run_once(self) -> dict[str, Any]:
+            return {
+                "validations": 0,
+                "correct": 0,
+                "hit_rate": 0.0,
+                "drift_detected": False,
+                "retraining_triggered": False,
+                "validation_errors": [],
+                "prediction_state": "none",
+                "prediction_reason": "missing_model",
+                "prediction_message": "Model artifact not found for runtime pair",
+                "realization_state": "none",
+                "pending_validations": 0,
+                "cycle_diagnostic": "missing_model: Model artifact not found for runtime pair",
+            }
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("bitbat.autonomous.agent.MonitoringAgent", FakeAgent)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "monitor",
+        "run-once",
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "Cycle diagnostic: missing_model: Model artifact not found for runtime pair" in out
+
+
 def test_cli_monitor_start_reports_startup_context(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

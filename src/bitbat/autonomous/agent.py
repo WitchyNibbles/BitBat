@@ -253,6 +253,12 @@ class MonitoringAgent:
         )
         prediction_reason = str(prediction_result.get("reason", "unknown"))
         prediction_message = str(prediction_result.get("message", ""))
+        if prediction_state == "generated":
+            cycle_diagnostic = "prediction_generated"
+        elif prediction_message:
+            cycle_diagnostic = f"{prediction_reason}: {prediction_message}"
+        else:
+            cycle_diagnostic = prediction_reason
 
         if realized_count > 0:
             realization_state = "realized"
@@ -292,10 +298,13 @@ class MonitoringAgent:
             "prediction_message": prediction_message,
             "realization_state": realization_state,
             "pending_validations": pending_count,
+            "cycle_diagnostic": cycle_diagnostic,
             "cycle_state": {
                 "prediction_state": prediction_state,
                 "prediction_reason": prediction_reason,
+                "prediction_message": prediction_message,
                 "realization_state": realization_state,
+                "cycle_diagnostic": cycle_diagnostic,
             },
             "validations": int(validation_summary.get("validated_count", 0)),
             "correct": int(validation_summary.get("correct_count", 0)),
@@ -315,6 +324,7 @@ class MonitoringAgent:
             realization_state,
             pending_count,
         )
+        logger.info("Cycle diagnostic: %s", cycle_diagnostic)
         logger.info("Monitoring cycle complete: %s", result)
         return result
 

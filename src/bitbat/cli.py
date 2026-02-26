@@ -1500,11 +1500,21 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
 
     realization_state = str(result.get("realization_state") or "unknown")
     pending_validations = int(result.get("pending_validations", 0))
+    prediction_message = str(result.get("prediction_message") or "")
+    cycle_diagnostic = str(result.get("cycle_diagnostic") or "").strip()
+    if not cycle_diagnostic:
+        if prediction_state == "generated":
+            cycle_diagnostic = "prediction_generated"
+        elif prediction_message:
+            cycle_diagnostic = f"{prediction_reason}: {prediction_message}"
+        else:
+            cycle_diagnostic = prediction_reason
 
     click.echo(f"  Prediction state: {prediction_state}")
     click.echo(f"  Prediction reason: {prediction_reason}")
     click.echo(f"  Realization state: {realization_state}")
     click.echo(f"  Pending validations: {pending_validations}")
+    click.echo(f"  Cycle diagnostic: {cycle_diagnostic}")
 
     metrics = result.get("metrics", {})
     diagnostics = metrics.get("window_diagnostics") if isinstance(metrics, dict) else None
