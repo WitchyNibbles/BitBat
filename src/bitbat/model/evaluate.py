@@ -153,3 +153,55 @@ def regression_metrics(
     plt.close(fig)
 
     return metrics
+
+
+def _fold_mean(folds: list[dict[str, Any]], key: str) -> float:
+    values = [float(fold[key]) for fold in folds if key in fold]
+    if not values:
+        return 0.0
+    return float(np.mean(values))
+
+
+def _fold_sum(folds: list[dict[str, Any]], key: str) -> float:
+    values = [float(fold[key]) for fold in folds if key in fold]
+    if not values:
+        return 0.0
+    return float(np.sum(values))
+
+
+def build_candidate_report(
+    *,
+    candidate_id: str,
+    family: str,
+    fold_metrics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build a deterministic multi-metric candidate report for model selection."""
+    folds = list(fold_metrics)
+    report = {
+        "candidate_id": candidate_id,
+        "family": family,
+        "n_folds": len(folds),
+        "metrics": {
+            "regression": {
+                "mean_rmse": round(_fold_mean(folds, "rmse"), 6),
+                "mean_mae": round(_fold_mean(folds, "mae"), 6),
+            },
+            "directional": {
+                "mean_directional_accuracy": round(
+                    _fold_mean(folds, "directional_accuracy"), 6
+                ),
+                "mean_correlation": round(_fold_mean(folds, "correlation"), 6),
+            },
+            "risk": {
+                "mean_net_sharpe": round(_fold_mean(folds, "net_sharpe"), 6),
+                "mean_gross_sharpe": round(_fold_mean(folds, "gross_sharpe"), 6),
+                "mean_net_return": round(_fold_mean(folds, "net_return"), 6),
+                "mean_gross_return": round(_fold_mean(folds, "gross_return"), 6),
+                "mean_max_drawdown": round(_fold_mean(folds, "max_drawdown"), 6),
+                "total_costs": round(_fold_sum(folds, "total_costs"), 6),
+                "total_fee_costs": round(_fold_sum(folds, "total_fee_costs"), 6),
+                "total_slippage_costs": round(_fold_sum(folds, "total_slippage_costs"), 6),
+            },
+        },
+    }
+    return report

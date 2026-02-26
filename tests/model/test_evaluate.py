@@ -10,7 +10,12 @@ import pytest
 if pytest.importorskip("matplotlib"):
     import matplotlib.pyplot as plt  # noqa: F401
 
-from bitbat.model.evaluate import regression_metrics, window_diagnostics, write_window_diagnostics
+from bitbat.model.evaluate import (
+    build_candidate_report,
+    regression_metrics,
+    window_diagnostics,
+    write_window_diagnostics,
+)
 
 
 def test_regression_metrics_outputs(
@@ -84,3 +89,63 @@ def test_write_window_diagnostics_outputs_json(
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["window_id"] == "fold-2"
     assert payload["regime"] == "medium_volatility"
+
+
+def test_candidate_report_contains_regression_directional_and_risk_metrics() -> None:
+    fold_metrics = [
+        {
+            "rmse": 0.01,
+            "mae": 0.008,
+            "directional_accuracy": 0.58,
+            "net_sharpe": 1.1,
+            "gross_sharpe": 1.3,
+            "max_drawdown": -0.12,
+            "net_return": 0.14,
+            "gross_return": 0.16,
+            "total_costs": 0.02,
+        },
+        {
+            "rmse": 0.012,
+            "mae": 0.009,
+            "directional_accuracy": 0.56,
+            "net_sharpe": 1.0,
+            "gross_sharpe": 1.2,
+            "max_drawdown": -0.11,
+            "net_return": 0.12,
+            "gross_return": 0.15,
+            "total_costs": 0.018,
+        },
+    ]
+
+    report = build_candidate_report(
+        candidate_id="xgb",
+        family="xgb",
+        fold_metrics=fold_metrics,
+    )
+
+    assert report["candidate_id"] == "xgb"
+    assert report["family"] == "xgb"
+    assert report["metrics"]["regression"]["mean_rmse"] > 0
+    assert report["metrics"]["directional"]["mean_directional_accuracy"] > 0
+    assert report["metrics"]["risk"]["mean_net_sharpe"] > 0
+    assert report["metrics"]["risk"]["total_costs"] > 0
+
+
+def test_candidate_report_is_deterministic_for_same_input() -> None:
+    fold_metrics = [
+        {
+            "rmse": 0.01,
+            "mae": 0.008,
+            "directional_accuracy": 0.58,
+            "net_sharpe": 1.1,
+            "gross_sharpe": 1.3,
+            "max_drawdown": -0.12,
+            "net_return": 0.14,
+            "gross_return": 0.16,
+            "total_costs": 0.02,
+        }
+    ]
+
+    first = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)
+    second = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)
+    assert first == second
