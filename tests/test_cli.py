@@ -869,6 +869,124 @@ def test_cli_model_cv_family_both(
     assert "average_rmse" in summary
 
 
+def test_cli_backtest_cost_slippage_reports_net_and_gross(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+
+    predictions_dir = tmp_path / "data" / "predictions"
+    predictions_dir.mkdir(parents=True, exist_ok=True)
+    predictions = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=5, freq="1h"),
+        "predicted_return": [0.01, 0.008, 0.006, 0.005, 0.004],
+        "predicted_price": [np.nan] * 5,
+        "horizon": [horizon] * 5,
+        "freq": [freq] * 5,
+        "model_version": ["test"] * 5,
+        "realized_r": [np.nan] * 5,
+    })
+    predictions.to_parquet(predictions_dir / f"{freq}_{horizon}.parquet", index=False)
+
+    prices_dir = tmp_path / "data" / "raw" / "prices"
+    prices_dir.mkdir(parents=True, exist_ok=True)
+    prices = pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=5, freq="1h"),
+        "open": [100, 101, 102, 103, 104],
+        "high": [101, 102, 103, 104, 105],
+        "low": [99, 100, 101, 102, 103],
+        "close": [100, 101, 102, 103, 104],
+        "volume": [1000, 1000, 1000, 1000, 1000],
+    })
+    prices.to_parquet(prices_dir / "btcusd_yf_1h.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, Any] = {}
+
+    def fake_run_strategy(
+        close: pd.Series,
+        predicted_returns: pd.Series,
+        *,
+        allow_short: bool,
+        cost_bps: float,
+        fee_bps: float | None = None,
+        slippage_bps: float | None = None,
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        del close, predicted_returns, allow_short
+        captured["cost_bps"] = cost_bps
+        captured["fee_bps"] = fee_bps
+        captured["slippage_bps"] = slippage_bps
+        idx = pd.date_range("2024-01-01 00:00:00", periods=5, freq="1h")
+        trades = pd.DataFrame(
+            {
+                "position": [1.0, 1.0, 1.0, 1.0, 1.0],
+                "fee_costs": [0.0003, 0, 0, 0, 0],
+                "slippage_costs": [0.0002, 0, 0, 0, 0],
+                "costs": [0.0005, 0, 0, 0, 0],
+                "gross_pnl": [0.0, 0.01, 0.01, 0.01, 0.01],
+                "pnl": [0.0, 0.0095, 0.01, 0.01, 0.01],
+            },
+            index=idx,
+        )
+        equity = pd.Series([1.0, 1.01, 1.02, 1.03, 1.04], index=idx)
+        return trades, equity
+
+    def fake_summary(equity: pd.Series, trades: pd.DataFrame) -> dict[str, float]:
+        del equity, trades
+        return {
+            "sharpe": 1.2,
+            "net_sharpe": 1.2,
+            "gross_sharpe": 1.5,
+            "max_drawdown": -0.1,
+            "total_costs": 0.0005,
+            "total_fee_costs": 0.0003,
+            "total_slippage_costs": 0.0002,
+            "net_return": 0.04,
+            "gross_return": 0.045,
+            "hit_rate": 0.75,
+            "avg_return": 0.008,
+            "turnover": 1.0,
+        }
+
+    monkeypatch.setattr("bitbat.cli.run_strategy", fake_run_strategy)
+    monkeypatch.setattr("bitbat.cli.summarize_backtest", fake_summary)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "backtest",
+        "run",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--cost-bps",
+        "5",
+        "--fee-bps",
+        "3",
+        "--slippage-bps",
+        "2",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    assert captured["cost_bps"] == pytest.approx(5.0)
+    assert captured["fee_bps"] == pytest.approx(3.0)
+    assert captured["slippage_bps"] == pytest.approx(2.0)
+
+    out = capsys.readouterr().out
+    assert "net_sharpe=" in out
+    assert "gross_sharpe=" in out
+    assert "costs=" in out
+
+
 def test_cli_model_train_family_both(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

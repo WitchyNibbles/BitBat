@@ -4,6 +4,8 @@ horizon: "30m"
 enter_threshold: 0.6
 allow_short: false
 cost_bps: 4
+fee_bps: 4
+slippage_bps: 0
 price_source: "yfinance"
 news_source: "cryptocompare"
 enable_sentiment: true

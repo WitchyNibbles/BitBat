@@ -799,17 +799,44 @@ def model_infer(
     default=None,
     help="Round-trip cost in basis points.",
 )
+@click.option(
+    "--fee-bps",
+    "--fee_bps",
+    type=float,
+    default=None,
+    help="Transaction fee component in basis points.",
+)
+@click.option(
+    "--slippage-bps",
+    "--slippage_bps",
+    type=float,
+    default=None,
+    help="Slippage component in basis points.",
+)
 def backtest_run(
     freq: str | None,
     horizon: str | None,
     allow_short_flag: bool,
     no_allow_short_flag: bool,
     cost_bps: float | None,
+    fee_bps: float | None,
+    slippage_bps: float | None,
 ) -> None:
     """Run backtest using stored predictions."""
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
-    cost = cost_bps if cost_bps is not None else float(_config()["cost_bps"])
+    cfg = _config()
+    cost = cost_bps if cost_bps is not None else float(cfg["cost_bps"])
+    resolved_fee_bps = (
+        fee_bps
+        if fee_bps is not None
+        else float(cfg.get("fee_bps", cost))
+    )
+    resolved_slippage_bps = (
+        slippage_bps
+        if slippage_bps is not None
+        else float(cfg.get("slippage_bps", 0.0))
+    )
 
     if allow_short_flag and no_allow_short_flag:
         raise click.BadParameter("Specify only one of --allow-short or --no-allow-short.")
@@ -841,11 +868,18 @@ def backtest_run(
         predicted_returns,
         allow_short=allow_short_val,
         cost_bps=cost,
+        fee_bps=resolved_fee_bps,
+        slippage_bps=resolved_slippage_bps,
     )
     metrics = summarize_backtest(equity, trades)
     click.echo(
-        f"Backtest complete: sharpe={metrics['sharpe']:.3f}, "
-        f"max_drawdown={metrics['max_drawdown']:.3f}"
+        "Backtest complete: "
+        f"net_sharpe={metrics['net_sharpe']:.3f}, "
+        f"gross_sharpe={metrics['gross_sharpe']:.3f}, "
+        f"max_drawdown={metrics['max_drawdown']:.3f}, "
+        f"costs={metrics['total_costs']:.6f} "
+        f"(fee={metrics['total_fee_costs']:.6f}, "
+        f"slippage={metrics['total_slippage_costs']:.6f})"
     )
 
 
