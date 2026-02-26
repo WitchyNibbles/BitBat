@@ -54,6 +54,31 @@ def test_should_deploy_respects_champion_decision(tmp_path: Path) -> None:
     )
 
 
+def test_should_deploy_respects_promotion_gate_payload(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    retrainer = AutoRetrainer(db, "1h", "4h")
+
+    assert (
+        retrainer.should_deploy(
+            {
+                "cv_score": 0.68,
+                "holdout_hit_rate": 0.69,
+                "champion_decision": {
+                    "promote_candidate": True,
+                    "promotion_gate": {
+                        "pass": False,
+                        "reasons": ["drawdown_guardrail_violated"],
+                    },
+                },
+            },
+            {"cv_score": 0.58},
+        )
+        is False
+    )
+
+
 def test_retrainer_records_failed_event(tmp_path: Path, monkeypatch) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)

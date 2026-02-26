@@ -132,6 +132,16 @@ class AutoRetrainer:
             and champion_decision.get("promote_candidate") is False
         ):
             return False
+        promotion_gate = (
+            champion_decision.get("promotion_gate", {})
+            if isinstance(champion_decision, dict)
+            else new_model.get("promotion_gate", {})
+        )
+        if (
+            isinstance(promotion_gate, dict)
+            and promotion_gate.get("pass") is False
+        ):
+            return False
 
         improvement = new_cv - old_cv
         return improvement >= self.cv_improvement_threshold and holdout_hit_rate >= 0.55
@@ -230,6 +240,12 @@ class AutoRetrainer:
             new_cv_score = self._read_cv_score()
             new_version = self._next_model_version()
             training_samples = self._training_sample_count()
+            champion_decision_payload = self._last_cv_summary.get("champion_decision", {})
+            promotion_gate_payload = (
+                champion_decision_payload.get("promotion_gate", {})
+                if isinstance(champion_decision_payload, dict)
+                else {}
+            )
 
             with self.db.session() as session:
                 self.db.store_model_version(
@@ -252,7 +268,8 @@ class AutoRetrainer:
                             "window_step_days": self.window_step_days,
                             "cv_windows": self.cv_window_count,
                         },
-                        "champion_decision": self._last_cv_summary.get("champion_decision"),
+                        "champion_decision": champion_decision_payload,
+                        "promotion_gate": promotion_gate_payload,
                         "candidate_reports": self._last_cv_summary.get("candidate_reports"),
                     },
                     is_active=False,
@@ -262,7 +279,8 @@ class AutoRetrainer:
                 new_model={
                     "cv_score": new_cv_score,
                     "holdout_hit_rate": new_cv_score,
-                    "champion_decision": self._last_cv_summary.get("champion_decision", {}),
+                    "champion_decision": champion_decision_payload,
+                    "promotion_gate": promotion_gate_payload,
                 },
                 old_model={"cv_score": old_cv_score} if old_version else None,
             )
