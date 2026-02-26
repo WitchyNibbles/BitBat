@@ -10,7 +10,7 @@ import pytest
 if pytest.importorskip("matplotlib"):
     import matplotlib.pyplot as plt  # noqa: F401
 
-from bitbat.model.evaluate import regression_metrics
+from bitbat.model.evaluate import regression_metrics, window_diagnostics, write_window_diagnostics
 
 
 def test_regression_metrics_outputs(
@@ -52,3 +52,35 @@ def test_regression_metrics_perfect_prediction(
     assert metrics["mae"] < 1e-10
     assert metrics["rmse"] < 1e-10
     assert metrics["directional_accuracy"] == 1.0
+
+
+def test_window_diagnostics_are_deterministic() -> None:
+    y_true = pd.Series([0.01, -0.02, 0.015, -0.005, 0.012, -0.008], dtype="float64")
+    y_pred = pd.Series([0.009, -0.018, 0.014, -0.006, 0.011, -0.007], dtype="float64")
+
+    first = window_diagnostics(y_true, y_pred, window_id="fold-1", family="xgb")
+    second = window_diagnostics(y_true, y_pred, window_id="fold-1", family="xgb")
+
+    assert first == second
+    assert first["window_id"] == "fold-1"
+    assert first["family"] == "xgb"
+    assert first["regime"] in {"low_volatility", "medium_volatility", "high_volatility"}
+    assert first["n_samples"] == len(y_true)
+
+
+def test_write_window_diagnostics_outputs_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    diagnostics = {
+        "window_id": "fold-2",
+        "regime": "medium_volatility",
+        "drift_score": 0.002,
+    }
+
+    monkeypatch.chdir(tmp_path)
+    output = write_window_diagnostics(diagnostics)
+
+    assert output.exists()
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["window_id"] == "fold-2"
+    assert payload["regime"] == "medium_volatility"

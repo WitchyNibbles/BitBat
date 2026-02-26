@@ -11,6 +11,80 @@ import numpy as np
 import pandas as pd
 
 
+def window_diagnostics(
+    y_true: pd.Series | np.ndarray,
+    y_pred: pd.Series | np.ndarray,
+    *,
+    window_id: str | None = None,
+    family: str | None = None,
+) -> dict[str, Any]:
+    """Compute deterministic regime/drift diagnostics for one evaluation window."""
+    y_t = np.asarray(y_true, dtype="float64")
+    y_p = np.asarray(y_pred, dtype="float64")
+    if y_t.shape != y_p.shape:
+        raise ValueError("y_true and y_pred must have the same shape.")
+
+    error = y_p - y_t
+    mae = float(np.mean(np.abs(error))) if y_t.size else 0.0
+    rmse = float(np.sqrt(np.mean(error**2))) if y_t.size else 0.0
+    bias = float(np.mean(error)) if y_t.size else 0.0
+
+    realized_volatility = float(np.std(y_t)) if y_t.size else 0.0
+    predicted_volatility = float(np.std(y_p)) if y_p.size else 0.0
+    volatility_ratio = (
+        float(predicted_volatility / realized_volatility)
+        if realized_volatility > 0
+        else 0.0
+    )
+
+    directional_accuracy = (
+        float(np.mean(np.sign(y_t) == np.sign(y_p)))
+        if y_t.size
+        else 0.0
+    )
+    directional_stability = (
+        float(np.mean(np.sign(y_p[1:]) == np.sign(y_p[:-1])))
+        if y_p.size > 1
+        else 1.0
+    )
+
+    if realized_volatility >= 0.01:
+        regime = "high_volatility"
+    elif realized_volatility >= 0.003:
+        regime = "medium_volatility"
+    else:
+        regime = "low_volatility"
+
+    diagnostics = {
+        "window_id": window_id,
+        "family": family,
+        "regime": regime,
+        "drift_score": float(abs(bias) + mae),
+        "bias": bias,
+        "mae": mae,
+        "rmse": rmse,
+        "realized_volatility": realized_volatility,
+        "predicted_volatility": predicted_volatility,
+        "volatility_ratio": volatility_ratio,
+        "directional_accuracy": directional_accuracy,
+        "directional_stability": directional_stability,
+        "n_samples": int(y_t.size),
+    }
+    return diagnostics
+
+
+def write_window_diagnostics(
+    diagnostics: dict[str, Any] | list[dict[str, Any]],
+    *,
+    output_path: str | Path = Path("metrics") / "window_diagnostics.json",
+) -> Path:
+    """Persist diagnostics payload for downstream retraining analysis."""
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
+    return target
+
+
 def regression_metrics(
     y_true: pd.Series | np.ndarray,
     y_pred: pd.Series | np.ndarray,
