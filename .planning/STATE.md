@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring runs without DB failures and the timeline shows clear prediction vs. outcome history.
-**Current focus:** Phase 16 planning for promotion guardrails and optimization safety
+**Current focus:** Phase 16 plans drafted; ready for execution
 
 ## Current Position
 
 Milestone: v1.2 (BTC Prediction Accuracy Evolution)
-Phase: 16-promotion-guardrails-and-optimization-safety (not started)
-Status: Phase 15 executed and verified; ready to plan/execute Phase 16
-Last activity: 2026-02-26 - Completed Phase 15 for EVAL-01/EVAL-02/EVAL-03
+Phase: 16-promotion-guardrails-and-optimization-safety (planned)
+Status: Phase 16 plans created and checker-verified; ready for execution
+Last activity: 2026-02-26 - Planned Phase 16 for EVAL-04/OPER-02
 
 Progress: [███████░░░] 75% for v1.2 (3/4 phases complete)
 
@@ -47,8 +47,8 @@ Progress: [███████░░░] 75% for v1.2 (3/4 phases complete)
 
 ### Pending Todos
 
-- Plan Phase 16 (`$gsd-plan-phase 16`) for EVAL-04 and OPER-02 guardrail requirements.
-- Execute Phase 16 and verify nested-validation safety and promotion gate behavior.
+- Execute Phase 16 (`$gsd-execute-phase 16`) for optimization safety and promotion-guardrail requirements (EVAL-04/OPER-02).
+- Verify Phase 16 outcome and close v1.2 milestone requirements.
 - Keep autonomous promotion tied to incumbent-beating out-of-sample and drawdown-safe decisions.
 
 ### Blockers/Concerns
@@ -58,5 +58,5 @@ Progress: [███████░░░] 75% for v1.2 (3/4 phases complete)
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 15 complete and verified
-Resume with: `$gsd-plan-phase 16`
+Stopped at: Phase 16 planning complete
+Resume with: `$gsd-execute-phase 16`
