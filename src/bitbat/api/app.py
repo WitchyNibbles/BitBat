@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from bitbat.api.routes import analytics, health, metrics, predictions
+from bitbat.api.routes import analytics, health, metrics, predictions, system
 
 
 def create_app() -> FastAPI:
@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
     app.include_router(predictions.router)
     app.include_router(analytics.router)
     app.include_router(metrics.router)
+    app.include_router(system.router)
 
     return app
 

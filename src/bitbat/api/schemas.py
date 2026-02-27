@@ -108,3 +108,49 @@ class SystemStatusResponse(BaseModel):
     active_model_version: str | None = None
     total_predictions: int = 0
     last_prediction_time: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# System logs, retraining events, performance snapshots
+# ---------------------------------------------------------------------------
+
+
+class SystemLogEntry(BaseModel):
+    timestamp: datetime
+    level: str
+    message: str
+    service: str | None = None
+
+
+class SystemLogsResponse(BaseModel):
+    logs: list[SystemLogEntry]
+    total: int
+
+
+class RetrainingEventEntry(BaseModel):
+    id: int
+    started_at: datetime
+    trigger_reason: str
+    status: str
+    old_model_version: str | None = None
+    new_model_version: str | None = None
+    cv_improvement: float | None = None
+    training_duration_seconds: float | None = None
+
+
+class RetrainingEventsResponse(BaseModel):
+    events: list[RetrainingEventEntry]
+    total: int
+
+
+class PerformanceSnapshotEntry(BaseModel):
+    snapshot_time: datetime
+    model_version: str
+    hit_rate: float | None = None
+    total_predictions: int = 0
+    sharpe_ratio: float | None = None
+    max_drawdown: float | None = None
+
+
+class PerformanceSnapshotsResponse(BaseModel):
+    snapshots: list[PerformanceSnapshotEntry]
