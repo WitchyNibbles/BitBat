@@ -154,3 +154,35 @@ class PerformanceSnapshotEntry(BaseModel):
 
 class PerformanceSnapshotsResponse(BaseModel):
     snapshots: list[PerformanceSnapshotEntry]
+
+
+# ---------------------------------------------------------------------------
+# Training & Settings
+# ---------------------------------------------------------------------------
+
+
+class TrainingRequest(BaseModel):
+    preset: str = Field(description="Preset name: conservative, balanced, or aggressive")
+
+
+class TrainingResponse(BaseModel):
+    status: str
+    model_version: str | None = None
+    duration_seconds: float | None = None
+    error: str | None = None
+
+
+class SettingsResponse(BaseModel):
+    preset: str
+    freq: str
+    horizon: str
+    tau: float
+    enter_threshold: float
+
+
+class SettingsUpdateRequest(BaseModel):
+    preset: str | None = None
+    freq: str | None = None
+    horizon: str | None = None
+    tau: float | None = None
+    enter_threshold: float | None = None

@@ -1,4 +1,4 @@
-"""System endpoints — logs, retraining events, performance snapshots, ingestion status."""
+"""System endpoints — logs, retraining events, performance snapshots, training, settings."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+import yaml
 from fastapi import APIRouter, HTTPException, Query
 
 from bitbat.api.schemas import (
@@ -13,13 +14,18 @@ from bitbat.api.schemas import (
     PerformanceSnapshotsResponse,
     RetrainingEventEntry,
     RetrainingEventsResponse,
+    SettingsResponse,
+    SettingsUpdateRequest,
     SystemLogEntry,
     SystemLogsResponse,
+    TrainingRequest,
+    TrainingResponse,
 )
 
 router = APIRouter(prefix="/system", tags=["system"])
 
 _DB_PATH = Path("data/autonomous.db")
+_USER_CONFIG_PATH = Path("config/user_config.yaml")
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +55,7 @@ def _first_available(columns: set[str], candidates: tuple[str, ...]) -> str | No
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Task 1: System logs, retraining events, performance snapshots, ingestion
 # ---------------------------------------------------------------------------
 
 
@@ -213,3 +219,116 @@ async def ingestion_status() -> dict[str, Any]:
     from bitbat.gui.widgets import get_ingestion_status
 
     return get_ingestion_status(Path("data"))
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Training start and settings CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.post("/training/start", response_model=TrainingResponse)
+async def start_training(request: TrainingRequest) -> TrainingResponse:
+    """Kick off a full training pipeline with the given preset."""
+    from bitbat.gui.presets import list_presets
+
+    available = list_presets()
+    preset_key = request.preset.lower()
+    if preset_key not in available:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown preset '{request.preset}'. "
+            f"Available: {', '.join(sorted(available))}",
+        )
+
+    from bitbat.autonomous.orchestrator import one_click_train
+
+    result = one_click_train(preset_name=preset_key)
+
+    return TrainingResponse(
+        status=result.get("status", "unknown"),
+        model_version=result.get("model_version"),
+        duration_seconds=result.get("duration_seconds"),
+        error=result.get("error"),
+    )
+
+
+@router.get("/settings", response_model=SettingsResponse)
+async def get_settings() -> SettingsResponse:
+    """Return current user settings, falling back to balanced preset defaults."""
+    from bitbat.gui.presets import get_preset
+
+    if _USER_CONFIG_PATH.exists():
+        try:
+            raw = yaml.safe_load(_USER_CONFIG_PATH.read_text()) or {}
+            preset_name = raw.get("preset", "balanced")
+            preset = get_preset(preset_name)
+            return SettingsResponse(
+                preset=preset_name,
+                freq=raw.get("freq", preset.freq),
+                horizon=raw.get("horizon", preset.horizon),
+                tau=raw.get("tau", preset.tau),
+                enter_threshold=raw.get("enter_threshold", preset.enter_threshold),
+            )
+        except Exception:  # noqa: BLE001, S110
+            pass
+
+    # Fall back to balanced preset defaults
+    preset = get_preset("balanced")
+    return SettingsResponse(
+        preset="balanced",
+        freq=preset.freq,
+        horizon=preset.horizon,
+        tau=preset.tau,
+        enter_threshold=preset.enter_threshold,
+    )
+
+
+@router.put("/settings", response_model=SettingsResponse)
+async def update_settings(request: SettingsUpdateRequest) -> SettingsResponse:
+    """Update user settings. If a preset is specified, use its values as base."""
+    from bitbat.gui.presets import get_preset, list_presets
+
+    # Start from current settings as base
+    current = await get_settings()
+    base: dict[str, Any] = {
+        "preset": current.preset,
+        "freq": current.freq,
+        "horizon": current.horizon,
+        "tau": current.tau,
+        "enter_threshold": current.enter_threshold,
+    }
+
+    # If a preset is specified, use its values as the new base
+    if request.preset is not None:
+        preset_key = request.preset.lower()
+        available = list_presets()
+        if preset_key not in available:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown preset '{request.preset}'. "
+                f"Available: {', '.join(sorted(available))}",
+            )
+        preset = get_preset(preset_key)
+        base = {
+            "preset": preset_key,
+            "freq": preset.freq,
+            "horizon": preset.horizon,
+            "tau": preset.tau,
+            "enter_threshold": preset.enter_threshold,
+        }
+
+    # Override with any explicitly provided values
+    if request.freq is not None:
+        base["freq"] = request.freq
+    if request.horizon is not None:
+        base["horizon"] = request.horizon
+    if request.tau is not None:
+        base["tau"] = request.tau
+    if request.enter_threshold is not None:
+        base["enter_threshold"] = request.enter_threshold
+
+    # Write to config file
+    _USER_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _USER_CONFIG_PATH.write_text(yaml.dump(base, default_flow_style=False, sort_keys=True))
+
+    return SettingsResponse(**base)
