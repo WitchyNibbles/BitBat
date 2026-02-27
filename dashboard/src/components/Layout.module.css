@@ -1,0 +1,48 @@
+.layout {
+  display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+}
+
+.main {
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.statusDot.success {
+  background: var(--success);
+  box-shadow: 0 0 12px var(--success-dim);
+}
+
+.statusDot.amber {
+  background: var(--amber);
+  box-shadow: 0 0 12px var(--amber-dim);
+}
+
+.statusDot.danger {
+  background: var(--danger);
+  box-shadow: 0 0 12px var(--danger-dim);
+}
+
+.content {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+}
