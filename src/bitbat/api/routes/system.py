@@ -252,41 +252,93 @@ async def start_training(request: TrainingRequest) -> TrainingResponse:
     )
 
 
+def _sorted_by_duration(freqs: set[str]) -> list[str]:
+    """Sort frequency strings by their actual time duration."""
+    import pandas as pd
+
+    return sorted(freqs, key=lambda f: pd.to_timedelta(f))
+
+
+def _valid_freqs() -> list[str]:
+    """Return all supported frequencies sorted by duration."""
+    from bitbat.timealign.bucket import _SUPPORTED_FREQUENCIES
+
+    return _sorted_by_duration(_SUPPORTED_FREQUENCIES)
+
+
+def _valid_horizons() -> list[str]:
+    """Return valid horizon values (all supported frequencies except 1m)."""
+    from bitbat.timealign.bucket import _SUPPORTED_FREQUENCIES
+
+    return _sorted_by_duration(_SUPPORTED_FREQUENCIES - {"1m"})
+
+
+def _load_defaults() -> dict[str, Any]:
+    """Load default settings from default.yaml via the config loader."""
+    from bitbat.config.loader import load_config
+
+    return load_config()
+
+
 @router.get("/settings", response_model=SettingsResponse)
 async def get_settings() -> SettingsResponse:
-    """Return current user settings, falling back to balanced preset defaults."""
-    from bitbat.gui.presets import get_preset
+    """Return current user settings, falling back to default.yaml values."""
+    defaults = _load_defaults()
+    valid_f = _valid_freqs()
+    valid_h = _valid_horizons()
 
     if _USER_CONFIG_PATH.exists():
         try:
             raw = yaml.safe_load(_USER_CONFIG_PATH.read_text()) or {}
-            preset_name = raw.get("preset", "balanced")
-            preset = get_preset(preset_name)
+            # Merge: user config fields override defaults
             return SettingsResponse(
-                preset=preset_name,
-                freq=raw.get("freq", preset.freq),
-                horizon=raw.get("horizon", preset.horizon),
-                tau=raw.get("tau", preset.tau),
-                enter_threshold=raw.get("enter_threshold", preset.enter_threshold),
+                preset=raw.get("preset", "custom"),
+                freq=raw.get("freq", defaults.get("freq", "5m")),
+                horizon=raw.get("horizon", defaults.get("horizon", "30m")),
+                tau=raw.get("tau", defaults.get("tau", 0.01)),
+                enter_threshold=raw.get(
+                    "enter_threshold", defaults.get("enter_threshold", 0.6)
+                ),
+                valid_freqs=valid_f,
+                valid_horizons=valid_h,
             )
         except Exception:  # noqa: BLE001, S110
             pass
 
-    # Fall back to balanced preset defaults
-    preset = get_preset("balanced")
+    # No user config — fall back to default.yaml
     return SettingsResponse(
-        preset="balanced",
-        freq=preset.freq,
-        horizon=preset.horizon,
-        tau=preset.tau,
-        enter_threshold=preset.enter_threshold,
+        preset="custom",
+        freq=defaults.get("freq", "5m"),
+        horizon=defaults.get("horizon", "30m"),
+        tau=defaults.get("tau", 0.01),
+        enter_threshold=defaults.get("enter_threshold", 0.6),
+        valid_freqs=valid_f,
+        valid_horizons=valid_h,
     )
 
 
 @router.put("/settings", response_model=SettingsResponse)
 async def update_settings(request: SettingsUpdateRequest) -> SettingsResponse:
-    """Update user settings. If a preset is specified, use its values as base."""
-    from bitbat.gui.presets import get_preset, list_presets
+    """Update user settings with freq/horizon validation against bucket.py."""
+    from bitbat.timealign.bucket import _SUPPORTED_FREQUENCIES
+
+    valid_f = _valid_freqs()
+    valid_h = _valid_horizons()
+
+    # Validate freq if provided
+    if request.freq is not None and request.freq not in _SUPPORTED_FREQUENCIES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported frequency '{request.freq}'. Valid: {valid_f}",
+        )
+
+    # Validate horizon if provided (all supported except 1m)
+    valid_horizon_set = _SUPPORTED_FREQUENCIES - {"1m"}
+    if request.horizon is not None and request.horizon not in valid_horizon_set:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported horizon '{request.horizon}'. Valid: {valid_h}",
+        )
 
     # Start from current settings as base
     current = await get_settings()
@@ -298,8 +350,10 @@ async def update_settings(request: SettingsUpdateRequest) -> SettingsResponse:
         "enter_threshold": current.enter_threshold,
     }
 
-    # If a preset is specified, use its values as the new base
+    # If a preset is specified, resolve its values as the new base
     if request.preset is not None:
+        from bitbat.gui.presets import get_preset, list_presets
+
         preset_key = request.preset.lower()
         available = list_presets()
         if preset_key not in available:
@@ -331,4 +385,4 @@ async def update_settings(request: SettingsUpdateRequest) -> SettingsResponse:
     _USER_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     _USER_CONFIG_PATH.write_text(yaml.dump(base, default_flow_style=False, sort_keys=True))
 
-    return SettingsResponse(**base)
+    return SettingsResponse(valid_freqs=valid_f, valid_horizons=valid_h, **base)
