@@ -167,6 +167,8 @@ export interface SettingsResponse {
   horizon: string;
   tau: number;
   enter_threshold: number;
+  valid_freqs: string[];
+  valid_horizons: string[];
 }
 
 export interface SettingsUpdateRequest {
