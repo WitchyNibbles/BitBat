@@ -93,6 +93,9 @@ tmp_*/
 tmp*/
 *.tmp
 
+# Node / frontend
+node_modules/
+
 # Agentic stuff to ignore
 agent_plans/
 .claude

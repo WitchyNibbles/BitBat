@@ -1,0 +1,85 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--glow);
+}
+
+.card.up {
+  border-color: var(--success);
+  box-shadow: 0 0 12px var(--success-dim);
+}
+
+.card.down {
+  border-color: var(--danger);
+  box-shadow: 0 0 12px var(--danger-dim);
+}
+
+.card.flat {
+  border-color: var(--amber);
+  box-shadow: 0 0 12px var(--amber-dim);
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon.up {
+  color: var(--success);
+}
+
+.icon.down {
+  color: var(--danger);
+}
+
+.icon.flat {
+  color: var(--amber);
+}
+
+.direction {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.direction.up {
+  color: var(--success);
+}
+
+.direction.down {
+  color: var(--danger);
+}
+
+.direction.flat {
+  color: var(--amber);
+}
+
+.confidence {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metaItem {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}

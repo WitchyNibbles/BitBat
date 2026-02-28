@@ -1,0 +1,86 @@
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Colors */
+  --bg: #0a0a0f;
+  --surface: #13131f;
+  --surface-hover: #1a1a2e;
+  --border: #1e1e3a;
+  --accent: #c4a0ff;
+  --accent-dim: rgba(196, 160, 255, 0.15);
+  --amber: #f5c542;
+  --amber-dim: rgba(245, 197, 66, 0.15);
+  --danger: #e85d75;
+  --danger-dim: rgba(232, 93, 117, 0.15);
+  --success: #6ee7a0;
+  --success-dim: rgba(110, 231, 160, 0.15);
+  --text: #e8e4f0;
+  --text-muted: #7a7591;
+
+  /* Typography */
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --sidebar-width: 220px;
+  --glow: 0 0 20px var(--accent-dim);
+  --glow-amber: 0 0 20px var(--amber-dim);
+
+  /* Radius */
+  --radius: 8px;
+  --radius-sm: 4px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 1.1rem; }
+
+code, .mono {
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Decorative divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
