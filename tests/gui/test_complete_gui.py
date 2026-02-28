@@ -519,8 +519,8 @@ def test_phase2_complete(tmp_path: Path) -> None:
     # --- Session 1: Presets ---
     print("\n[1/4] Preset system")
     presets = list_presets()
-    assert len(presets) == 3
-    for name in ["conservative", "balanced", "aggressive"]:
+    assert len(presets) == 5
+    for name in ["scalper", "conservative", "balanced", "aggressive", "swing"]:
         p = presets[name]
         assert p.to_dict()
         assert p.to_display()

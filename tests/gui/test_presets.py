@@ -8,6 +8,8 @@ from bitbat.gui.presets import (
     CONSERVATIVE,
     DEFAULT_PRESET,
     PRESETS,
+    SCALPER,
+    SWING,
     Preset,
     get_preset,
     list_presets,
@@ -116,21 +118,25 @@ class TestPresetDataclass:
 
 
 class TestPresetRegistry:
-    def test_three_presets_defined(self) -> None:
-        assert len(PRESETS) == 3
+    def test_five_presets_defined(self) -> None:
+        assert len(PRESETS) == 5
 
     def test_all_keys_present(self) -> None:
+        assert "scalper" in PRESETS
         assert "conservative" in PRESETS
         assert "balanced" in PRESETS
         assert "aggressive" in PRESETS
+        assert "swing" in PRESETS
 
     def test_default_preset_is_balanced(self) -> None:
         assert DEFAULT_PRESET == "balanced"
 
     def test_get_preset_known(self) -> None:
+        assert get_preset("scalper") is SCALPER
         assert get_preset("balanced") is BALANCED
         assert get_preset("conservative") is CONSERVATIVE
         assert get_preset("aggressive") is AGGRESSIVE
+        assert get_preset("swing") is SWING
 
     def test_get_preset_case_insensitive(self) -> None:
         assert get_preset("Balanced") is BALANCED

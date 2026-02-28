@@ -40,9 +40,10 @@ st.header("Choose Your Strategy")
 st.markdown("Select the approach that best matches your goals:")
 
 presets = list_presets()
-col1, col2, col3 = st.columns(3)
+preset_order = ["scalper", "conservative", "balanced", "aggressive", "swing"]
+cols = st.columns(5)
 
-for col, key in zip([col1, col2, col3], ["conservative", "balanced", "aggressive"]):
+for col, key in zip(cols, preset_order, strict=False):
     p = presets[key]
     is_active = st.session_state.current_preset == key
     with col:
@@ -84,9 +85,11 @@ with disp_col:
 with help_col:
     st.markdown("**When to use each strategy:**")
     st.markdown(
-        "🛡️ **Conservative** — Long-term holders, low risk  \n"
-        "⚖️ **Balanced** — Most users, recommended starting point  \n"
-        "🚀 **Aggressive** — Active traders, higher risk tolerance"
+        "\u26a1 **Scalper** — Rapid sub-hourly scalp trading  \n"
+        "\U0001f6e1\ufe0f **Conservative** — Long-term holders, low risk  \n"
+        "\u2696\ufe0f **Balanced** — Most users, recommended starting point  \n"
+        "\U0001f680 **Aggressive** — Active traders, higher risk tolerance  \n"
+        "\U0001f30a **Swing** — Sub-hourly swing positions"
     )
 
 # ------------------------------------------------------------------
@@ -99,18 +102,25 @@ with st.expander("🔧 Advanced Settings (for experienced users)"):
     )
     cfg = current.to_dict()
 
+    freq_options = ["5m", "15m", "30m", "1h", "4h", "1d"]
+    horizon_options = ["15m", "30m", "1h", "4h", "24h"]
+
     adv_col1, adv_col2 = st.columns(2)
     with adv_col1:
         freq = st.selectbox(
             "Update Frequency",
-            options=["1h", "4h", "1d"],
-            index=["1h", "4h", "1d"].index(cfg["freq"]),
+            options=freq_options,
+            index=freq_options.index(cfg["freq"]) if cfg["freq"] in freq_options else 0,
             help="How often to generate new predictions.",
         )
         horizon = st.selectbox(
             "Forecast Period",
-            options=["1h", "4h", "24h"],
-            index=["1h", "4h", "24h"].index(cfg["horizon"]),
+            options=horizon_options,
+            index=(
+                horizon_options.index(cfg["horizon"])
+                if cfg["horizon"] in horizon_options
+                else 0
+            ),
             help="How far ahead to predict.",
         )
     with adv_col2:
