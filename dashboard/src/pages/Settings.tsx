@@ -6,8 +6,6 @@ import styles from './Settings.module.css';
 
 const DEFAULTS = {
   preset: 'balanced',
-  freq: '1h',
-  horizon: '4h',
   tau: 0.005,
   confidence: 70,
 };
@@ -17,8 +15,8 @@ export function Settings() {
 
   const [preset, setPreset] = useState(DEFAULTS.preset);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [freq, setFreq] = useState(DEFAULTS.freq);
-  const [horizon, setHorizon] = useState(DEFAULTS.horizon);
+  const [freq, setFreq] = useState('');
+  const [horizon, setHorizon] = useState('');
   const [tau, setTau] = useState(DEFAULTS.tau);
   const [confidence, setConfidence] = useState(DEFAULTS.confidence);
   const [saving, setSaving] = useState(false);
@@ -29,8 +27,8 @@ export function Settings() {
   useEffect(() => {
     if (settings.data) {
       setPreset(settings.data.preset || DEFAULTS.preset);
-      setFreq(settings.data.freq || DEFAULTS.freq);
-      setHorizon(settings.data.horizon || DEFAULTS.horizon);
+      setFreq(settings.data.freq);
+      setHorizon(settings.data.horizon);
       setTau(settings.data.tau ?? DEFAULTS.tau);
       setConfidence(
         settings.data.enter_threshold != null
@@ -62,14 +60,10 @@ export function Settings() {
   }, [preset, freq, horizon, tau, confidence, showAdvanced]);
 
   const handleReset = useCallback(() => {
-    setPreset(DEFAULTS.preset);
-    setFreq(DEFAULTS.freq);
-    setHorizon(DEFAULTS.horizon);
-    setTau(DEFAULTS.tau);
-    setConfidence(DEFAULTS.confidence);
+    settings.refetch();
     setStatusMsg('');
     setErrorMsg('');
-  }, []);
+  }, [settings]);
 
   return (
     <div className={styles.page}>
@@ -94,10 +88,11 @@ export function Settings() {
               className={styles.select}
               value={freq}
               onChange={(e) => setFreq(e.target.value)}
+              disabled={settings.loading}
             >
-              <option value="1h">1h</option>
-              <option value="4h">4h</option>
-              <option value="1d">1d</option>
+              {(settings.data?.valid_freqs ?? []).map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
             </select>
           </div>
 
@@ -107,10 +102,11 @@ export function Settings() {
               className={styles.select}
               value={horizon}
               onChange={(e) => setHorizon(e.target.value)}
+              disabled={settings.loading}
             >
-              <option value="1h">1h</option>
-              <option value="4h">4h</option>
-              <option value="24h">24h</option>
+              {(settings.data?.valid_horizons ?? []).map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
             </select>
           </div>
 
