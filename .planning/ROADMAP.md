@@ -54,7 +54,10 @@ Plans:
   2. Operator can select "Swing" preset in both Streamlit GUI and React dashboard, which sets freq=15m and horizon=1h
   3. Format helpers display "5 min", "15 min", "30 min" (or equivalent human-readable labels) instead of raw "5m", "15m", "30m" strings
   4. Preset selection updates both the frequency and horizon dropdowns to the preset values
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 22-01-PLAN.md — Backend presets (Scalper/Swing) + sub-hourly format helpers + Streamlit GUI update
+- [ ] 22-02-PLAN.md — React dashboard PresetSelector with Scalper/Swing cards + human-readable dropdown labels
 
 ### Phase 23: Configuration Test Coverage
 **Goal**: Automated tests guarantee that presets and settings behave correctly across the full supported frequency range, preventing regressions
@@ -75,5 +78,5 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23
 |-------|----------------|--------|-----------|
 | 20. API Config Alignment | 1/1 | Complete    | 2026-02-28 |
 | 21. Settings UI Expansion | 1/1 | Complete    | 2026-02-28 |
-| 22. Sub-Hourly Presets | 0/0 | Not started | - |
+| 22. Sub-Hourly Presets | 0/2 | Not started | - |
 | 23. Configuration Test Coverage | 0/0 | Not started | - |
