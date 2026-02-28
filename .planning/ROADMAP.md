@@ -28,7 +28,9 @@
   1. When no user config exists, the API settings endpoint returns freq=5m and horizon=30m (matching default.yaml)
   2. Operator can POST a settings update with freq=15m/horizon=1h and GET it back unchanged on the next request
   3. All sub-hourly freq values (5m, 15m, 30m) are accepted by the API settings endpoint without validation errors
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 20-01-PLAN.md — Settings endpoint default.yaml fallback, bucket.py validation, and regression tests (TDD)
 
 ### Phase 21: Settings UI Expansion
 **Goal**: Operators see the full range of supported frequencies and horizons in the React dashboard, with defaults that match the actual runtime configuration
@@ -69,7 +71,7 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 20. API Config Alignment | 0/0 | Not started | - |
+| 20. API Config Alignment | 0/1 | Planned | - |
 | 21. Settings UI Expansion | 0/0 | Not started | - |
 | 22. Sub-Hourly Presets | 0/0 | Not started | - |
 | 23. Configuration Test Coverage | 0/0 | Not started | - |
