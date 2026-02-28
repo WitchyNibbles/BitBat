@@ -205,6 +205,26 @@ RUNTIME_SCHEMA_CONTRACT: dict[str, dict[str, ColumnContract]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# CHECK constraint evolution contract
+# ---------------------------------------------------------------------------
+# Maps table_name -> constraint_name -> set of values that MUST be present in
+# the CHECK expression.  Used to detect stale CHECK constraints on existing
+# tables (SQLite cannot ALTER a CHECK; the table must be recreated).
+# ---------------------------------------------------------------------------
+CHECK_CONSTRAINT_CONTRACT: dict[str, dict[str, set[str]]] = {
+    "retraining_events": {
+        "ck_trigger_reason": {
+            "drift_detected",
+            "scheduled",
+            "manual",
+            "poor_performance",
+            "continuous",
+        },
+    },
+}
+
+
 def required_columns_for_table(table_name: str) -> tuple[str, ...]:
     """Return required columns for a runtime table, sorted for deterministic reporting."""
     contract = RUNTIME_SCHEMA_CONTRACT.get(table_name, {})
@@ -297,6 +317,93 @@ def format_missing_columns(report: SchemaAuditReport) -> str:
     return "; ".join(pairs)
 
 
+def _get_check_constraint_sql(connection: Connection, table_name: str) -> dict[str, str]:
+    """Return {constraint_name: sql_expression} for CHECK constraints on *table_name*.
+
+    Works by parsing the CREATE TABLE DDL from sqlite_master since SQLAlchemy's
+    inspector does not reliably expose CHECK constraint expressions for SQLite.
+    """
+    import re
+
+    result = connection.execute(
+        text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:t"),
+        {"t": table_name},
+    )
+    row = result.fetchone()
+    if row is None or row[0] is None:
+        return {}
+
+    ddl: str = row[0]
+    # Match CONSTRAINT <name> CHECK (<expression>)
+    pattern = r"CONSTRAINT\s+(\w+)\s+CHECK\s*\((.+?)\)(?:\s*,|\s*\))"
+    checks: dict[str, str] = {}
+    for match in re.finditer(pattern, ddl, re.IGNORECASE | re.DOTALL):
+        checks[match.group(1)] = match.group(2).strip()
+    return checks
+
+
+def _check_constraints_are_current(connection: Connection) -> list[tuple[str, str]]:
+    """Return list of (table_name, constraint_name) pairs with stale CHECK constraints.
+
+    A constraint is 'stale' when the contract requires values that are not
+    present in the existing CHECK expression stored in the DB schema.
+    """
+    stale: list[tuple[str, str]] = []
+    for table_name, constraints in CHECK_CONSTRAINT_CONTRACT.items():
+        existing = _get_check_constraint_sql(connection, table_name)
+        for constraint_name, required_values in constraints.items():
+            sql_expr = existing.get(constraint_name, "")
+            for value in required_values:
+                if f"'{value}'" not in sql_expr:
+                    stale.append((table_name, constraint_name))
+                    break
+    return stale
+
+
+def _rebuild_table_with_current_schema(connection: Connection, table_name: str) -> None:
+    """Recreate *table_name* using the current ORM schema, preserving existing data.
+
+    Uses the standard SQLite table-rebuild pattern:
+      1. Rename existing table to a temp name
+      2. Create new table from ORM DDL (with updated constraints)
+      3. Copy data from temp table, using only columns that exist in both
+      4. Drop temp table
+    """
+    from sqlalchemy.schema import CreateTable
+
+    from .models import Base
+
+    orm_table = Base.metadata.tables.get(table_name)
+    if orm_table is None:
+        return
+
+    inspector = inspect(connection)
+    table_names = set(inspector.get_table_names())
+    if table_name not in table_names:
+        return
+
+    old_columns = {col["name"] for col in inspector.get_columns(table_name)}
+    new_columns = {col.name for col in orm_table.columns}
+    shared_columns = sorted(old_columns & new_columns)
+
+    if not shared_columns:
+        return
+
+    temp_name = f"_upgrade_backup_{table_name}"
+    cols_csv = ", ".join(f'"{c}"' for c in shared_columns)
+
+    # Generate DDL from ORM metadata (includes updated CHECK constraints)
+    create_ddl = CreateTable(orm_table).compile(
+        dialect=connection.engine.dialect,
+    ).string.strip()
+
+    connection.execute(text(f'ALTER TABLE "{table_name}" RENAME TO "{temp_name}"'))
+    connection.execute(text(create_ddl))
+    copy_sql = f'INSERT INTO "{table_name}" ({cols_csv}) SELECT {cols_csv} FROM "{temp_name}"'  # noqa: S608
+    connection.execute(text(copy_sql))
+    connection.execute(text(f'DROP TABLE "{temp_name}"'))
+
+
 def _transaction(connection: Connection):
     if connection.in_transaction():
         return connection.begin_nested()
@@ -308,7 +415,7 @@ def upgrade_schema_compatibility(
     *,
     engine: Engine | Connection | None = None,
 ) -> SchemaUpgradeResult:
-    """Apply idempotent additive upgrades for missing runtime columns."""
+    """Apply idempotent additive upgrades for missing columns and stale CHECK constraints."""
     target, owns_engine = _resolve_engine(database_url, engine)
     created_connection = False
     if isinstance(target, Connection):
@@ -320,8 +427,15 @@ def upgrade_schema_compatibility(
     try:
         report_before = audit_schema_compatibility(engine=connection)
         actions: list[SchemaUpgradeAction] = []
+
+        # Determine which tables actually exist so we skip ALTER on absent ones.
+        upgrade_inspector = inspect(connection)
+        existing_tables = set(upgrade_inspector.get_table_names())
+
         with _transaction(connection):
             for table in report_before.tables:
+                if table.table_name not in existing_tables:
+                    continue
                 for column_name in table.addable_missing_columns:
                     contract = RUNTIME_SCHEMA_CONTRACT[table.table_name][column_name]
                     connection.execute(text(
@@ -333,6 +447,22 @@ def upgrade_schema_compatibility(
                         column_name=column_name,
                         sql_type=contract.sql_type,
                     ))
+
+            # Rebuild tables whose CHECK constraints are stale (e.g. new enum
+            # values added to trigger_reason).  SQLite does not support ALTER
+            # CHECK, so the table must be recreated with data migration.
+            stale_checks = _check_constraints_are_current(connection)
+            rebuilt_tables: set[str] = set()
+            for table_name, constraint_name in stale_checks:
+                if table_name not in rebuilt_tables:
+                    _rebuild_table_with_current_schema(connection, table_name)
+                    rebuilt_tables.add(table_name)
+                    actions.append(SchemaUpgradeAction(
+                        table_name=table_name,
+                        column_name=f"__check__{constraint_name}",
+                        sql_type="REBUILT",
+                    ))
+
         report_after = audit_schema_compatibility(engine=connection)
         return SchemaUpgradeResult(
             report_before=report_before,

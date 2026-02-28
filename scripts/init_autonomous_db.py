@@ -97,8 +97,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.upgrade:
-        if not existing:
-            print("No existing autonomous tables found. Creating baseline schema first.")
+        missing_tables = set(EXPECTED_TABLES) - set(existing)
+        if missing_tables:
+            print(f"Creating missing tables: {sorted(missing_tables)}")
             init_database(args.database_url, engine=engine)
         result = upgrade_schema_compatibility(engine=engine)
         status = result.status

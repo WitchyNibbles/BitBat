@@ -317,6 +317,71 @@ def test_upgrade_adds_legacy_performance_snapshot_columns(tmp_path: Path) -> Non
     }
 
 
+def test_upgrade_rebuilds_stale_check_constraint_on_retraining_events(tmp_path: Path) -> None:
+    """Regression test: old CHECK constraint on retraining_events rejects 'continuous'."""
+    database_url = _db_url(tmp_path, "stale_check_constraint.db")
+    engine = create_database_engine(database_url)
+    init_database(database_url, engine=engine)
+
+    # Replace retraining_events with old schema missing 'continuous' in CHECK
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS retraining_events"))
+        conn.execute(text(
+            """
+            CREATE TABLE retraining_events (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                trigger_reason VARCHAR(32) NOT NULL,
+                trigger_metrics JSON,
+                old_model_version VARCHAR(64),
+                new_model_version VARCHAR(64),
+                cv_improvement FLOAT,
+                training_duration_seconds FLOAT,
+                status VARCHAR(16) NOT NULL,
+                error_message TEXT,
+                started_at DATETIME NOT NULL,
+                completed_at DATETIME,
+                CONSTRAINT ck_trigger_reason CHECK (
+                    trigger_reason IN (
+                        'drift_detected', 'scheduled', 'manual', 'poor_performance'
+                    )
+                ),
+                CONSTRAINT ck_retraining_status CHECK (
+                    status IN ('started', 'completed', 'failed')
+                )
+            )
+            """
+        ))
+        conn.execute(text(
+            "INSERT INTO retraining_events (trigger_reason, status, started_at) "
+            "VALUES ('manual', 'completed', '2026-02-01 00:00:00')"
+        ))
+    engine.dispose()
+
+    # AutonomousDB auto-upgrades on init; this should rebuild the table
+    db = AutonomousDB(database_url)
+
+    # Inserting trigger_reason='continuous' must succeed after upgrade
+    with db.session() as session:
+        event = db.create_retraining_event(
+            session=session,
+            trigger_reason="continuous",
+            trigger_metrics=None,
+            old_model_version="unknown",
+        )
+        assert event.id is not None
+        assert event.trigger_reason == "continuous"
+        assert event.status == "started"
+
+    # Old data must be preserved
+    from bitbat.autonomous.models import RetrainingEvent
+
+    with db.session() as session:
+        all_events = session.query(RetrainingEvent).order_by(RetrainingEvent.id).all()
+        assert len(all_events) == 2
+        assert all_events[0].trigger_reason == "manual"
+        assert all_events[1].trigger_reason == "continuous"
+
+
 def test_autonomous_db_init_applies_upgrade_for_legacy_schema(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path, "legacy_runtime_init.db")
     _create_legacy_prediction_outcomes(database_url, with_row=True)
