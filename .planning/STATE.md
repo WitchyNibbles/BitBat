@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Configuration Alignment
-status: unknown
-last_updated: "2026-02-28T14:08:28.614Z"
+status: active
+last_updated: "2026-02-28T19:15:00Z"
 progress:
-  total_phases: 20
-  completed_phases: 20
-  total_plans: 53
-  completed_plans: 53
+  total_phases: 21
+  completed_phases: 21
+  total_plans: 54
+  completed_plans: 54
 ---
 
 # Project State
@@ -18,29 +18,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 20 - API Config Alignment
+**Current focus:** Phase 21 - Settings UI Expansion
 
 ## Current Position
 
-Phase: 20 of 23 (API Config Alignment)
+Phase: 21 of 23 (Settings UI Expansion)
 Plan: 1 of 1 (complete)
-Status: Phase 20 complete
-Last activity: 2026-02-28 — Completed 20-01-PLAN.md
+Status: Phase 21 complete
+Last activity: 2026-02-28 -- Executed 21-01-PLAN.md
 
-Progress: [##########] 100% (Phase 20: 1/1 plans)
+Progress: [==========] 100% (Phase 21: 1/1 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 10 min
-- Total execution time: 10 min
+- Total plans completed: 2
+- Average duration: 6 min
+- Total execution time: 12 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 20. API Config Alignment | 1 | 10 min | 10 min |
+| 21. Settings UI Expansion | 1 | 2 min | 2 min |
 
 ## Accumulated Context
 
@@ -63,8 +64,19 @@ Progress: [##########] 100% (Phase 20: 1/1 plans)
 
 - Preserve v1.3 monitor-alignment contracts as non-regression constraints.
 
+### Phase 21 Decisions
+
+- Dropdown options pulled from API valid_freqs/valid_horizons (single source of truth from bucket.py).
+- API is source of truth for settings -- no hardcoded frontend defaults for freq/horizon.
+- No human-readable labels this phase (deferred to Phase 22 PRES-03).
+- No horizon filtering based on freq (deferred per ADVC-02).
+- Follow existing dashboard save patterns (explicit Save button, showAdvanced conditional).
+- Reset button refetches from API instead of hardcoded defaults.
+- Dropdowns disabled during API loading to prevent empty-state interaction.
+- freq/horizon initialized as empty strings, populated solely from API response.
+
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 20-01-PLAN.md
-Resume with: Phase 20 complete. Begin Phase 21 (Settings UI Expansion).
+Stopped at: Completed 21-01-PLAN.md (Settings UI Expansion)
+Resume with: Phase 22 planning or execution.

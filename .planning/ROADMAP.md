@@ -14,7 +14,7 @@
 ## Phases
 
 - [x] **Phase 20: API Config Alignment** - API settings endpoint defaults to default.yaml and accepts sub-hourly freq/horizon values (completed 2026-02-28)
-- [ ] **Phase 21: Settings UI Expansion** - React dashboard dropdowns expose all supported frequencies and horizons with correct defaults
+- [x] **Phase 21: Settings UI Expansion** - React dashboard dropdowns expose all supported frequencies and horizons with correct defaults (completed 2026-02-28)
 - [ ] **Phase 22: Sub-Hourly Presets** - Scalper and Swing presets available in both GUI and React dashboard with human-readable labels
 - [ ] **Phase 23: Configuration Test Coverage** - Automated tests validate preset parameters and settings round-trip for the full frequency range
 
@@ -41,7 +41,9 @@ Plans:
   2. React dashboard horizon dropdown shows 15m, 30m, 1h, 4h, 24h as selectable options
   3. On first load with no saved preferences, the React dashboard shows 5m frequency and 30m horizon (matching default.yaml)
   4. Selecting a sub-hourly frequency in the dropdown persists through page navigation without reverting to 1h
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 21-01-PLAN.md — Dynamic freq/horizon dropdowns from API valid_freqs/valid_horizons, API-sourced defaults
 
 ### Phase 22: Sub-Hourly Presets
 **Goal**: Operators can choose named trading presets that configure sub-hourly freq/horizon pairs in a single click
@@ -72,6 +74,6 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 20. API Config Alignment | 1/1 | Complete    | 2026-02-28 |
-| 21. Settings UI Expansion | 0/0 | Not started | - |
+| 21. Settings UI Expansion | 1/1 | Complete   | 2026-02-28 |
 | 22. Sub-Hourly Presets | 0/0 | Not started | - |
 | 23. Configuration Test Coverage | 0/0 | Not started | - |

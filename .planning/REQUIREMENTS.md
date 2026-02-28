@@ -15,9 +15,9 @@ Requirements for configuration alignment. Each maps to roadmap phases.
 
 ### Settings UI
 
-- [ ] **SETT-01**: React dashboard frequency dropdown includes 5m, 15m, 30m alongside 1h, 4h, 1d
-- [ ] **SETT-02**: React dashboard horizon dropdown includes 15m, 30m alongside 1h, 4h, 24h
-- [ ] **SETT-03**: React dashboard defaults reflect default.yaml values (5m/30m) instead of hardcoded 1h/4h
+- [x] **SETT-01**: React dashboard frequency dropdown includes 5m, 15m, 30m alongside 1h, 4h, 1d
+- [x] **SETT-02**: React dashboard horizon dropdown includes 15m, 30m alongside 1h, 4h, 24h
+- [x] **SETT-03**: React dashboard defaults reflect default.yaml values (5m/30m) instead of hardcoded 1h/4h
 
 ### API Config
 
@@ -56,9 +56,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PRES-01 | Phase 22 | Pending |
 | PRES-02 | Phase 22 | Pending |
 | PRES-03 | Phase 22 | Pending |
-| SETT-01 | Phase 21 | Pending |
-| SETT-02 | Phase 21 | Pending |
-| SETT-03 | Phase 21 | Pending |
+| SETT-01 | Phase 21 | Complete |
+| SETT-02 | Phase 21 | Complete |
+| SETT-03 | Phase 21 | Complete |
 | APIC-01 | Phase 20 | Complete |
 | APIC-02 | Phase 20 | Complete |
 | TEST-01 | Phase 23 | Pending |
