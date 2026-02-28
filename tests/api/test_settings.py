@@ -1,11 +1,11 @@
-"""Tests for settings endpoints — APIC-01 (default fallback) and APIC-02 (sub-hourly persistence)."""
+"""Tests for settings endpoints (APIC-01 default fallback, APIC-02 sub-hourly persistence)."""
 
 from __future__ import annotations
 
 import pytest
-from tests.api.client import SyncASGIClient
 
 from bitbat.api.app import create_app
+from tests.api.client import SyncASGIClient
 
 
 @pytest.fixture()
