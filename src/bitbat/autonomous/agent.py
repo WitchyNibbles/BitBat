@@ -60,7 +60,9 @@ class MonitoringAgent:
             "Missing monitor model artifact for resolved runtime pair "
             f"{self.freq}/{self.horizon}: {model_path}. "
             "Use --config or BITBAT_CONFIG to select the intended pair, or train/copy "
-            "the required artifact before starting monitor commands."
+            "the required artifact before starting monitor commands. "
+            "You can bootstrap the runtime artifact with "
+            "`python scripts/bootstrap_monitor_model.py --config <path>`."
         )
 
     def _active_model_version(self) -> str:

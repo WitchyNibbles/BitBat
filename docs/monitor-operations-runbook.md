@@ -31,7 +31,12 @@ If monitor startup is blocked because model artifacts are missing for the resolv
 
 1. Read the startup error. It includes the missing `models/{freq}_{horizon}/xgb.json` path.
 2. Confirm config wiring (`--config` or `BITBAT_CONFIG`) points to the intended `freq/horizon`.
-3. Train or copy the missing artifact for that pair.
+3. Bootstrap or train/copy the missing artifact for that pair.
+   ```bash
+   poetry run python scripts/bootstrap_monitor_model.py --config config/monitor.yaml --start 2026-01-01
+   # or
+   make bootstrap-monitor-model CONFIG=config/monitor.yaml START=2026-01-01
+   ```
 4. Re-run `monitor run-once` before returning to long-running mode.
 
 ## Cycle-State Diagnostic Interpretation

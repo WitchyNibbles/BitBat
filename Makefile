@@ -1,4 +1,4 @@
-.PHONY: fmt lint test test-release streamlit
+.PHONY: fmt lint test test-release streamlit bootstrap-monitor-model
 
 fmt:
 	poetry run ruff format src tests
@@ -18,3 +18,7 @@ test-release:
 
 streamlit:
 	poetry run streamlit run streamlit/app.py
+
+bootstrap-monitor-model:
+	@test -n "$(CONFIG)" || (echo "Usage: make bootstrap-monitor-model CONFIG=path/to/config.yaml [START=YYYY-MM-DD] [SYMBOL=BTC-USD]" && exit 1)
+	poetry run python scripts/bootstrap_monitor_model.py --config "$(CONFIG)" $(if $(START),--start "$(START)") $(if $(SYMBOL),--symbol "$(SYMBOL)")

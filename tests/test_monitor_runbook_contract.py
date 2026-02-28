@@ -21,6 +21,7 @@ def test_monitor_runbook_contains_required_operator_contracts() -> None:
     assert "cycle diagnostic" in content
     assert "schema remediation" in content
     assert "make test-release" in content
+    assert "bootstrap_monitor_model.py" in content
 
 
 def test_monitor_service_template_matches_documented_config_wiring() -> None:
