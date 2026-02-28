@@ -47,11 +47,24 @@ class Preset:
     # ------------------------------------------------------------------
 
     def _format_freq(self) -> str:
-        mapping = {"1h": "Every hour", "4h": "Every 4 hours", "1d": "Daily"}
+        mapping = {
+            "5m": "Every 5 min",
+            "15m": "Every 15 min",
+            "30m": "Every 30 min",
+            "1h": "Every hour",
+            "4h": "Every 4 hours",
+            "1d": "Daily",
+        }
         return mapping.get(self.freq, self.freq)
 
     def _format_horizon(self) -> str:
-        mapping = {"1h": "1 hour ahead", "4h": "4 hours ahead", "24h": "1 day ahead"}
+        mapping = {
+            "15m": "15 min ahead",
+            "30m": "30 min ahead",
+            "1h": "1 hour ahead",
+            "4h": "4 hours ahead",
+            "24h": "1 day ahead",
+        }
         return mapping.get(self.horizon, self.horizon)
 
     def _format_tau(self) -> str:
@@ -65,6 +78,20 @@ class Preset:
 # ---------------------------------------------------------------------------
 # Preset definitions
 # ---------------------------------------------------------------------------
+
+SCALPER = Preset(
+    name="Scalper",
+    description=(
+        "Rapid sub-hourly predictions for active scalp trading."
+        " Highest frequency, shortest horizon."
+    ),
+    freq="5m",
+    horizon="30m",
+    tau=0.003,
+    enter_threshold=0.55,
+    color="#F59E0B",  # amber
+    icon="\u26a1",
+)
 
 CONSERVATIVE = Preset(
     name="Conservative",
@@ -99,10 +126,23 @@ AGGRESSIVE = Preset(
     icon="🚀",
 )
 
+SWING = Preset(
+    name="Swing",
+    description="Sub-hourly signals for swing positions. Balances speed with confirmation time.",
+    freq="15m",
+    horizon="1h",
+    tau=0.007,
+    enter_threshold=0.60,
+    color="#8B5CF6",  # purple
+    icon="\U0001f30a",
+)
+
 PRESETS: dict[str, Preset] = {
+    "scalper": SCALPER,
     "conservative": CONSERVATIVE,
     "balanced": BALANCED,
     "aggressive": AGGRESSIVE,
+    "swing": SWING,
 }
 
 DEFAULT_PRESET = "balanced"
