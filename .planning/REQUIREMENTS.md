@@ -21,8 +21,8 @@ Requirements for configuration alignment. Each maps to roadmap phases.
 
 ### API Config
 
-- [ ] **APIC-01**: API settings endpoint falls back to default.yaml values when no user config exists
-- [ ] **APIC-02**: API settings endpoint accepts and persists sub-hourly freq/horizon values
+- [x] **APIC-01**: API settings endpoint falls back to default.yaml values when no user config exists
+- [x] **APIC-02**: API settings endpoint accepts and persists sub-hourly freq/horizon values
 
 ### Test Coverage
 
@@ -59,8 +59,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SETT-01 | Phase 21 | Pending |
 | SETT-02 | Phase 21 | Pending |
 | SETT-03 | Phase 21 | Pending |
-| APIC-01 | Phase 20 | Pending |
-| APIC-02 | Phase 20 | Pending |
+| APIC-01 | Phase 20 | Complete |
+| APIC-02 | Phase 20 | Complete |
 | TEST-01 | Phase 23 | Pending |
 | TEST-02 | Phase 23 | Pending |
 

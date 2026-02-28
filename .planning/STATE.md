@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Configuration Alignment
-status: ready_to_plan
-last_updated: "2026-02-28T00:00:00Z"
+status: executing
+last_updated: "2026-02-28T14:03:28Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 1
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,24 +23,24 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 20 of 23 (API Config Alignment)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-02-28 — Roadmap created for v1.4
+Plan: 1 of 1 (complete)
+Status: Phase 20 complete
+Last activity: 2026-02-28 — Completed 20-01-PLAN.md
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [##########] 100% (Phase 20: 1/1 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 10 min
+- Total execution time: 10 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 20. API Config Alignment | 1 | 10 min | 10 min |
 
 ## Accumulated Context
 
@@ -50,6 +50,10 @@ Progress: [░░░░░░░░░░] 0%
 - API backend alignment comes first so UI and preset work builds on correct defaults.
 - Presets depend on both API and UI phases being complete.
 - Test coverage is a final validation phase, not sprinkled across other phases.
+- Settings fallback uses load_config() (default.yaml) instead of get_preset("balanced").
+- valid_horizons excludes 1m; valid_freqs includes full _SUPPORTED_FREQUENCIES set.
+- Frequencies sorted by pandas Timedelta for correct duration ordering.
+- Preset resolution kept in PUT for backward compat; GET uses config loader only.
 
 ### Pending Todos
 
@@ -62,5 +66,5 @@ Progress: [░░░░░░░░░░] 0%
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Roadmap created for v1.4 milestone
-Resume with: `plan-phase 20` to begin API Config Alignment
+Stopped at: Completed 20-01-PLAN.md
+Resume with: Phase 20 complete. Begin Phase 21 (Settings UI Expansion).
