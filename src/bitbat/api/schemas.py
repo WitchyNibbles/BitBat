@@ -173,11 +173,13 @@ class TrainingResponse(BaseModel):
 
 
 class SettingsResponse(BaseModel):
-    preset: str
+    preset: str = "custom"
     freq: str
     horizon: str
     tau: float
     enter_threshold: float
+    valid_freqs: list[str] = Field(default_factory=list, description="Accepted frequency values")
+    valid_horizons: list[str] = Field(default_factory=list, description="Accepted horizon values")
 
 
 class SettingsUpdateRequest(BaseModel):
