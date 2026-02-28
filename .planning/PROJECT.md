@@ -81,11 +81,15 @@ plus runbook contract tests.
 | Require promotion gates before autonomous deployment | Single-window wins are insufficient for stable production promotion | ✓ Shipped in v1.2 |
 | Prioritize runtime alignment before advanced modeling in v1.3 | Monitoring trust is a prerequisite for evaluating new model capabilities | ✓ Shipped in v1.3 |
 
-## Next Milestone Goals
+## Current Milestone: v1.4 Configuration Alignment
 
-1. Reopen advanced-model scope only on top of v1.3 monitor alignment and diagnostics guarantees.
-2. Add new model capabilities with reproducible, leakage-safe, cost-aware evaluation evidence.
-3. Extend release verification contracts as scope expands so regressions are caught pre-release.
+**Goal:** Make the UI settings, presets, and API defaults reflect the actual runtime configuration (5m freq) instead of hardcoded 1h-only options.
+
+**Target features:**
+- Expand GUI and React settings dropdowns to expose sub-hourly frequencies (5m, 15m, 30m) and matching horizons.
+- Add sub-hourly trading presets (e.g. Scalper at 5m/30m) alongside existing hourly presets.
+- Align preset format helpers, API settings defaults, and dashboard defaults with `default.yaml` reality.
+- Ensure display labels, validation, and tests cover the full supported frequency range.
 
 <details>
 <summary>Archived v1.3 planning context</summary>
@@ -103,4 +107,4 @@ configuration with trained model artifacts and making no-data conditions explici
 </details>
 
 ---
-*Last updated: 2026-02-26 after completing v1.3 milestone*
+*Last updated: 2026-02-28 after starting v1.4 milestone*

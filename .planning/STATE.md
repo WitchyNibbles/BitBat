@@ -1,41 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Autonomous Monitor Alignment and Metrics Integrity
-status: archived
-last_updated: "2026-02-26T17:15:00Z"
+milestone: v1.4
+milestone_name: Configuration Alignment
+status: defining_requirements
+last_updated: "2026-02-28T00:00:00Z"
 progress:
-  total_phases: 19
-  completed_phases: 19
-  total_plans: 52
-  completed_plans: 52
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-26)
+See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** v1.3 archived; preparing next milestone definition
+**Current focus:** v1.4 Configuration Alignment
 
 ## Current Position
 
-Milestone: v1.3 (Autonomous Monitor Alignment and Metrics Integrity)
-Phase: none (milestone closed)
-Status: Milestone archived with roadmap/requirements snapshots and release tag
-Last activity: 2026-02-26 - Archived v1.3 milestone artifacts and prepared next-milestone handoff
-
-Progress: [██████████] 100% for v1.3 (3/3 phases complete)
-
-## Milestone Metrics
-
-- Phase range: 17-19
-- Plans completed: 8/8
-- Tasks completed: 24
-- Scope anchor: ALGN-01/02/03, SCHE-04, MON-04/05/06, QUAL-07/08/09
-- Audit note: no standalone `v1.3-MILESTONE-AUDIT.md` generated before closeout
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-28 — Milestone v1.4 started
 
 ## Accumulated Context
 
@@ -53,16 +43,15 @@ Progress: [██████████] 100% for v1.3 (3/3 phases complete)
 
 ### Pending Todos
 
-- Start the next milestone with `$gsd-new-milestone` (fresh requirements and roadmap).
-- Optionally run `$gsd-progress` to review archive status before kickoff.
+(None — fresh milestone)
 
 ### Blockers/Concerns
 
 - No active blocker.
-- Preserve v1.3 monitor-alignment contracts as non-regression constraints in the next milestone.
+- Preserve v1.3 monitor-alignment contracts as non-regression constraints.
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: Completed v1.3 milestone archival (`v1.3-ROADMAP.md`, `v1.3-REQUIREMENTS.md`)
-Resume with: `$gsd-new-milestone`
+Last session: 2026-02-28
+Stopped at: Defining v1.4 requirements
+Resume with: Continue requirements definition
