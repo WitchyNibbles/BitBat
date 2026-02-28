@@ -98,7 +98,9 @@ node_modules/
 
 # Agentic stuff to ignore
 agent_plans/
+.agents/
 .claude
 CLAUDE.md
 AGENTS.md
 .planning/
+skills-lock.json
