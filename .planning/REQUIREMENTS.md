@@ -53,22 +53,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRES-01 | — | Pending |
-| PRES-02 | — | Pending |
-| PRES-03 | — | Pending |
-| SETT-01 | — | Pending |
-| SETT-02 | — | Pending |
-| SETT-03 | — | Pending |
-| APIC-01 | — | Pending |
-| APIC-02 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
+| PRES-01 | Phase 22 | Pending |
+| PRES-02 | Phase 22 | Pending |
+| PRES-03 | Phase 22 | Pending |
+| SETT-01 | Phase 21 | Pending |
+| SETT-02 | Phase 21 | Pending |
+| SETT-03 | Phase 21 | Pending |
+| APIC-01 | Phase 20 | Pending |
+| APIC-02 | Phase 20 | Pending |
+| TEST-01 | Phase 23 | Pending |
+| TEST-02 | Phase 23 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 after roadmap creation*
