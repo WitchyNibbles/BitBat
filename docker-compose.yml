@@ -59,21 +59,15 @@ services:
       - bitbat-ingest
 
   # -------------------------------------------------------------------------
-  # Streamlit dashboard
+  # React dashboard (The Oracle's Console)
   # -------------------------------------------------------------------------
   bitbat-ui:
-    build: .
-    command: streamlit run streamlit/app.py --server.port 8501 --server.address 0.0.0.0
-    volumes:
-      - ./data:/app/data
-      - ./models:/app/models
+    build: ./dashboard
     ports:
-      - "8501:8501"
-    environment:
-      - PYTHONPATH=/app/src
-    restart: unless-stopped
+      - "3000:80"
     depends_on:
       - bitbat-api
+    restart: unless-stopped
 
   # -------------------------------------------------------------------------
   # Nginx reverse proxy — routes /api → FastAPI, / → Streamlit
