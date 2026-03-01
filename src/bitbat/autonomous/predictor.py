@@ -315,8 +315,9 @@ class LivePredictor:
         # Run inference
         feature_row = aligned.loc[latest_ts]
         current_price = float(prices["close"].iloc[-1])
+        tau = float(config.get("tau", 0.01) or 0.01)
         prediction = predict_bar(
-            booster, feature_row, timestamp=latest_ts, current_price=current_price
+            booster, feature_row, timestamp=latest_ts, current_price=current_price, tau=tau,
         )
 
         predicted_return = float(prediction["predicted_return"])
@@ -342,6 +343,8 @@ class LivePredictor:
                     horizon=self.horizon,
                     predicted_return=predicted_return,
                     predicted_price=predicted_price,
+                    p_up=float(prediction.get("p_up", 0.0)),
+                    p_down=float(prediction.get("p_down", 0.0)),
                 )
         except Exception as exc:
             raise classify_monitor_db_error(

@@ -49,9 +49,9 @@ continuous_training:
   enabled: true
   retrain_interval_seconds: 1800
   min_new_samples: 6
-  rolling_window_bars: 17280
-  train_window_bars: 13824
-  backtest_window_bars: 3456
+  rolling_window_bars: 4032
+  train_window_bars: 3024
+  backtest_window_bars: 1008
 
 # Autonomous System Configuration
 autonomous:

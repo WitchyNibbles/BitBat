@@ -1299,7 +1299,10 @@ def batch_run(
     latest_ts = aligned_features.index.max()
     feature_row = aligned_features.loc[latest_ts]
     current_price = float(prices["close"].iloc[-1])
-    prediction = predict_bar(booster, feature_row, timestamp=latest_ts, current_price=current_price)
+    tau = float(_config().get("tau", 0.01) or 0.01)
+    prediction = predict_bar(
+        booster, feature_row, timestamp=latest_ts, current_price=current_price, tau=tau,
+    )
 
     timestamp_value = prediction.get("timestamp", latest_ts)
     timestamp_utc = pd.to_datetime(timestamp_value, utc=True, errors="coerce")
@@ -1359,6 +1362,8 @@ def batch_run(
                 horizon=horizon_val,
                 predicted_return=predicted_return,
                 predicted_price=prediction.get("predicted_price"),
+                p_up=float(prediction.get("p_up", 0.0)),
+                p_down=float(prediction.get("p_down", 0.0)),
             )
         click.echo(f"Also stored in autonomous DB ({db_url})")
     except Exception as exc:
