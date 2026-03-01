@@ -125,3 +125,69 @@ class TestSettingsSubHourlyPersistence:
         data = get_resp.json()
         assert data["freq"] == "15m"
         assert data["horizon"] == "4h"
+
+
+# ---------------------------------------------------------------------------
+# TEST-01 / TEST-02: Preset and sub-hourly settings round-trip
+# ---------------------------------------------------------------------------
+
+
+class TestSettingsPresetRoundTrip:
+    """PUT preset or sub-hourly values, then GET and verify round-trip."""
+
+    def test_put_preset_scalper_round_trip(
+        self, client: SyncASGIClient
+    ) -> None:
+        """PUT preset=scalper resolves to 5m/30m/0.003/0.55 on GET."""
+        put_resp = client.request(
+            "PUT",
+            "/system/settings",
+            json={"preset": "scalper"},
+        )
+        assert put_resp.status_code == 200
+
+        get_resp = client.get("/system/settings")
+        assert get_resp.status_code == 200
+        data = get_resp.json()
+        assert data["freq"] == "5m"
+        assert data["horizon"] == "30m"
+        assert data["tau"] == 0.003
+        assert data["enter_threshold"] == 0.55
+        assert data["preset"] == "scalper"
+
+    def test_put_preset_swing_round_trip(
+        self, client: SyncASGIClient
+    ) -> None:
+        """PUT preset=swing resolves to 15m/1h/0.007/0.60 on GET."""
+        put_resp = client.request(
+            "PUT",
+            "/system/settings",
+            json={"preset": "swing"},
+        )
+        assert put_resp.status_code == 200
+
+        get_resp = client.get("/system/settings")
+        assert get_resp.status_code == 200
+        data = get_resp.json()
+        assert data["freq"] == "15m"
+        assert data["horizon"] == "1h"
+        assert data["tau"] == 0.007
+        assert data["enter_threshold"] == 0.60
+        assert data["preset"] == "swing"
+
+    def test_sub_hourly_freq_horizon_round_trip(
+        self, client: SyncASGIClient
+    ) -> None:
+        """PUT explicit freq=5m/horizon=30m persists without preset resolution."""
+        put_resp = client.request(
+            "PUT",
+            "/system/settings",
+            json={"freq": "5m", "horizon": "30m"},
+        )
+        assert put_resp.status_code == 200
+
+        get_resp = client.get("/system/settings")
+        assert get_resp.status_code == 200
+        data = get_resp.json()
+        assert data["freq"] == "5m"
+        assert data["horizon"] == "30m"
