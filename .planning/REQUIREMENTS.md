@@ -9,9 +9,9 @@ Requirements for configuration alignment. Each maps to roadmap phases.
 
 ### Presets
 
-- [ ] **PRES-01**: Operator can select a Scalper preset (5m freq, 30m horizon) in both GUI and React dashboard
-- [ ] **PRES-02**: Operator can select a Swing preset (15m freq, 1h horizon) in both GUI and React dashboard
-- [ ] **PRES-03**: Preset format helpers display human-readable labels for all sub-hourly frequencies (5m, 15m, 30m)
+- [x] **PRES-01**: Operator can select a Scalper preset (5m freq, 30m horizon) in both GUI and React dashboard
+- [x] **PRES-02**: Operator can select a Swing preset (15m freq, 1h horizon) in both GUI and React dashboard
+- [x] **PRES-03**: Preset format helpers display human-readable labels for all sub-hourly frequencies (5m, 15m, 30m)
 
 ### Settings UI
 
@@ -53,9 +53,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRES-01 | Phase 22 | Pending |
-| PRES-02 | Phase 22 | Pending |
-| PRES-03 | Phase 22 | Pending |
+| PRES-01 | Phase 22 | Complete |
+| PRES-02 | Phase 22 | Complete |
+| PRES-03 | Phase 22 | Complete |
 | SETT-01 | Phase 21 | Complete |
 | SETT-02 | Phase 21 | Complete |
 | SETT-03 | Phase 21 | Complete |

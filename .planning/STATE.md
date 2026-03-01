@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Configuration Alignment
-status: unknown
-last_updated: "2026-02-28T19:19:20.133Z"
+status: in-progress
+last_updated: "2026-03-01T07:08:08Z"
 progress:
-  total_phases: 21
+  total_phases: 22
   completed_phases: 21
-  total_plans: 54
-  completed_plans: 54
+  total_plans: 56
+  completed_plans: 56
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 21 - Settings UI Expansion
+**Current focus:** Phase 22 - Sub-Hourly Presets
 
 ## Current Position
 
-Phase: 21 of 23 (Settings UI Expansion)
-Plan: 1 of 1 (complete)
-Status: Phase 21 complete
-Last activity: 2026-02-28 -- Executed 21-01-PLAN.md
+Phase: 22 of 23 (Sub-Hourly Presets)
+Plan: 2 of 2 (complete)
+Status: Phase 22 complete
+Last activity: 2026-03-01 -- Executed 22-02-PLAN.md
 
-Progress: [==========] 100% (Phase 21: 1/1 plans)
+Progress: [==========] 100% (Phase 22: 2/2 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 6 min
-- Total execution time: 12 min
+- Total plans completed: 4
+- Average duration: 10 min
+- Total execution time: 43 min
 
 **By Phase:**
 
@@ -42,6 +42,7 @@ Progress: [==========] 100% (Phase 21: 1/1 plans)
 |-------|-------|-------|----------|
 | 20. API Config Alignment | 1 | 10 min | 10 min |
 | 21. Settings UI Expansion | 1 | 2 min | 2 min |
+| 22. Sub-Hourly Presets | 2 | 31 min | 16 min |
 
 ## Accumulated Context
 
@@ -75,8 +76,16 @@ Progress: [==========] 100% (Phase 21: 1/1 plans)
 - Dropdowns disabled during API loading to prevent empty-state interaction.
 - freq/horizon initialized as empty strings, populated solely from API response.
 
+### Phase 22 Decisions
+
+- Preset ordering: scalper, conservative, balanced, aggressive, swing (fastest to most methodical).
+- formatFreqHorizon shared helper exported from PresetSelector for reuse in Settings dropdowns.
+- onPresetData callback preferred over PRESET_MAP duplication -- single source of truth for preset definitions.
+- Scalper uses Zap icon (amber), Swing uses TrendingUp icon (purple) from lucide-react.
+- Dropdown option values remain raw API-compatible strings; display text uses human-readable labels.
+
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 21-01-PLAN.md (Settings UI Expansion)
-Resume with: Phase 22 planning or execution.
+Last session: 2026-03-01
+Stopped at: Completed 22-02-PLAN.md (Sub-Hourly Presets)
+Resume with: Phase 23 planning or execution.
