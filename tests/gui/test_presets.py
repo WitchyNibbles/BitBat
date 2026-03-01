@@ -151,3 +151,29 @@ class TestPresetRegistry:
         p2 = list_presets()
         assert p1 == p2
         assert p1 is not PRESETS  # must be a copy
+
+
+class TestScalperSwingParameters:
+    """Exact parameter value assertions for Scalper and Swing presets."""
+
+    def test_scalper_preset_parameters(self) -> None:
+        assert SCALPER.freq == "5m"
+        assert SCALPER.horizon == "30m"
+        assert SCALPER.tau == 0.003
+        assert SCALPER.enter_threshold == 0.55
+
+    def test_swing_preset_parameters(self) -> None:
+        assert SWING.freq == "15m"
+        assert SWING.horizon == "1h"
+        assert SWING.tau == 0.007
+        assert SWING.enter_threshold == 0.60
+
+    def test_scalper_display_uses_sub_hourly_labels(self) -> None:
+        disp = SCALPER.to_display()
+        assert "5 min" in disp["Update Frequency"]
+        assert "30 min" in disp["Forecast Period"]
+
+    def test_swing_display_uses_sub_hourly_labels(self) -> None:
+        disp = SWING.to_display()
+        assert "15 min" in disp["Update Frequency"]
+        assert "1 hour" in disp["Forecast Period"]
