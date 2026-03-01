@@ -78,5 +78,5 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23
 |-------|----------------|--------|-----------|
 | 20. API Config Alignment | 1/1 | Complete    | 2026-02-28 |
 | 21. Settings UI Expansion | 1/1 | Complete    | 2026-02-28 |
-| 22. Sub-Hourly Presets | 2/2 | Complete   | 2026-03-01 |
+| 22. Sub-Hourly Presets | 2/2 | Complete    | 2026-03-01 |
 | 23. Configuration Test Coverage | 0/0 | Not started | - |
