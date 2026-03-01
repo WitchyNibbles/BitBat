@@ -67,7 +67,9 @@ Plans:
   1. Running the test suite exercises both Scalper (5m/30m) and Swing (15m/1h) presets and asserts correct parameter values
   2. A settings round-trip test saves a sub-hourly freq/horizon via the API, reloads, and verifies the values match
   3. All new tests pass in `make test-release` alongside existing D1/D2/D3 gates
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 23-01-PLAN.md — Scalper/Swing preset parameter tests, settings round-trip tests, Makefile test-release wiring
 
 ## Progress
 
