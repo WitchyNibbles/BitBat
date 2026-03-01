@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { PresetSelector } from '../components/PresetSelector.tsx';
+import { PresetSelector, formatFreqHorizon } from '../components/PresetSelector.tsx';
 import { useApi } from '../hooks/useApi.ts';
 import { api } from '../api/client.ts';
 import styles from './Settings.module.css';
@@ -69,7 +69,11 @@ export function Settings() {
     <div className={styles.page}>
       <h2>Settings</h2>
 
-      <PresetSelector selected={preset} onSelect={setPreset} />
+      <PresetSelector
+        selected={preset}
+        onSelect={setPreset}
+        onPresetData={(f, h) => { setFreq(f); setHorizon(h); }}
+      />
 
       <div className="divider">&#x2726;</div>
 
@@ -91,7 +95,7 @@ export function Settings() {
               disabled={settings.loading}
             >
               {(settings.data?.valid_freqs ?? []).map((f) => (
-                <option key={f} value={f}>{f}</option>
+                <option key={f} value={f}>{formatFreqHorizon(f)}</option>
               ))}
             </select>
           </div>
@@ -105,7 +109,7 @@ export function Settings() {
               disabled={settings.loading}
             >
               {(settings.data?.valid_horizons ?? []).map((h) => (
-                <option key={h} value={h}>{h}</option>
+                <option key={h} value={h}>{formatFreqHorizon(h)}</option>
               ))}
             </select>
           </div>
