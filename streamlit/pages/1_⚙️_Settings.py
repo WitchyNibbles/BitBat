@@ -102,7 +102,7 @@ with st.expander("🔧 Advanced Settings (for experienced users)"):
     )
     cfg = current.to_dict()
 
-    freq_options = ["5m", "15m", "30m", "1h", "4h", "1d"]
+    freq_options = ["5m", "15m", "30m", "1h", "4h", "24h"]
     horizon_options = ["15m", "30m", "1h", "4h", "24h"]
 
     adv_col1, adv_col2 = st.columns(2)

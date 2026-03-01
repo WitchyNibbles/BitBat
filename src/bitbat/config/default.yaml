@@ -1,6 +1,7 @@
 data_dir: "data"
 freq: "5m"
 horizon: "30m"
+tau: 0.01
 enter_threshold: 0.6
 allow_short: false
 cost_bps: 4
