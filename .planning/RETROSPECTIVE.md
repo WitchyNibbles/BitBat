@@ -109,6 +109,44 @@
 
 ---
 
+## Milestone: v1.4 — Configuration Alignment
+
+**Shipped:** 2026-03-01
+**Phases:** 4 | **Plans:** 5 | **Sessions:** 1
+
+### What Was Built
+- API settings endpoint with default.yaml fallback and bucket.py validation for sub-hourly frequencies.
+- React dashboard dynamic freq/horizon dropdowns populated from API (no hardcoded values).
+- Scalper (5m/30m) and Swing (15m/1h) trading presets in both Streamlit GUI and React dashboard.
+- Human-readable format helpers for sub-hourly frequencies across both frontend surfaces.
+- Automated preset parameter and API settings round-trip regression tests wired into `make test-release`.
+
+### What Worked
+- Clean phase dependency chain (API -> UI -> Presets -> Tests) allowed each phase to build on verified exports from the previous.
+- Integration checker at audit caught a real bug (Streamlit "1d" freq not in bucket.py) that would have caused runtime errors.
+- Milestone audit's 3-source cross-reference (VERIFICATION + SUMMARY + REQUIREMENTS traceability) gave high confidence in requirement closure.
+
+### What Was Inefficient
+- Phase 22 shipped with `freq_options` containing `"1d"` instead of `"24h"` — the integration checker caught it at audit time, but phase-level verification missed it because the Streamlit file wasn't in the test scope.
+- `tau` was never added to `default.yaml` during any earlier milestone despite being a core config value — discovered as tech debt during audit.
+
+### Patterns Established
+- API as single source of truth for config values: frontend reads from API, not hardcoded constants.
+- `bucket.py _SUPPORTED_FREQUENCIES` is the canonical frequency set — all UI surfaces must reference it, not maintain independent lists.
+- Integration checker at milestone audit is valuable for catching cross-surface inconsistencies that phase-level verification misses.
+
+### Key Lessons
+1. Phase verification catches task-level issues but misses cross-surface consistency — milestone-level integration checking is essential.
+2. Canonical value sets (like supported frequencies) should be imported from a single source, not duplicated as string literals in each surface.
+3. Small config milestones (4 phases, 5 plans) can ship in a single session when the dependency chain is clean.
+
+### Cost Observations
+- Model mix: quality profile for planner/executor, sonnet for checker/verifier
+- Sessions: 1
+- Notable: Entire milestone from plan-phase through audit and tech debt fix completed in one session. Most effort was wiring: making React, Streamlit, and API all agree on the same config reality.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -118,6 +156,7 @@
 | v1.0 | 2 | 9 | Added post-audit gap-closure loop and milestone audit fail-gate enforcement |
 | v1.1 | 1 | 3 | Established UI-surface retirement + runtime guard pattern with release-wired phase gates |
 | v1.2 | 1 | 4 | Added nested optimization + safeguard/promotion-gate contracts shared by CLI and autonomous retrainer |
+| v1.4 | 1 | 4 | API-first config alignment + sub-hourly presets across React and Streamlit |
 
 ### Cumulative Quality
 
@@ -126,6 +165,7 @@
 | v1.0 | D1/D2/D3 acceptance suites passing | Not tracked | Multiple test-only gating modules |
 | v1.1 | D1/D2/D3 acceptance suites passing | Milestone requirements 11/11 satisfied | Phase10/11/12 regression + smoke gate suites |
 | v1.2 | Phase 16 verification and targeted model/autonomous/CLI suites passing | Milestone requirements 11/11 satisfied | Nested optimize/safeguard/promotion gate regression contracts |
+| v1.4 | 169 tests in `make test-release` across 4 gates | Milestone requirements 10/10 satisfied, audit passed | Preset parameter + API round-trip regression suites |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -133,3 +173,4 @@
 2. Treat planning-state updates as first-class deliverables, not optional docs cleanup.
 3. Prefer safe retirement contracts over fragile legacy-path patching when operator value is concentrated elsewhere.
 4. Close milestones only after scope-correct audit and archival stats validation.
+5. Canonical value sets should be imported from a single source — duplicated string literals across surfaces cause subtle inconsistencies.

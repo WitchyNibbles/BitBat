@@ -85,3 +85,13 @@
 - Milestone-level audit file (`v1.3-MILESTONE-AUDIT.md`) was not generated prior to closeout.
 
 ---
+
+## v1.4 Configuration Alignment (Shipped: 2026-03-01)
+
+**Phases completed:** 23 phases, 57 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

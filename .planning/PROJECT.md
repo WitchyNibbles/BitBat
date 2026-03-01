@@ -2,9 +2,9 @@
 
 ## Current State
 
-- **Shipped version:** v1.3 (2026-02-26)
-- **Milestone result:** Monitor runtime/model alignment and diagnostics integrity are now release-gated and operator-documented.
-- **Release acceptance command:** `make test-release`
+- **Shipped version:** v1.4 (2026-03-01)
+- **Milestone result:** UI settings, presets, and API defaults now reflect the actual runtime configuration across the full sub-hourly frequency range.
+- **Release acceptance command:** `make test-release` (169 tests across 4 gates)
 
 ## What This Is
 
@@ -44,6 +44,10 @@ active prediction flows for the configured runtime pair.
 - ✓ ALGN-01/02/03, SCHE-04, MON-04/05/06, QUAL-07/08/09: Runtime-pair guardrails, explicit
   cycle/status semantics, root-cause diagnostics, and monitor runbook/release gate hardening
   shipped in v1.3.
+- ✓ APIC-01/02: API settings fallback to default.yaml and sub-hourly persistence — v1.4.
+- ✓ SETT-01/02/03: React dashboard dynamic freq/horizon dropdowns with API-sourced defaults — v1.4.
+- ✓ PRES-01/02/03: Scalper (5m/30m) and Swing (15m/1h) presets in Streamlit and React — v1.4.
+- ✓ TEST-01/02: Preset parameter and settings round-trip test coverage — v1.4.
 
 ### Active (Next Milestone Candidates)
 
@@ -58,9 +62,10 @@ active prediction flows for the configured runtime pair.
 
 ## Context
 
-As of 2026-02-26, v1.3 closed the monitor trust gap: startup now validates runtime/model pairing,
-no-prediction states are explicit, and release verification includes phase-level alignment gates
-plus runbook contract tests.
+As of 2026-03-01, v1.4 closed the configuration alignment gap: the API, React dashboard, and
+Streamlit GUI all expose the full sub-hourly frequency range (5m, 15m, 30m) with correct defaults
+from default.yaml, named trading presets (Scalper, Swing), human-readable labels, and automated
+regression tests covering both preset values and API round-trip persistence.
 
 ## Constraints
 
@@ -68,7 +73,7 @@ plus runbook contract tests.
 - **Operational Safety:** Prefer fail-fast startup and explicit remediation over silent cycles.
 - **Verification:** New monitor and modeling semantics must be covered by deterministic automated
   tests.
-- **Scope Discipline:** New milestone work must preserve released v1.3 monitor guarantees.
+- **Scope Discipline:** New milestone work must preserve released v1.3 monitor guarantees and v1.4 configuration contracts.
 
 ## Key Decisions
 
@@ -80,16 +85,23 @@ plus runbook contract tests.
 | Prioritize pipeline rigor over exotic model complexity for v1.2 | Leakage control, retraining cadence, and evaluation protocol dominate real-world crypto robustness | ✓ Shipped in v1.2 |
 | Require promotion gates before autonomous deployment | Single-window wins are insufficient for stable production promotion | ✓ Shipped in v1.2 |
 | Prioritize runtime alignment before advanced modeling in v1.3 | Monitoring trust is a prerequisite for evaluating new model capabilities | ✓ Shipped in v1.3 |
+| Align UI/API config with default.yaml reality for v1.4 | Operators saw 1h-only options while runtime used 5m; trust requires visible truth | ✓ Shipped in v1.4 |
+| API as single source of truth for config values | Eliminates hardcoded frontend defaults diverging from backend | ✓ Shipped in v1.4 |
 
-## Current Milestone: v1.4 Configuration Alignment
+## Current Focus
+
+Planning next milestone. Candidates from Active requirements: microstructure features (MICR-01),
+multi-asset portfolio (PORT-01), EA-driven policy optimization (EA-01).
+
+<details>
+<summary>Archived v1.4 planning context</summary>
 
 **Goal:** Make the UI settings, presets, and API defaults reflect the actual runtime configuration (5m freq) instead of hardcoded 1h-only options.
 
-**Target features:**
-- Expand GUI and React settings dropdowns to expose sub-hourly frequencies (5m, 15m, 30m) and matching horizons.
-- Add sub-hourly trading presets (e.g. Scalper at 5m/30m) alongside existing hourly presets.
-- Align preset format helpers, API settings defaults, and dashboard defaults with `default.yaml` reality.
-- Ensure display labels, validation, and tests cover the full supported frequency range.
+**Shipped:** API settings fallback, dynamic React dropdowns, Scalper/Swing presets, human-readable
+labels, automated test coverage for presets and round-trip persistence.
+
+</details>
 
 <details>
 <summary>Archived v1.3 planning context</summary>
@@ -97,14 +109,10 @@ plus runbook contract tests.
 **Goal:** Ensure autonomous monitoring reports meaningful performance by aligning runtime
 configuration with trained model artifacts and making no-data conditions explicit.
 
-**Target features:**
-- Enforce runtime/model alignment for `freq/horizon` so monitor cycles run against valid
-  artifacts.
-- Add fail-fast monitor diagnostics for missing model artifacts and mismatched runtime pairs.
-- Improve monitor cycle/status observability so operators can distinguish "no predictions yet"
-  from true zero performance.
+**Shipped:** Runtime-pair guardrails, explicit cycle/status semantics, root-cause diagnostics,
+monitor runbook and release gate hardening.
 
 </details>
 
 ---
-*Last updated: 2026-02-28 after starting v1.4 milestone*
+*Last updated: 2026-03-01 after v1.4 milestone*
