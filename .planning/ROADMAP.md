@@ -16,7 +16,7 @@
 - [x] **Phase 20: API Config Alignment** - API settings endpoint defaults to default.yaml and accepts sub-hourly freq/horizon values (completed 2026-02-28)
 - [x] **Phase 21: Settings UI Expansion** - React dashboard dropdowns expose all supported frequencies and horizons with correct defaults (completed 2026-02-28)
 - [x] **Phase 22: Sub-Hourly Presets** - Scalper and Swing presets available in both GUI and React dashboard with human-readable labels (completed 2026-03-01)
-- [ ] **Phase 23: Configuration Test Coverage** - Automated tests validate preset parameters and settings round-trip for the full frequency range
+- [x] **Phase 23: Configuration Test Coverage** - Automated tests validate preset parameters and settings round-trip for the full frequency range (completed 2026-03-01)
 
 ## Phase Details
 
@@ -81,4 +81,4 @@ Phases execute in numeric order: 20 -> 21 -> 22 -> 23
 | 20. API Config Alignment | 1/1 | Complete    | 2026-02-28 |
 | 21. Settings UI Expansion | 1/1 | Complete    | 2026-02-28 |
 | 22. Sub-Hourly Presets | 2/2 | Complete    | 2026-03-01 |
-| 23. Configuration Test Coverage | 0/0 | Not started | - |
+| 23. Configuration Test Coverage | 1/1 | Complete   | 2026-03-01 |

@@ -26,8 +26,8 @@ Requirements for configuration alignment. Each maps to roadmap phases.
 
 ### Test Coverage
 
-- [ ] **TEST-01**: Preset tests cover Scalper and Swing presets with correct parameter values
-- [ ] **TEST-02**: Settings/API tests verify sub-hourly freq/horizon round-trip through save and load
+- [x] **TEST-01**: Preset tests cover Scalper and Swing presets with correct parameter values
+- [x] **TEST-02**: Settings/API tests verify sub-hourly freq/horizon round-trip through save and load
 
 ## Future Requirements
 
@@ -61,8 +61,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SETT-03 | Phase 21 | Complete |
 | APIC-01 | Phase 20 | Complete |
 | APIC-02 | Phase 20 | Complete |
-| TEST-01 | Phase 23 | Pending |
-| TEST-02 | Phase 23 | Pending |
+| TEST-01 | Phase 23 | Complete |
+| TEST-02 | Phase 23 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 10 total

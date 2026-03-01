@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Configuration Alignment
-status: unknown
-last_updated: "2026-03-01T07:15:39.998Z"
+status: complete
+last_updated: "2026-03-01T07:40:05Z"
 progress:
-  total_phases: 22
-  completed_phases: 22
-  total_plans: 56
-  completed_plans: 56
+  total_phases: 23
+  completed_phases: 23
+  total_plans: 57
+  completed_plans: 57
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 22 - Sub-Hourly Presets
+**Current focus:** Phase 23 - Configuration Test Coverage (complete)
 
 ## Current Position
 
-Phase: 22 of 23 (Sub-Hourly Presets)
-Plan: 2 of 2 (complete)
-Status: Phase 22 complete
-Last activity: 2026-03-01 -- Executed 22-02-PLAN.md
+Phase: 23 of 23 (Configuration Test Coverage)
+Plan: 1 of 1 (complete)
+Status: Phase 23 complete -- v1.4 Configuration Alignment milestone complete
+Last activity: 2026-03-01 -- Executed 23-01-PLAN.md
 
-Progress: [==========] 100% (Phase 22: 2/2 plans)
+Progress: [==========] 100% (Phase 23: 1/1 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 10 min
-- Total execution time: 43 min
+- Total plans completed: 5
+- Average duration: 11 min
+- Total execution time: 55 min
 
 **By Phase:**
 
@@ -43,6 +43,7 @@ Progress: [==========] 100% (Phase 22: 2/2 plans)
 | 20. API Config Alignment | 1 | 10 min | 10 min |
 | 21. Settings UI Expansion | 1 | 2 min | 2 min |
 | 22. Sub-Hourly Presets | 2 | 31 min | 16 min |
+| 23. Configuration Test Coverage | 1 | 12 min | 12 min |
 
 ## Accumulated Context
 
@@ -84,8 +85,13 @@ Progress: [==========] 100% (Phase 22: 2/2 plans)
 - Scalper uses Zap icon (amber), Swing uses TrendingUp icon (purple) from lucide-react.
 - Dropdown option values remain raw API-compatible strings; display text uses human-readable labels.
 
+### Phase 23 Decisions
+
+- Skipped redundant registry identity test (already covered by test_get_preset_known).
+- 608 total tests pass with zero regressions after adding 7 new tests (4 preset + 3 round-trip).
+
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 22-02-PLAN.md (Sub-Hourly Presets)
-Resume with: Phase 23 planning or execution.
+Stopped at: Completed 23-01-PLAN.md (Configuration Test Coverage) -- v1.4 milestone complete
+Resume with: Next milestone planning.
