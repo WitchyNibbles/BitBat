@@ -1,5 +1,15 @@
 # BitBat Reliability and Timeline Evolution
 
+## Current Milestone: v1.5 Codebase Health Audit & Critical Remediation
+
+**Goal:** Comprehensive audit of the entire codebase against BitBat's core value promise — then fix critical gaps in pipeline correctness, architecture integrity, and production readiness.
+
+**Target features:**
+- Full codebase audit across pipeline correctness, architecture drift, dead/broken code
+- End-to-end usability validation (clone → ingest → predict → monitor)
+- Production readiness assessment (maintainability, deployability, error handling)
+- Critical issue remediation (high-severity fixes shipped; lower-severity cataloged)
+
 ## Current State
 
 - **Shipped version:** v1.4 (2026-03-01)
@@ -49,7 +59,14 @@ active prediction flows for the configured runtime pair.
 - ✓ PRES-01/02/03: Scalper (5m/30m) and Swing (15m/1h) presets in Streamlit and React — v1.4.
 - ✓ TEST-01/02: Preset parameter and settings round-trip test coverage — v1.4.
 
-### Active (Next Milestone Candidates)
+### Active
+
+- [ ] AUDIT-01: Comprehensive codebase audit for incongruences, code smells, and design errors
+- [ ] AUDIT-02: End-to-end pipeline usability validation (ingestion through monitoring)
+- [ ] AUDIT-03: Production readiness assessment (error handling, maintainability, deployability)
+- [ ] AUDIT-04: Critical issue remediation for high-severity findings
+
+### Deferred (Future Milestone Candidates)
 
 - [ ] MICR-01: Add optional microstructure/LOB feature pipeline for short-horizon experiments.
 - [ ] PORT-01: Add multi-asset portfolio-level forecasting and allocation workflow.
@@ -90,8 +107,9 @@ regression tests covering both preset values and API round-trip persistence.
 
 ## Current Focus
 
-Planning next milestone. Candidates from Active requirements: microstructure features (MICR-01),
-multi-asset portfolio (PORT-01), EA-driven policy optimization (EA-01).
+Milestone v1.5: Codebase Health Audit & Critical Remediation — auditing the full codebase for
+incongruences, code smells, design errors, and broken paths against the core value promise, then
+fixing critical issues.
 
 <details>
 <summary>Archived v1.4 planning context</summary>
@@ -114,5 +132,7 @@ monitor runbook and release gate hardening.
 
 </details>
 
+| Audit before adding features | 4 milestones shipped rapidly; tech debt audit before expanding scope reduces compounding risk | — Pending |
+
 ---
-*Last updated: 2026-03-01 after v1.4 milestone*
+*Last updated: 2026-03-04 after v1.5 milestone start*
