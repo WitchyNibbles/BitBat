@@ -48,12 +48,13 @@ Plans:
   5. `tests/features/test_leakage.py` exists and contains a PR-AUC guardrail test as documented in CLAUDE.md, failing if train/test leakage is detected
   6. API route freq/horizon defaults are sourced from default.yaml rather than hardcoded, and a test confirms the API defaults match the config file values
   7. OBV fold-boundary leakage impact is empirically assessed with a walk-forward comparison (with vs without OBV), and if confirmed material, the cumsum is computed fold-aware
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 25-01: TBD
-- [ ] 25-02: TBD
-- [ ] 25-03: TBD
+- [ ] 25-01-PLAN.md — Fix retrainer CLI contract (--tau removal) and CV metric key naming consistency
+- [ ] 25-02-PLAN.md — Separate regression_metrics I/O from computation, replace assert isinstance with TypeError guards
+- [ ] 25-03-PLAN.md — Create test_leakage.py PR-AUC guardrail, align API route defaults with config
+- [ ] 25-04-PLAN.md — Assess OBV fold-boundary leakage empirically and implement fold-aware cumsum
 
 ### Phase 26: Architecture Targeted Fixes
 **Goal**: The highest-friction architecture violations are repaired so that future development does not re-encounter duplicated logic, broken test isolation, or cross-layer imports
@@ -90,6 +91,6 @@ Phases execute in numeric order: 24 -> 25 -> 26 -> 27
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 24. Audit Baseline | 3/3 | Complete    | 2026-03-04 | - |
-| 25. Critical Correctness Remediation | v1.5 | 0/? | Not started | - |
+| 25. Critical Correctness Remediation | v1.5 | 0/4 | Not started | - |
 | 26. Architecture Targeted Fixes | v1.5 | 0/? | Not started | - |
 | 27. Verification & Guardrail Hardening | v1.5 | 0/? | Not started | - |
