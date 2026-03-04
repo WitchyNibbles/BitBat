@@ -17,6 +17,7 @@ from bitbat.model.evaluate import (
     regression_metrics,
     select_champion_report,
     window_diagnostics,
+    write_regression_metrics,
     write_window_diagnostics,
 )
 
@@ -41,12 +42,14 @@ def test_regression_metrics_outputs(
     assert metrics["rmse"] > 0
     assert 0.0 <= metrics["directional_accuracy"] <= 1.0
 
-    metrics_path = Path("metrics") / "regression_metrics.json"
+    # Verify write_regression_metrics produces expected files
+    write_regression_metrics(metrics, y_true, y_pred, output_dir=tmp_path / "metrics")
+    metrics_path = tmp_path / "metrics" / "regression_metrics.json"
     assert metrics_path.exists()
     data = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert "mae" in data
 
-    png_path = Path("metrics") / "prediction_scatter.png"
+    png_path = tmp_path / "metrics" / "prediction_scatter.png"
     assert png_path.exists()
 
 

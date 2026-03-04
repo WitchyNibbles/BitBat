@@ -91,8 +91,8 @@ def regression_metrics(
 ) -> dict[str, Any]:
     """Compute regression metrics from true and predicted returns.
 
-    Writes `metrics/regression_metrics.json` and
-    `metrics/prediction_scatter.png` as side effects.
+    This is a pure computation function with no file I/O side effects.
+    Use :func:`write_regression_metrics` to persist results to disk.
 
     Args:
         y_true: Ground-truth forward returns for each sample.
@@ -126,7 +126,7 @@ def regression_metrics(
         else 0.0
     )
 
-    metrics = {
+    return {
         "mae": mae,
         "rmse": rmse,
         "r2": float(r2),
@@ -135,7 +135,36 @@ def regression_metrics(
         "n_samples": int(len(y_t)),
     }
 
+
+def write_regression_metrics(
+    metrics: dict[str, Any],
+    y_true: pd.Series | np.ndarray,
+    y_pred: pd.Series | np.ndarray,
+    output_dir: str | Path = Path("metrics"),
+) -> Path:
+    """Persist regression metrics and scatter plot to disk.
+
+    Args:
+        metrics: Metrics dict as returned by :func:`regression_metrics`.
+        y_true: Ground-truth forward returns (for the scatter plot).
+        y_pred: Predicted forward returns (for the scatter plot).
+        output_dir: Directory to write outputs into.
+
+    Returns:
+        Path to the written ``regression_metrics.json`` file.
+    """
+    y_t = np.asarray(y_true, dtype="float64")
+    y_p = np.asarray(y_pred, dtype="float64")
+
+    metrics_dir = Path(output_dir)
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write JSON
+    metrics_path = metrics_dir / "regression_metrics.json"
+    metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+
     # Scatter plot
+    r2 = metrics.get("r2", 0.0)
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.scatter(y_t, y_p, alpha=0.3, s=10)
     lims = [min(y_t.min(), y_p.min()), max(y_t.max(), y_p.max())]
@@ -143,16 +172,11 @@ def regression_metrics(
     ax.set_xlabel("Actual Return")
     ax.set_ylabel("Predicted Return")
     ax.set_title(f"Predicted vs Actual (R²={r2:.3f})")
-
-    metrics_dir = Path("metrics")
-    metrics_dir.mkdir(parents=True, exist_ok=True)
-    metrics_path = metrics_dir / "regression_metrics.json"
-    metrics_path.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     fig_path = metrics_dir / "prediction_scatter.png"
     fig.savefig(fig_path, bbox_inches="tight")
     plt.close(fig)
 
-    return metrics
+    return metrics_path
 
 
 def _fold_mean(folds: list[dict[str, Any]], key: str) -> float:
