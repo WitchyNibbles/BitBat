@@ -88,7 +88,8 @@ def fit_baseline(
         freq, horizon = _extract_freq_horizon(X_train)
         model_path = _default_model_path(family, freq, horizon)
         if family == "xgb":
-            assert isinstance(model, xgb.Booster)
+            if not isinstance(model, xgb.Booster):
+                raise TypeError(f"Expected xgb.Booster for family 'xgb', got {type(model).__name__}")
             model.save_model(str(model_path))
         else:
             with model_path.open("wb") as artifact:
@@ -112,7 +113,8 @@ def fit_xgb(
         seed=seed,
         persist=persist,
     )
-    assert isinstance(model, xgb.Booster)
+    if not isinstance(model, xgb.Booster):
+        raise TypeError(f"Expected xgb.Booster from fit_baseline, got {type(model).__name__}")
     return model, importance
 
 
@@ -131,5 +133,6 @@ def fit_random_forest(
         seed=seed,
         persist=persist,
     )
-    assert isinstance(model, RandomForestRegressor)
+    if not isinstance(model, RandomForestRegressor):
+        raise TypeError(f"Expected RandomForestRegressor from fit_baseline, got {type(model).__name__}")
     return model, importance
