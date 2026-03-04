@@ -68,7 +68,7 @@ class AutoRetrainer:
 
         payload = json.loads(path.read_text(encoding="utf-8"))
         self._last_cv_summary = payload
-        score = payload.get("average_balanced_accuracy")
+        score = payload.get("mean_directional_accuracy")
         if score is not None:
             return float(score)
 

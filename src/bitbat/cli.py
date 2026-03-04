@@ -778,7 +778,7 @@ def model_cv(
             "folds": primary_metrics["folds"],
             "average_rmse": primary_metrics["average_rmse"],
             "average_mae": primary_metrics["average_mae"],
-            "average_balanced_accuracy": float(
+            "mean_directional_accuracy": float(
                 primary_directional.get("mean_directional_accuracy", 0.0)
             ),
             "candidate_reports": candidate_reports,
