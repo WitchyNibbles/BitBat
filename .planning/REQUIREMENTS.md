@@ -10,9 +10,9 @@ Requirements for the audit and remediation milestone. Each maps to roadmap phase
 ### Audit Baseline
 
 - [x] **AUDT-01**: All existing tests classified by type (behavioral unit, integration, structural conformance, milestone-marker) with coverage gap report
-- [ ] **AUDT-02**: Dead code audit completed with vulture at 80% confidence (findings triaged, false-positive whitelist created)
+- [x] **AUDT-02**: Dead code audit completed with vulture at 80% confidence (findings triaged, false-positive whitelist created)
 - [ ] **AUDT-03**: Branch coverage report generated with pytest-cov identifying lowest-coverage modules
-- [ ] **AUDT-04**: Complexity audit completed with radon identifying high-complexity functions for remediation candidates
+- [x] **AUDT-04**: Complexity audit completed with radon identifying high-complexity functions for remediation candidates
 - [ ] **AUDT-05**: E2E pipeline smoke test executed (ingest → features → train → batch → monitor) documenting which sequential steps pass and which fail
 
 ### Critical Correctness
@@ -71,9 +71,9 @@ Acknowledged but not in current roadmap. Tracked for future milestones.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | AUDT-01 | Phase 24 | Complete |
-| AUDT-02 | Phase 24 | Pending |
+| AUDT-02 | Phase 24 | Complete |
 | AUDT-03 | Phase 24 | Pending |
-| AUDT-04 | Phase 24 | Pending |
+| AUDT-04 | Phase 24 | Complete |
 | AUDT-05 | Phase 24 | Pending |
 | CORR-01 | Phase 25 | Pending |
 | CORR-02 | Phase 25 | Pending |
