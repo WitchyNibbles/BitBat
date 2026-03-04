@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Codebase Health Audit & Critical Remediation
-status: unknown
-last_updated: "2026-03-04T13:44:29.519Z"
+status: in-progress
+last_updated: "2026-03-04T19:14:28Z"
 progress:
   total_phases: 20
   completed_phases: 20
-  total_plans: 55
-  completed_plans: 55
+  total_plans: 56
+  completed_plans: 56
 ---
 
 # Project State
@@ -18,29 +18,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 24 — Audit Baseline
+**Current focus:** Phase 25 — Critical Correctness Remediation
 
 ## Current Position
 
-Phase: 24 of 27 (Audit Baseline) -- COMPLETE
-Plan: 3 of 3 in Phase 24 -- ALL COMPLETE
-Status: Phase 24 complete, ready for Phase 25
-Last activity: 2026-03-04 — Completed 24-03 (branch coverage, E2E smoke test, AUDIT-REPORT.md synthesis)
+Phase: 25 of 27 (Critical Correctness Remediation) -- IN PROGRESS
+Plan: 1 of 4 in Phase 25 -- COMPLETE
+Status: Completed 25-01, ready for 25-02
+Last activity: 2026-03-04 — Completed 25-01 (retrainer CLI contract fix, CV metric key fix)
 
-Progress: [##########] 3/3 plans (Phase 24)
+Progress: [###-------] 1/4 plans (Phase 25)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 7min
-- Total execution time: 0.33 hours
+- Total execution time: 0.42 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 24 | 3/3 | 20min | 7min |
+| 25 | 1/4 | 5min | 5min |
 
 ## Accumulated Context
 
@@ -61,6 +62,8 @@ Progress: [##########] 3/3 plans (Phase 24)
 - CORR-01 location corrected: --tau passed to features build (not model train as research stated).
 - Smoke test used real yfinance data; model output path and autonomous.db path don't fully respect data_dir (DEBT-02/DEBT-03).
 - AUDIT-REPORT.md synthesizes 26 findings with severity triage, ready to drive phases 25-27 planning.
+- Writer key renamed from average_balanced_accuracy to mean_directional_accuracy; reader cascade kept for backward compat with old cv_summary.json files.
+- CLI contract test uses Click CliRunner --help parsing to extract valid options dynamically (self-updating guard).
 
 ### Pending Todos
 
@@ -75,5 +78,5 @@ Progress: [##########] 3/3 plans (Phase 24)
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 24-03-PLAN.md (coverage, smoke test, AUDIT-REPORT.md) -- Phase 24 complete
-Resume with: `/gsd:execute-phase` to begin Phase 25 (Critical Correctness Remediation)
+Stopped at: Completed 25-01-PLAN.md (retrainer CLI contract fix, CV metric key fix)
+Resume with: `/gsd:execute-phase` to continue Phase 25 (plan 25-02 next)

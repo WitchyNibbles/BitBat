@@ -17,8 +17,8 @@ Requirements for the audit and remediation milestone. Each maps to roadmap phase
 
 ### Critical Correctness
 
-- [ ] **CORR-01**: Retrainer subprocess CLI contract fixed (--tau argument removed, command arguments match actual CLI interface)
-- [ ] **CORR-02**: CV metric key mismatch fixed (writer and reader use same key names for walk-forward scores)
+- [x] **CORR-01**: Retrainer subprocess CLI contract fixed (--tau argument removed, command arguments match actual CLI interface)
+- [x] **CORR-02**: CV metric key mismatch fixed (writer and reader use same key names for walk-forward scores)
 - [ ] **CORR-03**: `regression_metrics()` refactored to separate computation from file I/O side effects
 - [ ] **CORR-04**: `assert isinstance` replaced with proper runtime guards in production code paths
 - [ ] **CORR-05**: `test_leakage.py` created with PR-AUC guardrail as documented in CLAUDE.md
@@ -75,8 +75,8 @@ Acknowledged but not in current roadmap. Tracked for future milestones.
 | AUDT-03 | Phase 24 | Complete |
 | AUDT-04 | Phase 24 | Complete |
 | AUDT-05 | Phase 24 | Complete |
-| CORR-01 | Phase 25 | Pending |
-| CORR-02 | Phase 25 | Pending |
+| CORR-01 | Phase 25 | Complete |
+| CORR-02 | Phase 25 | Complete |
 | CORR-03 | Phase 25 | Pending |
 | CORR-04 | Phase 25 | Pending |
 | CORR-05 | Phase 25 | Pending |

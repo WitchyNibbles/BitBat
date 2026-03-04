@@ -91,6 +91,6 @@ Phases execute in numeric order: 24 -> 25 -> 26 -> 27
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 24. Audit Baseline | 3/3 | Complete    | 2026-03-04 | - |
-| 25. Critical Correctness Remediation | v1.5 | 0/4 | Not started | - |
+| 25. Critical Correctness Remediation | 1/4 | In Progress|  | - |
 | 26. Architecture Targeted Fixes | v1.5 | 0/? | Not started | - |
 | 27. Verification & Guardrail Hardening | v1.5 | 0/? | Not started | - |
