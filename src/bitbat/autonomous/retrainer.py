@@ -197,8 +197,6 @@ class AutoRetrainer:
                 "bitbat",
                 "features",
                 "build",
-                "--tau",
-                str(self.tau),
             ])
             self._run_command([
                 "poetry",
