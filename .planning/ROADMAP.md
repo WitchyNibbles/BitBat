@@ -29,12 +29,12 @@
   3. A branch coverage report from pytest-cov identifies the lowest-coverage modules, giving a ranked list of where behavioral tests are most needed
   4. A radon complexity audit identifies all functions exceeding cyclomatic complexity 10, producing a remediation candidate list for phases 25-26
   5. The E2E pipeline smoke test (ingest -> features -> train -> batch -> monitor) has been executed and a log documents which sequential steps pass and which fail, with specific error messages for failures
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 24-01: TBD
-- [ ] 24-02: TBD
-- [ ] 24-03: TBD
+- [ ] 24-01-PLAN.md — Classify test suite, add pytest markers, delete milestone-markers, produce coverage gap matrix
+- [ ] 24-02-PLAN.md — Run vulture dead code scan with whitelist triage and radon complexity audit
+- [ ] 24-03-PLAN.md — Run branch coverage report, E2E smoke test, and synthesize AUDIT-REPORT.md
 
 ### Phase 25: Critical Correctness Remediation
 **Goal**: All silently broken production code paths are fixed with one-fix-one-test discipline, and missing correctness guardrails are created
@@ -89,7 +89,7 @@ Phases execute in numeric order: 24 -> 25 -> 26 -> 27
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 24. Audit Baseline | v1.5 | 0/? | Not started | - |
+| 24. Audit Baseline | v1.5 | 0/3 | Planned | - |
 | 25. Critical Correctness Remediation | v1.5 | 0/? | Not started | - |
 | 26. Architecture Targeted Fixes | v1.5 | 0/? | Not started | - |
 | 27. Verification & Guardrail Hardening | v1.5 | 0/? | Not started | - |
