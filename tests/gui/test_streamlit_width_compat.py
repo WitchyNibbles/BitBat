@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"
@@ -18,6 +19,8 @@ RETIRED_PAGE_PATHS = {
     "pages/9_🔬_Pipeline.py",
 }
 
+
+pytestmark = pytest.mark.structural
 
 def _runtime_streamlit_files() -> list[Path]:
     files = [STREAMLIT_DIR / "app.py"]

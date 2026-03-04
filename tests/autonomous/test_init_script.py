@@ -18,6 +18,8 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "init_autonomous_db.p
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+pytestmark = pytest.mark.integration
+
 def _run_init_script(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         [sys.executable, str(SCRIPT), *args],

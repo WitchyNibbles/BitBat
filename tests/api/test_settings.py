@@ -8,6 +8,8 @@ from bitbat.api.app import create_app
 from tests.api.client import SyncASGIClient
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture()
 def client(tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> SyncASGIClient:
     """Create a test client with user config path pointed at a temp directory."""

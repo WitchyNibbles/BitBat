@@ -18,6 +18,8 @@ from bitbat.dataset.splits import Fold
 from bitbat.io.fs import read_parquet, write_parquet
 
 
+pytestmark = pytest.mark.integration
+
 def _write_test_config(
     path: Path,
     *,

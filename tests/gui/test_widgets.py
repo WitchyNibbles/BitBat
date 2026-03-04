@@ -23,6 +23,8 @@ from bitbat.gui.widgets import (
 # ---------------------------------------------------------------------------
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture()
 def empty_db(tmp_path: Path) -> Path:
     """DB file that exists but has no tables."""

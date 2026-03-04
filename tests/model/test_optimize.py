@@ -17,6 +17,8 @@ from bitbat.model.optimize import (
 # -----------------------------------------------------------
 
 
+pytestmark = pytest.mark.behavioral
+
 @pytest.fixture(scope="module")
 def synthetic_data() -> (
     tuple[pd.DataFrame, pd.Series, list[Fold]]

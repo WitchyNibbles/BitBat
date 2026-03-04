@@ -26,6 +26,8 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "init_autonomous_db.p
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+pytestmark = pytest.mark.integration
+
 def _db_url(tmp_path: Path, filename: str) -> str:
     return f"sqlite:///{tmp_path / filename}"
 

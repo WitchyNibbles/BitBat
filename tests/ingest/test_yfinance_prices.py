@@ -9,6 +9,8 @@ import pytest
 from bitbat.ingest.prices import fetch_yf
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.mark.slow
 def test_fetch_yf_btcusd_hourly(tmp_path: Path) -> None:
     start = datetime(2017, 1, 1)

@@ -14,6 +14,8 @@ except ImportError:  # pragma: no cover - optional dependency
 from bitbat.model.train import fit_baseline, fit_random_forest, fit_xgb
 
 
+pytestmark = pytest.mark.behavioral
+
 def test_fit_xgb_trains_and_saves(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

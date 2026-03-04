@@ -12,6 +12,8 @@ from bitbat.contracts import (
 )
 
 
+pytestmark = pytest.mark.behavioral
+
 def test_feature_contract_requires_feat_prefix() -> None:
     frame = pd.DataFrame({
         "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="1h"),

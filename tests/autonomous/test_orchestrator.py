@@ -11,6 +11,8 @@ import pytest
 from bitbat.autonomous.orchestrator import one_click_train
 
 
+pytestmark = pytest.mark.behavioral
+
 @pytest.fixture(autouse=True)
 def _mock_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Provide a minimal runtime config for all tests."""

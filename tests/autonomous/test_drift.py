@@ -6,7 +6,10 @@ from pathlib import Path
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.drift import DriftDetector
 from bitbat.autonomous.models import init_database
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'drift.db'}"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNBOOK = ROOT / "docs" / "monitor-operations-runbook.md"
@@ -10,6 +11,8 @@ MONITORING_STRATEGY = ROOT / "docs" / "monitoring_strategy.md"
 TESTING_QUALITY = ROOT / "docs" / "testing-quality.md"
 SERVICE_TEMPLATE = ROOT / "deployment" / "bitbat-monitor.service"
 
+
+pytestmark = pytest.mark.structural
 
 def test_monitor_runbook_contains_required_operator_contracts() -> None:
     content = RUNBOOK.read_text(encoding="utf-8")

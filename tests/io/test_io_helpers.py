@@ -7,7 +7,10 @@ import pandas.testing as pd_testing
 
 from bitbat.io.duck import query
 from bitbat.io.fs import read_parquet, write_parquet
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def test_parquet_roundtrip_preserves_schema(tmp_path: Path) -> None:
     frame = pd.DataFrame({

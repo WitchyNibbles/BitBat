@@ -30,6 +30,8 @@ from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import Base
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture(scope="module")
 def full_env(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Set up a complete environment: DB with predictions + trained model."""

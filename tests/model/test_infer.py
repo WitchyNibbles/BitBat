@@ -10,6 +10,8 @@ import xgboost as xgb
 from bitbat.model.infer import predict_bar
 
 
+pytestmark = pytest.mark.behavioral
+
 def _train_model() -> tuple[xgb.Booster, pd.DataFrame]:
     rng = np.random.default_rng(0)
     X = pd.DataFrame(

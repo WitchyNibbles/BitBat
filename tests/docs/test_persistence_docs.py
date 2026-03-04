@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pytest
 
+
+pytestmark = pytest.mark.structural
 
 def test_persistence_overview_exists() -> None:
     """Persistence overview doc should exist and mention key storage paths."""

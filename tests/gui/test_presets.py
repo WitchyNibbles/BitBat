@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from bitbat.gui.presets import (
     AGGRESSIVE,
     BALANCED,
@@ -14,6 +16,8 @@ from bitbat.gui.presets import (
     get_preset,
     list_presets,
 )
+
+pytestmark = pytest.mark.behavioral
 
 
 class TestPresetDataclass:

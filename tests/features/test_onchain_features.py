@@ -8,7 +8,10 @@ import numpy as np
 import pandas as pd
 
 from bitbat.features.onchain import generate_onchain_features
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def _synthetic_onchain(n_days: int = 100) -> pd.DataFrame:
     """Build a synthetic daily on-chain DataFrame."""

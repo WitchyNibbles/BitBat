@@ -19,6 +19,8 @@ from bitbat.autonomous.models import (
 )
 
 
+pytestmark = pytest.mark.integration
+
 def test_init_database_creates_all_tables(tmp_path: Path) -> None:
     db_path = tmp_path / "autonomous.db"
     engine = init_database(f"sqlite:///{db_path}")

@@ -18,6 +18,8 @@ from bitbat.ingest.news_gdelt import fetch
 from bitbat.io.fs import read_parquet
 
 
+pytestmark = pytest.mark.integration
+
 class FakeResponse:
     def __init__(self, payload: dict[str, Any], status_code: int = 200) -> None:
         self._payload = payload

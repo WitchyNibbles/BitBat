@@ -17,6 +17,8 @@ PAGES_DIR = STREAMLIT_DIR / "pages"
 ALLOWED_WIDTH_LITERALS = {"stretch", "content"}
 
 
+pytestmark = pytest.mark.integration
+
 def _runtime_streamlit_files() -> list[Path]:
     files = [STREAMLIT_DIR / "app.py"]
     files.extend(sorted(PAGES_DIR.glob("*.py")))

@@ -3,7 +3,10 @@ from __future__ import annotations
 import pandas as pd
 
 from bitbat.dataset.splits import walk_forward
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def test_walk_forward_embargo_removes_overlap() -> None:
     idx = pd.date_range("2024-01-01", periods=100, freq="1h")

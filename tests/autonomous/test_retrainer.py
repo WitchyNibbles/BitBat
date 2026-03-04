@@ -7,7 +7,10 @@ from pathlib import Path
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import RetrainingEvent, init_database
 from bitbat.autonomous.retrainer import AutoRetrainer
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'retrainer.db'}"

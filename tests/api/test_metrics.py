@@ -14,6 +14,8 @@ from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import create_database_engine, init_database
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture()
 def client() -> SyncASGIClient:
     return SyncASGIClient(create_app())

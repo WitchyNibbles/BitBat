@@ -16,6 +16,8 @@ from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError, classify_mo
 from bitbat.autonomous.models import init_database
 
 
+pytestmark = pytest.mark.integration
+
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'autonomous.db'}"
 

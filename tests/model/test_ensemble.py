@@ -15,6 +15,8 @@ from bitbat.model.ensemble import (
 )
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture(scope="module")
 def model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Train tiny regression models for 15m, 30m, 1h."""

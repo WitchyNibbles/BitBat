@@ -8,6 +8,8 @@ import pytest
 from bitbat.backtest.engine import run
 
 
+pytestmark = pytest.mark.behavioral
+
 def test_backtest_long_only() -> None:
     idx = pd.date_range(datetime(2024, 1, 1), periods=5, freq="1h")
     prices = pd.Series([100, 101, 102, 101, 103], index=idx, dtype=float)

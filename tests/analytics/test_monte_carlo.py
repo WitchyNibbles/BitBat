@@ -13,6 +13,8 @@ from bitbat.analytics.monte_carlo import MonteCarloResult, MonteCarloSimulator
 # ---------------------------------------------------------------------------
 
 
+pytestmark = pytest.mark.behavioral
+
 @pytest.fixture(scope="module")
 def returns() -> np.ndarray:
     rng = np.random.default_rng(42)

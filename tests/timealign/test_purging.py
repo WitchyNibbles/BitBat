@@ -7,6 +7,8 @@ import pytest
 from bitbat.timealign.purging import mask_future
 
 
+pytestmark = pytest.mark.behavioral
+
 def test_mask_future_includes_boundary_and_excludes_late_news() -> None:
     news = pd.Series([
         "2024-01-01T00:00:00Z",

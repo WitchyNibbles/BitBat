@@ -21,6 +21,8 @@ from bitbat.model.evaluate import (
 )
 
 
+pytestmark = pytest.mark.behavioral
+
 def test_regression_metrics_outputs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

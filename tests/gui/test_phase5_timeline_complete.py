@@ -23,6 +23,8 @@ except ImportError:
     _has_plotly = False
 
 
+pytestmark = pytest.mark.integration
+
 def _seed_phase5_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
     con.execute(

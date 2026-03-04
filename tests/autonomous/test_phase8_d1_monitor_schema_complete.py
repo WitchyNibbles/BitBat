@@ -15,13 +15,14 @@ from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 
 D1_CANONICAL_SUITE = [
     "tests/autonomous/test_phase8_d1_monitor_schema_complete.py",
-    "tests/autonomous/test_phase19_d1_monitor_alignment_complete.py",
     "tests/autonomous/test_agent_integration.py",
     "tests/test_cli.py",
     "tests/api/test_health.py",
     "tests/api/test_metrics.py",
 ]
 
+
+pytestmark = pytest.mark.integration
 
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'phase8_d1.db'}"

@@ -74,7 +74,12 @@ minversion = "8.0"
 addopts = "-ra"
 testpaths = ["tests"]
 pythonpath = ["src"]
-markers = ["slow: marks tests as slow and may require network access"]
+markers = [
+    "slow: marks tests as slow and may require network access",
+    "behavioral: behavioral unit test exercising production logic with mocks/isolation",
+    "integration: integration test exercising multiple real components together",
+    "structural: structural conformance test checking file existence, schemas, CLI contracts",
+]
 
 [build-system]
 requires = ["poetry-core"]

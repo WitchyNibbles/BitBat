@@ -8,7 +8,10 @@ from pathlib import Path
 import pandas as pd
 
 from bitbat.ingest.macro_fred import _fetch_series, fetch_fred
+import pytest
 
+
+pytestmark = pytest.mark.integration
 
 class FakeResponse:
     """Minimal mock for requests.get return value."""

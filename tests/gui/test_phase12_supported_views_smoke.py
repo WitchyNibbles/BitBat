@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"
@@ -18,6 +19,8 @@ SUPPORTED_PAGE_FILES = {
     "4_🔧_System.py",
 }
 
+
+pytestmark = pytest.mark.structural
 
 def _read(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8")

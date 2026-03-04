@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 
 from bitbat.features.sentiment import aggregate
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def _make_news(start: datetime) -> pd.DataFrame:
     timestamps = [start + timedelta(minutes=30 * i) for i in range(6)]

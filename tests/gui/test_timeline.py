@@ -26,6 +26,8 @@ except ImportError:
     _has_plotly = False
 
 
+pytestmark = pytest.mark.integration
+
 def _create_test_db(db_path: Path) -> None:
     """Create an autonomous DB with mixed legacy and new prediction rows."""
     import sqlite3

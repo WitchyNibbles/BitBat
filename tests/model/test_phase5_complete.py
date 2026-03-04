@@ -21,6 +21,8 @@ from bitbat.model.optimize import HyperparamOptimizer
 from bitbat.model.walk_forward import WalkForwardValidator
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture(scope="module")
 def dataset() -> tuple[pd.DataFrame, pd.Series, list[Fold]]:
     rng = np.random.default_rng(2024)

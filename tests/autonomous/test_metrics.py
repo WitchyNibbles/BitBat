@@ -4,7 +4,10 @@ from datetime import datetime
 
 from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.autonomous.models import PredictionOutcome
+import pytest
 
+
+pytestmark = pytest.mark.behavioral
 
 def _prediction(
     idx: int,

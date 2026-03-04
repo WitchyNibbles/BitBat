@@ -20,6 +20,8 @@ from bitbat.analytics.explainer import (
 # ---------------------------------------------------------------------------
 
 
+pytestmark = pytest.mark.behavioral
+
 def _train_tiny_model(tmp_path: Path) -> tuple[Path, pd.DataFrame]:
     """Train a tiny XGBoost model and return (model_path, test_X)."""
     rng = np.random.default_rng(99)

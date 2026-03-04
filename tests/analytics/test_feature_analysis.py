@@ -15,6 +15,8 @@ from bitbat.analytics.feature_analysis import FeatureAnalyzer
 # ---------------------------------------------------------------------------
 
 
+pytestmark = pytest.mark.behavioral
+
 @pytest.fixture()
 def sample_dataset(tmp_path: Path) -> Path:
     """Create a minimal feature dataset parquet file for testing."""

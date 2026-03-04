@@ -9,7 +9,10 @@ import numpy as np
 import pandas as pd
 
 from bitbat.dataset.build import build_xy
+import pytest
 
+
+pytestmark = pytest.mark.integration
 
 def _make_prices(start: datetime, periods: int = 60) -> pd.DataFrame:
     timestamps = [start + timedelta(hours=i) for i in range(periods)]

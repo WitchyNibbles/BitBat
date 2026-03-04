@@ -17,6 +17,8 @@ from bitbat.model.persist import (
 )
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.mark.parametrize("seed", [0])
 def test_save_load_roundtrip(tmp_path: Path, seed: int) -> None:
     rng = np.random.default_rng(seed)

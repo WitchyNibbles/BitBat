@@ -39,6 +39,8 @@ from bitbat.gui.widgets import (
     get_system_status,
 )
 
+pytestmark = pytest.mark.integration
+
 # ---------------------------------------------------------------------------
 # Shared fixture — a complete realistic database
 # ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"
@@ -26,6 +27,8 @@ RETIRED_PAGES = {
     "9_🔬_Pipeline.py",
 }
 
+
+pytestmark = pytest.mark.structural
 
 def test_phase12_supported_surface_contract_remains_locked() -> None:
     active = {path.name for path in PAGES_DIR.glob("*.py")}

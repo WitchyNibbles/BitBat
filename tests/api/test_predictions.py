@@ -15,6 +15,8 @@ from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
 
 
+pytestmark = pytest.mark.integration
+
 @pytest.fixture()
 def client() -> SyncASGIClient:
     app = create_app()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pandas.testing as pd_testing
+import pytest
 
 from bitbat.features.price import (
     atr,
@@ -13,6 +14,8 @@ from bitbat.features.price import (
     rolling_z,
     rsi,
 )
+
+pytestmark = pytest.mark.behavioral
 
 
 def _assert_no_leakage(

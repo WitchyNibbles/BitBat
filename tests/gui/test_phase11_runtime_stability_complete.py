@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 from bitbat.gui.widgets import get_latest_prediction
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"
@@ -19,6 +20,8 @@ SUPPORTED_DESTINATIONS = {
     "pages/4_🔧_System.py",
 }
 
+
+pytestmark = pytest.mark.integration
 
 def _seed_legacy_prediction_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
