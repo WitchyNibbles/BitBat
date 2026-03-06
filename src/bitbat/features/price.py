@@ -132,3 +132,65 @@ def obv(close: pd.Series, volume: pd.Series) -> pd.Series:
     obv_series = obv_contrib.cumsum()
     obv_series.name = "obv"
     return obv_series
+
+
+def obv_fold_aware(
+    close: pd.Series,
+    volume: pd.Series,
+    fold_boundaries: list[int] | None = None,
+) -> pd.Series:
+    """On-Balance Volume with cumsum reset at fold boundaries.
+
+    When *fold_boundaries* is ``None`` or empty, behaves identically to
+    :func:`obv`.  When provided, the cumulative sum resets at each boundary
+    index, preventing information leakage across folds.
+
+    Parameters
+    ----------
+    close:
+        Close price series.
+    volume:
+        Volume series aligned with *close*.
+    fold_boundaries:
+        Positional indices where the cumsum should reset.  For example
+        ``[0, 50, 100]`` resets at bar 50 (bars 0-49 are one segment,
+        bars 50-99 another).
+    """
+    close_series = pd.Series(close, dtype="float64")
+    volume_series = pd.Series(volume, dtype="float64").fillna(0.0)
+
+    price_change = close_series.diff().fillna(0.0)
+    direction = price_change.apply(lambda x: 1 if x > 0 else (-1 if x < 0 else 0))
+    obv_contrib = volume_series * direction
+
+    if not fold_boundaries:
+        result = obv_contrib.cumsum()
+    else:
+        # Reset cumsum at each fold boundary
+        sorted_boundaries = sorted(set(fold_boundaries))
+        # Ensure 0 at start and len at end
+        if sorted_boundaries[0] != 0:
+            sorted_boundaries = [0] + sorted_boundaries
+        if sorted_boundaries[-1] != len(close_series):
+            sorted_boundaries.append(len(close_series))
+
+        segments: list[pd.Series] = []
+        for i in range(len(sorted_boundaries) - 1):
+            start = sorted_boundaries[i]
+            end = sorted_boundaries[i + 1]
+            segment = obv_contrib.iloc[start:end]
+            # Recompute diff at segment start so first bar has no carry-over
+            if start > 0:
+                # The diff at the segment boundary used the previous segment's
+                # last close.  Recompute: first bar of segment has no prior
+                # context, so its contribution should be 0 (like bar 0).
+                corrected = segment.copy()
+                corrected.iloc[0] = 0.0
+                segments.append(corrected.cumsum())
+            else:
+                segments.append(segment.cumsum())
+
+        result = pd.concat(segments)
+
+    result.name = "obv"
+    return result

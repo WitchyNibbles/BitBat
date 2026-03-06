@@ -15,6 +15,7 @@ from bitbat.features.price import (
     lagged_returns,
     macd,
     obv,
+    obv_fold_aware,
     rolling_std,
     rolling_z,
     rsi,
@@ -55,6 +56,7 @@ def _generate_price_features(
     *,
     enable_garch: bool = False,
     freq: str | None = None,
+    fold_boundaries: list[int] | None = None,
 ) -> pd.DataFrame:
     close = prices["close"]
     features = lagged_returns(close, freq=freq)
@@ -64,7 +66,10 @@ def _generate_price_features(
     features[z_result.name] = z_result
     features = features.join(atr(prices, freq=freq), how="left")
     features = features.join(macd(close), how="left")
-    features["obv"] = obv(close, prices["volume"])
+    if fold_boundaries:
+        features["obv"] = obv_fold_aware(close, prices["volume"], fold_boundaries)
+    else:
+        features["obv"] = obv(close, prices["volume"])
 
     rsi_result = rsi(close, freq=freq)
     features[rsi_result.name] = rsi_result
