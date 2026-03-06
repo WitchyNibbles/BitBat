@@ -26,8 +26,8 @@ Requirements for the audit and remediation milestone. Each maps to roadmap phase
 
 ### Architecture
 
-- [ ] **ARCH-01**: Private feature pipeline functions (`_generate_price_features`, `_join_auxiliary_features`) promoted to public API with stable interface
-- [ ] **ARCH-02**: Price loading logic consolidated into single shared function replacing 3 divergent implementations
+- [x] **ARCH-01**: Private feature pipeline functions (`_generate_price_features`, `_join_auxiliary_features`) promoted to public API with stable interface
+- [x] **ARCH-02**: Price loading logic consolidated into single shared function replacing 3 divergent implementations
 - [ ] **ARCH-03**: Config reset function added to `config/loader.py` and used in test fixtures for isolation
 - [ ] **ARCH-04**: API→GUI cross-layer import eliminated (`api/routes/system.py` no longer imports from `gui/`)
 - [ ] **ARCH-05**: import-linter contracts added to CI preventing future cross-layer import drift
@@ -83,8 +83,8 @@ Acknowledged but not in current roadmap. Tracked for future milestones.
 | CORR-06 | Phase 25 | Complete |
 | LEAK-01 | Phase 25 | Complete |
 | LEAK-02 | Phase 25 | Complete |
-| ARCH-01 | Phase 26 | Pending |
-| ARCH-02 | Phase 26 | Pending |
+| ARCH-01 | Phase 26 | Complete (26-01) |
+| ARCH-02 | Phase 26 | Complete (26-01) |
 | ARCH-03 | Phase 26 | Pending |
 | ARCH-04 | Phase 26 | Pending |
 | ARCH-05 | Phase 27 | Pending |

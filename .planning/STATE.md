@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Codebase Health Audit & Critical Remediation
 status: in-progress
-last_updated: "2026-03-06T23:30:52Z"
+last_updated: "2026-03-07T00:54:00Z"
 progress:
   total_phases: 20
   completed_phases: 20
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 25 — Critical Correctness Remediation
+**Current focus:** Phase 26 — Architecture Targeted Fixes
 
 ## Current Position
 
-Phase: 25 of 27 (Critical Correctness Remediation) -- COMPLETE
-Plan: 4 of 4 in Phase 25 -- COMPLETE
-Status: Phase 25 complete, ready for Phase 26
-Last activity: 2026-03-07 — Completed 25-04 (OBV fold-boundary leakage assessment and fold-aware fix)
+Phase: 26 of 27 (Architecture Targeted Fixes)
+Plan: 1 of N in Phase 26 -- COMPLETE
+Status: Phase 26 Plan 01 complete
+Last activity: 2026-03-07 — Completed 26-01 (public API promotion and shared price loading)
 
-Progress: [##########] 4/4 plans (Phase 25)
+Progress: [##########] 1/1 plans completed (Phase 26 Plan 01)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 5min
-- Total execution time: 0.62 hours
+- Total execution time: 0.75 hours
 
 **By Phase:**
 
@@ -42,6 +42,7 @@ Progress: [##########] 4/4 plans (Phase 25)
 |-------|-------|-------|----------|
 | 24 | 3/3 | 20min | 7min |
 | 25 | 4/4 | 17min | 4min |
+| 26 | 1/? | 8min | 8min |
 
 ## Accumulated Context
 
@@ -67,6 +68,7 @@ Progress: [##########] 4/4 plans (Phase 25)
 - API route defaults sourced from config via api/defaults.py helper; module-level constants computed once at import to avoid per-request YAML parsing.
 - PR-AUC guardrail threshold set at 0.7 (random labels yield ~0.5; 0.7 catches genuine leakage with margin).
 - OBV fold-boundary leakage empirically NOT material (2.33pp < 3pp threshold); fold-aware fix implemented as correct practice regardless.
+- ARCH-01/02: Backward-compat aliases (_generate_price_features = generate_price_features) kept in build.py; two load_prices variants created (glob-based for autonomous pipeline, flat-file for CLI); AST structural guard added to tests.
 
 ### Pending Todos
 
@@ -81,5 +83,5 @@ Progress: [##########] 4/4 plans (Phase 25)
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 25-04-PLAN.md (OBV fold-boundary leakage assessment and fold-aware fix)
-Resume with: `/gsd:execute-phase` to start Phase 26
+Stopped at: Completed 26-01-PLAN.md (public API promotion and shared price loading consolidation)
+Resume with: `/gsd:execute-phase` to continue Phase 26

@@ -68,7 +68,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 26-01-PLAN.md — Promote private feature pipeline functions to public API and consolidate price loading into shared module
+- [x] 26-01-PLAN.md — Promote private feature pipeline functions to public API and consolidate price loading into shared module
 - [ ] 26-02-PLAN.md — Add config reset for test isolation and eliminate API-to-GUI cross-layer imports
 
 ### Phase 27: Verification & Guardrail Hardening
@@ -92,5 +92,5 @@ Phases execute in numeric order: 24 -> 25 -> 26 -> 27
 |-------|-----------|----------------|--------|-----------|
 | 24. Audit Baseline | 3/3 | Complete    | 2026-03-04 | - |
 | 25. Critical Correctness Remediation | 4/4 | Complete   | 2026-03-06 | - |
-| 26. Architecture Targeted Fixes | v1.5 | 0/2 | Not started | - |
+| 26. Architecture Targeted Fixes | v1.5 | 1/2 | In progress | - |
 | 27. Verification & Guardrail Hardening | v1.5 | 0/? | Not started | - |
