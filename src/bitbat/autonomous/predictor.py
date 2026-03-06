@@ -17,7 +17,7 @@ import xgboost as xgb
 
 from bitbat.autonomous.db import AutonomousDB, classify_monitor_db_error
 from bitbat.config.loader import get_runtime_config, load_config
-from bitbat.dataset.build import _generate_price_features
+from bitbat.dataset.build import generate_price_features
 from bitbat.model.infer import predict_bar
 from bitbat.model.persist import load as load_model
 
@@ -32,46 +32,13 @@ def _utcnow() -> datetime:
 def _load_ingested_prices(data_dir: Path, freq: str) -> pd.DataFrame:
     """Load price bars from the date-partitioned ingestion directory.
 
-    The ingestion service writes to ``data/raw/prices/date=YYYY-MM-DD/``.
-    We also check for the legacy flat file used by the CLI.
+    Delegates to the shared :func:`bitbat.io.prices.load_prices` implementation
+    which scans ``data_dir / "raw" / "prices"`` for all ``**/*.parquet`` files
+    (date-partitioned and legacy flat files).
     """
-    prices_root = data_dir / "raw" / "prices"
+    from bitbat.io.prices import load_prices
 
-    frames: list[pd.DataFrame] = []
-
-    # 1. Date-partitioned files written by PriceIngestionService
-    if prices_root.exists():
-        for parquet_file in sorted(prices_root.glob("**/*.parquet")):
-            try:
-                df = pd.read_parquet(parquet_file)
-                if "timestamp_utc" in df.columns and "close" in df.columns:
-                    frames.append(df)
-            except Exception as exc:
-                logger.warning("Skipping unreadable price file %s: %s", parquet_file, exc)
-
-    # 2. Legacy flat file from CLI ingest (data/raw/prices/btcusd_yf_1h.parquet)
-    legacy_path = prices_root / f"btcusd_yf_{freq}.parquet"
-    if legacy_path.exists():
-        try:
-            df = pd.read_parquet(legacy_path)
-            if "timestamp_utc" in df.columns and "close" in df.columns:
-                frames.append(df)
-        except Exception as exc:
-            logger.warning("Skipping legacy price file %s: %s", legacy_path, exc)
-
-    if not frames:
-        raise RuntimeError(f"No price data found under {prices_root}")
-
-    merged = pd.concat(frames, ignore_index=True)
-    merged["timestamp_utc"] = pd.to_datetime(
-        merged["timestamp_utc"], utc=True, errors="coerce"
-    ).dt.tz_localize(None)
-    merged = (
-        merged.sort_values("timestamp_utc")
-        .drop_duplicates(subset=["timestamp_utc"], keep="last")
-        .reset_index(drop=True)
-    )
-    return merged.set_index("timestamp_utc").sort_index()
+    return load_prices(data_dir, freq)
 
 
 class LivePredictor:
@@ -191,7 +158,7 @@ class LivePredictor:
         try:
             config = get_runtime_config() or load_config()
             enable_garch = bool(config.get("enable_garch", False))
-            features = _generate_price_features(prices, enable_garch=enable_garch, freq=self.freq)
+            features = generate_price_features(prices, enable_garch=enable_garch, freq=self.freq)
 
             # Join sentiment features if news data exists
             enable_sentiment = bool(config.get("enable_sentiment", True))
@@ -225,11 +192,11 @@ class LivePredictor:
             enable_macro = bool(config.get("enable_macro", False))
             enable_onchain = bool(config.get("enable_onchain", False))
             if enable_macro or enable_onchain:
-                from bitbat.dataset.build import _join_auxiliary_features
+                from bitbat.dataset.build import join_auxiliary_features
 
                 macro_path = self.data_dir / "raw" / "macro" / "fred.parquet"
                 onchain_path = self.data_dir / "raw" / "onchain" / "blockchain_info.parquet"
-                features = _join_auxiliary_features(
+                features = join_auxiliary_features(
                     features,
                     macro_parquet=macro_path if enable_macro and macro_path.exists() else None,
                     onchain_parquet=(
