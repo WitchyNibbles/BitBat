@@ -35,8 +35,8 @@ Requirements for the audit and remediation milestone. Each maps to roadmap phase
 
 ### OBV Leakage
 
-- [ ] **LEAK-01**: OBV fold-boundary leakage impact assessed with empirical walk-forward comparison (with vs without OBV)
-- [ ] **LEAK-02**: OBV cumsum leakage fixed with fold-aware computation (conditional on LEAK-01 confirming feasibility and scoped fix)
+- [x] **LEAK-01**: OBV fold-boundary leakage impact assessed with empirical walk-forward comparison (with vs without OBV)
+- [x] **LEAK-02**: OBV cumsum leakage fixed with fold-aware computation (conditional on LEAK-01 confirming feasibility and scoped fix)
 
 ## Deferred Requirements
 
@@ -81,8 +81,8 @@ Acknowledged but not in current roadmap. Tracked for future milestones.
 | CORR-04 | Phase 25 | Pending |
 | CORR-05 | Phase 25 | Complete |
 | CORR-06 | Phase 25 | Complete |
-| LEAK-01 | Phase 25 | Pending |
-| LEAK-02 | Phase 25 | Pending |
+| LEAK-01 | Phase 25 | Complete |
+| LEAK-02 | Phase 25 | Complete |
 | ARCH-01 | Phase 26 | Pending |
 | ARCH-02 | Phase 26 | Pending |
 | ARCH-03 | Phase 26 | Pending |

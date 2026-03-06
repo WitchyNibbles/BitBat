@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Codebase Health Audit & Critical Remediation
 status: in-progress
-last_updated: "2026-03-06T23:22:18Z"
+last_updated: "2026-03-06T23:30:52Z"
 progress:
   total_phases: 20
   completed_phases: 20
-  total_plans: 56
-  completed_plans: 56
+  total_plans: 57
+  completed_plans: 57
 ---
 
 # Project State
@@ -22,26 +22,26 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 
 ## Current Position
 
-Phase: 25 of 27 (Critical Correctness Remediation) -- IN PROGRESS
-Plan: 3 of 4 in Phase 25 -- COMPLETE
-Status: Completed 25-03, ready for 25-04
-Last activity: 2026-03-07 — Completed 25-03 (PR-AUC guardrail test, config-sourced API defaults)
+Phase: 25 of 27 (Critical Correctness Remediation) -- COMPLETE
+Plan: 4 of 4 in Phase 25 -- COMPLETE
+Status: Phase 25 complete, ready for Phase 26
+Last activity: 2026-03-07 — Completed 25-04 (OBV fold-boundary leakage assessment and fold-aware fix)
 
-Progress: [########--] 3/4 plans (Phase 25)
+Progress: [##########] 4/4 plans (Phase 25)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 6min
-- Total execution time: 0.58 hours
+- Total plans completed: 7
+- Average duration: 5min
+- Total execution time: 0.62 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 24 | 3/3 | 20min | 7min |
-| 25 | 2/4 | 12min | 6min |
+| 25 | 4/4 | 17min | 4min |
 
 ## Accumulated Context
 
@@ -66,6 +66,7 @@ Progress: [########--] 3/4 plans (Phase 25)
 - CLI contract test uses Click CliRunner --help parsing to extract valid options dynamically (self-updating guard).
 - API route defaults sourced from config via api/defaults.py helper; module-level constants computed once at import to avoid per-request YAML parsing.
 - PR-AUC guardrail threshold set at 0.7 (random labels yield ~0.5; 0.7 catches genuine leakage with margin).
+- OBV fold-boundary leakage empirically NOT material (2.33pp < 3pp threshold); fold-aware fix implemented as correct practice regardless.
 
 ### Pending Todos
 
@@ -80,5 +81,5 @@ Progress: [########--] 3/4 plans (Phase 25)
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 25-03-PLAN.md (PR-AUC guardrail test, config-sourced API defaults)
-Resume with: `/gsd:execute-phase` to continue Phase 25 (plan 25-04 next)
+Stopped at: Completed 25-04-PLAN.md (OBV fold-boundary leakage assessment and fold-aware fix)
+Resume with: `/gsd:execute-phase` to start Phase 26
