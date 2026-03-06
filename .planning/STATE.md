@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Codebase Health Audit & Critical Remediation
 status: in-progress
-last_updated: "2026-03-04T19:14:28Z"
+last_updated: "2026-03-06T23:22:18Z"
 progress:
   total_phases: 20
   completed_phases: 20
@@ -23,25 +23,25 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 ## Current Position
 
 Phase: 25 of 27 (Critical Correctness Remediation) -- IN PROGRESS
-Plan: 1 of 4 in Phase 25 -- COMPLETE
-Status: Completed 25-01, ready for 25-02
-Last activity: 2026-03-04 — Completed 25-01 (retrainer CLI contract fix, CV metric key fix)
+Plan: 3 of 4 in Phase 25 -- COMPLETE
+Status: Completed 25-03, ready for 25-04
+Last activity: 2026-03-07 — Completed 25-03 (PR-AUC guardrail test, config-sourced API defaults)
 
-Progress: [###-------] 1/4 plans (Phase 25)
+Progress: [########--] 3/4 plans (Phase 25)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 7min
-- Total execution time: 0.42 hours
+- Total plans completed: 6
+- Average duration: 6min
+- Total execution time: 0.58 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 24 | 3/3 | 20min | 7min |
-| 25 | 1/4 | 5min | 5min |
+| 25 | 2/4 | 12min | 6min |
 
 ## Accumulated Context
 
@@ -64,6 +64,8 @@ Progress: [###-------] 1/4 plans (Phase 25)
 - AUDIT-REPORT.md synthesizes 26 findings with severity triage, ready to drive phases 25-27 planning.
 - Writer key renamed from average_balanced_accuracy to mean_directional_accuracy; reader cascade kept for backward compat with old cv_summary.json files.
 - CLI contract test uses Click CliRunner --help parsing to extract valid options dynamically (self-updating guard).
+- API route defaults sourced from config via api/defaults.py helper; module-level constants computed once at import to avoid per-request YAML parsing.
+- PR-AUC guardrail threshold set at 0.7 (random labels yield ~0.5; 0.7 catches genuine leakage with margin).
 
 ### Pending Todos
 
@@ -77,6 +79,6 @@ Progress: [###-------] 1/4 plans (Phase 25)
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Completed 25-01-PLAN.md (retrainer CLI contract fix, CV metric key fix)
-Resume with: `/gsd:execute-phase` to continue Phase 25 (plan 25-02 next)
+Last session: 2026-03-07
+Stopped at: Completed 25-03-PLAN.md (PR-AUC guardrail test, config-sourced API defaults)
+Resume with: `/gsd:execute-phase` to continue Phase 25 (plan 25-04 next)

@@ -21,8 +21,8 @@ Requirements for the audit and remediation milestone. Each maps to roadmap phase
 - [x] **CORR-02**: CV metric key mismatch fixed (writer and reader use same key names for walk-forward scores)
 - [ ] **CORR-03**: `regression_metrics()` refactored to separate computation from file I/O side effects
 - [ ] **CORR-04**: `assert isinstance` replaced with proper runtime guards in production code paths
-- [ ] **CORR-05**: `test_leakage.py` created with PR-AUC guardrail as documented in CLAUDE.md
-- [ ] **CORR-06**: API route freq/horizon defaults aligned with default.yaml instead of hardcoded 1h/4h
+- [x] **CORR-05**: `test_leakage.py` created with PR-AUC guardrail as documented in CLAUDE.md
+- [x] **CORR-06**: API route freq/horizon defaults aligned with default.yaml instead of hardcoded 1h/4h
 
 ### Architecture
 
@@ -79,8 +79,8 @@ Acknowledged but not in current roadmap. Tracked for future milestones.
 | CORR-02 | Phase 25 | Complete |
 | CORR-03 | Phase 25 | Pending |
 | CORR-04 | Phase 25 | Pending |
-| CORR-05 | Phase 25 | Pending |
-| CORR-06 | Phase 25 | Pending |
+| CORR-05 | Phase 25 | Complete |
+| CORR-06 | Phase 25 | Complete |
 | LEAK-01 | Phase 25 | Pending |
 | LEAK-02 | Phase 25 | Pending |
 | ARCH-01 | Phase 26 | Pending |
