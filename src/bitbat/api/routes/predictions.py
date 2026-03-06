@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
+from bitbat.api.defaults import _default_freq, _default_horizon
 from bitbat.api.schemas import (
     PerformanceResponse,
     PredictionListResponse,
@@ -14,6 +15,10 @@ from bitbat.api.schemas import (
 from bitbat.autonomous.db import AutonomousDB
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
+
+# Compute once at import time from config
+_FREQ = _default_freq()
+_HORIZON = _default_horizon()
 
 
 def _get_db() -> AutonomousDB:
@@ -42,8 +47,8 @@ def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped
 
 @router.get("/latest", response_model=PredictionResponse)
 async def latest_prediction(
-    freq: str = Query("1h", description="Bar frequency"),
-    horizon: str = Query("4h", description="Prediction horizon"),
+    freq: str = Query(_FREQ, description="Bar frequency"),
+    horizon: str = Query(_HORIZON, description="Prediction horizon"),
 ) -> PredictionResponse:
     """Return the most recent prediction for the requested config."""
     db = _get_db()
@@ -56,8 +61,8 @@ async def latest_prediction(
 
 @router.get("/history", response_model=PredictionListResponse)
 async def prediction_history(
-    freq: str = Query("1h"),
-    horizon: str = Query("4h"),
+    freq: str = Query(_FREQ),
+    horizon: str = Query(_HORIZON),
     days: int = Query(30, ge=1, le=365),
     limit: int = Query(100, ge=1, le=1000),
 ) -> PredictionListResponse:
@@ -76,8 +81,8 @@ async def prediction_history(
 
 @router.get("/performance", response_model=PerformanceResponse)
 async def prediction_performance(
-    freq: str = Query("1h"),
-    horizon: str = Query("4h"),
+    freq: str = Query(_FREQ),
+    horizon: str = Query(_HORIZON),
     days: int = Query(30, ge=1, le=365),
 ) -> PerformanceResponse:
     """Return aggregate performance metrics for realized predictions."""

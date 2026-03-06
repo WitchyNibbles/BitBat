@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 
+from bitbat.api.defaults import _default_freq, _default_horizon
 from bitbat.api.schemas import (
     FeatureImportanceItem,
     FeatureImportanceResponse,
@@ -15,6 +16,10 @@ from bitbat.api.schemas import (
 from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_missing_columns
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+# Compute once at import time from config
+_FREQ = _default_freq()
+_HORIZON = _default_horizon()
 
 
 def _schema_readiness(db_path: Path) -> SchemaReadinessDetails:
@@ -58,8 +63,8 @@ def _schema_readiness(db_path: Path) -> SchemaReadinessDetails:
 
 @router.get("/feature-importance", response_model=FeatureImportanceResponse)
 async def feature_importance(
-    freq: str = Query("1h"),
-    horizon: str = Query("4h"),
+    freq: str = Query(_FREQ),
+    horizon: str = Query(_HORIZON),
     top_n: int = Query(20, ge=1, le=100),
 ) -> FeatureImportanceResponse:
     """Return model feature importance (gain-based) from the trained booster."""
@@ -85,8 +90,8 @@ async def feature_importance(
 
 @router.get("/status", response_model=SystemStatusResponse)
 async def system_status(
-    freq: str = Query("1h"),
-    horizon: str = Query("4h"),
+    freq: str = Query(_FREQ),
+    horizon: str = Query(_HORIZON),
 ) -> SystemStatusResponse:
     """Return a summary of system readiness (DB, model, dataset, predictions)."""
     db_path = Path("data/autonomous.db")

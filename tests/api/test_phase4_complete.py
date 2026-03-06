@@ -104,6 +104,25 @@ def full_env(tmp_path_factory: pytest.TempPathFactory) -> Path:
     })
     ds.to_parquet(feat_dir / "dataset.parquet", index=False)
 
+    # --- Also create model + dataset at config-default freq/horizon paths ---
+    # The health endpoint's _check_model/_check_dataset helpers use defaults
+    # sourced from default.yaml (currently 5m/30m). Without these files the
+    # detailed-health probe reports "degraded" even though 1h_4h is fully set up.
+    from bitbat.config.loader import load_config
+    cfg = load_config()
+    cfg_freq = str(cfg.get("freq", "1h"))
+    cfg_horizon = str(cfg.get("horizon", "4h"))
+    cfg_pair = f"{cfg_freq}_{cfg_horizon}"
+
+    if cfg_pair != "1h_4h":
+        cfg_model_dir = root / "models" / cfg_pair
+        cfg_model_dir.mkdir(parents=True, exist_ok=True)
+        booster.save_model(str(cfg_model_dir / "xgb.json"))
+
+        cfg_feat_dir = root / "data" / "features" / cfg_pair
+        cfg_feat_dir.mkdir(parents=True, exist_ok=True)
+        ds.to_parquet(cfg_feat_dir / "dataset.parquet", index=False)
+
     return root
 
 

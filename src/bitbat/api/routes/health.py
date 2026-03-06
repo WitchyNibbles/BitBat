@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
+from bitbat.api.defaults import _default_freq, _default_horizon
 from bitbat.api.schemas import (
     DetailedHealthResponse,
     HealthResponse,
@@ -16,6 +17,10 @@ from bitbat.api.schemas import (
 from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_missing_columns
 
 router = APIRouter(tags=["health"])
+
+# Compute once at import time from config
+_FREQ = _default_freq()
+_HORIZON = _default_horizon()
 
 _START_TIME = time.monotonic()
 _VERSION = "0.1.0"
@@ -85,7 +90,7 @@ def _check_schema_readiness() -> tuple[ServiceStatus, SchemaReadinessDetails]:
     )
 
 
-def _check_model(freq: str = "1h", horizon: str = "4h") -> ServiceStatus:
+def _check_model(freq: str = _FREQ, horizon: str = _HORIZON) -> ServiceStatus:
     """Check whether a trained XGBoost model exists."""
     model_path = Path("models") / f"{freq}_{horizon}" / "xgb.json"
     if model_path.exists():
@@ -97,7 +102,7 @@ def _check_model(freq: str = "1h", horizon: str = "4h") -> ServiceStatus:
     )
 
 
-def _check_dataset(freq: str = "1h", horizon: str = "4h") -> ServiceStatus:
+def _check_dataset(freq: str = _FREQ, horizon: str = _HORIZON) -> ServiceStatus:
     """Check whether the feature dataset exists."""
     ds_path = Path("data/features") / f"{freq}_{horizon}" / "dataset.parquet"
     if ds_path.exists():
