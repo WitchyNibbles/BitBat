@@ -8,9 +8,14 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
+from bitbat.api.defaults import _default_freq, _default_horizon
 from bitbat.autonomous.schema_compat import audit_schema_compatibility
 
 router = APIRouter(tags=["metrics"])
+
+# Compute once at import time from config
+_FREQ = _default_freq()
+_HORIZON = _default_horizon()
 
 _START_TIME = time.time()
 
@@ -73,13 +78,13 @@ def _collect_metrics() -> str:
     )
 
     # Model availability
-    model_path = Path("models/1h_4h/xgb.json")
+    model_path = Path(f"models/{_FREQ}_{_HORIZON}/xgb.json")
     lines.append(
         _gauge("bitbat_model_available", "1 if default model exists", int(model_path.exists()))
     )
 
     # Dataset availability
-    ds_path = Path("data/features/1h_4h/dataset.parquet")
+    ds_path = Path(f"data/features/{_FREQ}_{_HORIZON}/dataset.parquet")
     lines.append(
         _gauge("bitbat_dataset_available", "1 if default dataset exists", int(ds_path.exists()))
     )
@@ -92,7 +97,7 @@ def _collect_metrics() -> str:
             db = AutonomousDB(f"sqlite:///{db_path}", auto_upgrade_schema=False)
             with db.session() as session:
                 all_preds = db.get_recent_predictions(
-                    session, "1h", "4h", days=30, realized_only=False
+                    session, _FREQ, _HORIZON, days=30, realized_only=False
                 )
                 realized = [p for p in all_preds if p.actual_return is not None]
                 correct = [p for p in realized if p.correct]
