@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 ## Current Position
 
 Phase: 26 of 27 (Architecture Targeted Fixes)
-Plan: 1 of N in Phase 26 -- COMPLETE
-Status: Phase 26 Plan 01 complete
-Last activity: 2026-03-07 — Completed 26-01 (public API promotion and shared price loading)
+Plan: 2 of N in Phase 26 -- COMPLETE
+Status: Phase 26 Plan 02 complete
+Last activity: 2026-03-07 — Completed 26-02 (config reset and API-GUI layer decoupling)
 
-Progress: [##########] 1/1 plans completed (Phase 26 Plan 01)
+Progress: [##########] 2/2 plans completed (Phase 26 Plans 01-02)
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [##########] 1/1 plans completed (Phase 26 Plan 01)
 |-------|-------|-------|----------|
 | 24 | 3/3 | 20min | 7min |
 | 25 | 4/4 | 17min | 4min |
-| 26 | 1/? | 8min | 8min |
+| 26 | 2/? | 14min | 7min |
 
 ## Accumulated Context
 
@@ -69,6 +69,7 @@ Progress: [##########] 1/1 plans completed (Phase 26 Plan 01)
 - PR-AUC guardrail threshold set at 0.7 (random labels yield ~0.5; 0.7 catches genuine leakage with margin).
 - OBV fold-boundary leakage empirically NOT material (2.33pp < 3pp threshold); fold-aware fix implemented as correct practice regardless.
 - ARCH-01/02: Backward-compat aliases (_generate_price_features = generate_price_features) kept in build.py; two load_prices variants created (glob-based for autonomous pipeline, flat-file for CLI); AST structural guard added to tests.
+- ARCH-03/04: Preset dataclass and get_ingestion_status relocated to bitbat.common layer; gui modules re-export for backward compat; reset_runtime_config() added to config/loader.py for clean test teardown; AST structural guards block future api->gui imports.
 
 ### Pending Todos
 
@@ -83,5 +84,5 @@ Progress: [##########] 1/1 plans completed (Phase 26 Plan 01)
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 26-01-PLAN.md (public API promotion and shared price loading consolidation)
+Stopped at: Completed 26-02-PLAN.md (config reset and API-GUI layer decoupling)
 Resume with: `/gsd:execute-phase` to continue Phase 26
