@@ -13,6 +13,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from bitbat.common.ingestion_status import get_ingestion_status  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Data helpers (no Streamlit dependency — pure Python)
 # ---------------------------------------------------------------------------
@@ -190,7 +192,7 @@ def get_latest_prediction(db_path: Path) -> dict[str, Any] | None:
         ("created_at", "timestamp_utc", "prediction_timestamp", "id"),
     )
 
-    sql = "SELECT " + ", ".join(expressions) + " FROM prediction_outcomes"
+    sql = "SELECT " + ", ".join(expressions) + " FROM prediction_outcomes"  # noqa: S608
     if order_column is not None:
         sql += f" ORDER BY {order_column} DESC"
     sql += " LIMIT 1"
@@ -249,41 +251,6 @@ def get_recent_events(db_path: Path, limit: int = 10) -> list[dict[str, Any]]:
             (limit,),
         )
     return [{"time": r[0], "level": r[1], "message": r[2]} for r in rows]
-
-
-def get_ingestion_status(data_dir: Path) -> dict[str, Any]:
-    """Check freshness of price and news data on disk."""
-    prices_dir = data_dir / "raw" / "prices"
-    news_dir = data_dir / "raw" / "news"
-
-    def _latest_mtime(d: Path) -> datetime | None:
-        if not d.exists():
-            return None
-        files = list(d.glob("**/*.parquet"))
-        if not files:
-            return None
-        return datetime.fromtimestamp(max(f.stat().st_mtime for f in files))
-
-    prices_mtime = _latest_mtime(prices_dir)
-    news_mtime = _latest_mtime(news_dir)
-    now = datetime.now(UTC).replace(tzinfo=None)
-
-    def _freshness(mtime: datetime | None) -> str:
-        if mtime is None:
-            return "⚪ No data"
-        hours = (now - mtime).total_seconds() / 3600
-        if hours < 2:
-            return "🟢 Fresh"
-        if hours < 24:
-            return f"🟡 {int(hours)}h ago"
-        return f"🔴 {int(hours // 24)}d ago"
-
-    return {
-        "prices": _freshness(prices_mtime),
-        "news": _freshness(news_mtime),
-        "prices_mtime": prices_mtime,
-        "news_mtime": news_mtime,
-    }
 
 
 def minutes_until_next_prediction(
