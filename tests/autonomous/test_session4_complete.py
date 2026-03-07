@@ -16,9 +16,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from bitbat.autonomous.rate_limiter import RateLimiter
-import pytest
 
 # ---------------------------------------------------------------------------
 # Helper: minimal yfinance history DataFrame

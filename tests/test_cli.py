@@ -17,7 +17,6 @@ from bitbat.cli import main
 from bitbat.dataset.splits import Fold
 from bitbat.io.fs import read_parquet, write_parquet
 
-
 pytestmark = pytest.mark.integration
 
 def _write_test_config(
@@ -1244,7 +1243,7 @@ def test_cli_model_cv_persists_safeguard_payloads_and_block_reason(
     assert summary["champion_decision"]["reason"] == "incumbent-retained-by-rule"
 
 
-def test_cli_model_cv_persists_promotion_gate_details(
+def test_cli_model_cv_persists_promotion_gate_details(  # noqa: C901
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:

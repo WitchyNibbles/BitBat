@@ -18,7 +18,6 @@ from bitbat.autonomous.models import (
     init_database,
 )
 
-
 pytestmark = pytest.mark.integration
 
 def test_init_database_creates_all_tables(tmp_path: Path) -> None:

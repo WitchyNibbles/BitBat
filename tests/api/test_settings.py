@@ -7,7 +7,6 @@ import pytest
 from bitbat.api.app import create_app
 from tests.api.client import SyncASGIClient
 
-
 pytestmark = pytest.mark.integration
 
 @pytest.fixture()

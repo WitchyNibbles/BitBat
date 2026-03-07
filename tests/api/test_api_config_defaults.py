@@ -34,10 +34,10 @@ def test_prediction_routes_use_config_defaults() -> None:
     config = load_config()
     from bitbat.api.routes.predictions import _FREQ, _HORIZON
 
-    assert _FREQ == str(config["freq"]), (
+    assert str(config["freq"]) == _FREQ, (
         f"predictions._FREQ is {_FREQ!r}, expected {config['freq']!r}"
     )
-    assert _HORIZON == str(config["horizon"]), (
+    assert str(config["horizon"]) == _HORIZON, (
         f"predictions._HORIZON is {_HORIZON!r}, expected {config['horizon']!r}"
     )
 

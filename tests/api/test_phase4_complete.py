@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import xgboost as xgb
-from tests.api.client import SyncASGIClient
 
 from bitbat.api.app import create_app
 from bitbat.api.schemas import (
@@ -28,7 +27,7 @@ from bitbat.api.schemas import (
 )
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import Base
-
+from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 

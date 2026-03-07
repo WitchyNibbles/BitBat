@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from bitbat.autonomous.metrics import PerformanceMetrics
-from bitbat.autonomous.models import PredictionOutcome
 import pytest
 
+from bitbat.autonomous.metrics import PerformanceMetrics
+from bitbat.autonomous.models import PredictionOutcome
 
 pytestmark = pytest.mark.behavioral
 

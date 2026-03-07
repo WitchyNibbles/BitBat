@@ -7,10 +7,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-
-from bitbat.dataset.build import build_xy
 import pytest
 
+from bitbat.dataset.build import build_xy
 
 pytestmark = pytest.mark.integration
 

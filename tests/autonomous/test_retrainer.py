@@ -4,11 +4,11 @@ import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import RetrainingEvent, init_database
 from bitbat.autonomous.retrainer import AutoRetrainer
-import pytest
-
 
 pytestmark = pytest.mark.behavioral
 

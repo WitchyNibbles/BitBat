@@ -11,7 +11,6 @@ except ImportError:  # pragma: no cover - optional dependency
 
 from bitbat.features.sentiment import score_vader
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_score_vader_respects_sentiment_direction() -> None:

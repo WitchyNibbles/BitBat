@@ -182,3 +182,4 @@ def ensure_predictions_contract(frame: pd.DataFrame) -> pd.DataFrame:
         "float64"
     )
     return validated[expected]
+

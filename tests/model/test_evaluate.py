@@ -21,7 +21,6 @@ from bitbat.model.evaluate import (
     write_window_diagnostics,
 )
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_regression_metrics_outputs(
@@ -154,8 +153,8 @@ def test_candidate_report_is_deterministic_for_same_input() -> None:
         }
     ]
 
-    first = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)
-    second = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)
+    first = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)  # noqa: E501
+    second = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)  # noqa: E501
     assert first == second
 
 

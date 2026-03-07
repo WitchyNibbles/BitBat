@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts import run_monitoring_agent
 import pytest
-
+from scripts import run_monitoring_agent
 
 pytestmark = pytest.mark.behavioral
 

@@ -53,7 +53,7 @@ def test_no_feature_leakage_pr_auc_guardrail() -> None:
     If PR-AUC exceeds 0.7 it indicates the features contain future information,
     since random labels should be unpredictable from any legitimate features.
     """
-    sklearn = pytest.importorskip("sklearn")
+    sklearn = pytest.importorskip("sklearn")  # noqa: F841
     xgb = pytest.importorskip("xgboost")
     from sklearn.metrics import average_precision_score
 

@@ -7,7 +7,6 @@ in external caller files.
 from __future__ import annotations
 
 import ast
-import importlib
 from pathlib import Path
 
 import pytest

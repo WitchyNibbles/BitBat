@@ -6,7 +6,6 @@ import pytest
 
 from bitbat.timealign.asof import align_features_asof, ensure_no_future_matches
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_align_features_asof_is_boundary_inclusive() -> None:

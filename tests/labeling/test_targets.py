@@ -10,7 +10,6 @@ from bitbat.labeling.targets import (
     direction_from_returns,
 )
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_classify_threshold_edges() -> None:

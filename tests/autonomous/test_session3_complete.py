@@ -11,7 +11,6 @@ from bitbat.autonomous.drift import DriftDetector
 from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.autonomous.models import PerformanceSnapshot, init_database
 
-
 pytestmark = pytest.mark.integration
 
 def _db_url(tmp_path: Path) -> str:

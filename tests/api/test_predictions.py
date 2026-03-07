@@ -9,11 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import xgboost as xgb
-from tests.api.client import SyncASGIClient
 
 from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
-
+from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 

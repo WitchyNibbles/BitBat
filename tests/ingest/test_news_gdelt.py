@@ -17,7 +17,6 @@ from bitbat.features.sentiment import score_vader
 from bitbat.ingest.news_gdelt import fetch
 from bitbat.io.fs import read_parquet
 
-
 pytestmark = pytest.mark.integration
 
 class FakeResponse:

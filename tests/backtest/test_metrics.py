@@ -14,7 +14,6 @@ except ImportError:  # pragma: no cover - optional dependency
 
 from bitbat.backtest.metrics import summary
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_summary_outputs_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

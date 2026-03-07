@@ -11,7 +11,6 @@ from bitbat.contracts import (
     ensure_predictions_contract,
 )
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_feature_contract_requires_feat_prefix() -> None:

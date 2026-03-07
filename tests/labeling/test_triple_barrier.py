@@ -6,7 +6,6 @@ import pytest
 
 from bitbat.labeling.triple_barrier import triple_barrier
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_triple_barrier_hits_take_profit_stop_loss_and_timeout() -> None:

@@ -14,7 +14,6 @@ from bitbat.model.ensemble import (
     MultiHorizonEnsemble,
 )
 
-
 pytestmark = pytest.mark.integration
 
 @pytest.fixture(scope="module")

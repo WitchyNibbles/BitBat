@@ -5,13 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from tests.api.client import SyncASGIClient
 from sqlalchemy import text
 
 from bitbat.api.app import create_app
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import create_database_engine
-
+from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 

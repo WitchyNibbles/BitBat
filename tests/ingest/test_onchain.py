@@ -6,10 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-
-from bitbat.ingest.onchain import _fetch_metric, fetch_blockchain_info
 import pytest
 
+from bitbat.ingest.onchain import _fetch_metric, fetch_blockchain_info
 
 pytestmark = pytest.mark.integration
 

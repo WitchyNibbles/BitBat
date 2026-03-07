@@ -6,10 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-
-from bitbat.ingest.macro_fred import _fetch_series, fetch_fred
 import pytest
 
+from bitbat.ingest.macro_fred import _fetch_series, fetch_fred
 
 pytestmark = pytest.mark.integration
 

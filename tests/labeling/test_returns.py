@@ -6,7 +6,6 @@ import pytest
 
 from bitbat.labeling.returns import forward_return, parse_horizon
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_forward_return_hourly_alignment() -> None:
