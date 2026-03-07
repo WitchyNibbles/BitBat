@@ -541,7 +541,7 @@ def features_build(
     default=None,
     help="Optional label horizon (for example 4h) used to infer purge bars when purge is unset.",
 )
-def model_cv(
+def model_cv(  # noqa: C901
     start: str,
     end: str,
     freq: str | None,
@@ -1495,7 +1495,7 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
     prediction_payload = result.get("prediction")
     prediction_state = result.get("prediction_state")
     if prediction_state is None and isinstance(prediction_payload, dict):
-        prediction_state = "generated" if prediction_payload.get("status") == "generated" else "none"
+        prediction_state = "generated" if prediction_payload.get("status") == "generated" else "none"  # noqa: E501
     prediction_state = str(prediction_state or "unknown")
 
     prediction_reason = result.get("prediction_reason")

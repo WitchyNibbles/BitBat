@@ -26,7 +26,7 @@ def _progress(
     logger.info("[%.0f%%] %s", fraction * 100, message)
 
 
-def one_click_train(
+def one_click_train(  # noqa: C901
     preset_name: str = "balanced",
     progress_callback: Callable[[str, float], None] | None = None,
 ) -> dict[str, Any]:
@@ -55,8 +55,8 @@ def one_click_train(
     _progress(progress_callback, "Loading configuration...", 0.02)
 
     try:
+        from bitbat.common.presets import get_preset
         from bitbat.config.loader import get_runtime_config, load_config
-        from bitbat.gui.presets import get_preset
 
         preset = get_preset(preset_name)
         freq = preset.freq

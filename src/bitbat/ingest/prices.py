@@ -91,7 +91,7 @@ def _download_chunk(
     )
 
 
-def fetch_yf(
+def fetch_yf(  # noqa: C901
     symbol: str,
     interval: str,
     start: datetime,

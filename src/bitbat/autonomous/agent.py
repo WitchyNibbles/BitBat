@@ -179,7 +179,7 @@ class MonitoringAgent:
             except Exception:
                 logger.warning("On-chain data ingestion failed", exc_info=True)
 
-    def run_once(self) -> dict[str, Any]:
+    def run_once(self) -> dict[str, Any]:  # noqa: C901
         """Run one monitoring cycle: predict, validate, assess drift, retrain."""
         logger.info("Monitoring cycle started (%s/%s)", self.freq, self.horizon)
 

@@ -17,7 +17,7 @@ def _sharpe(returns: pd.Series, annualization: float = 252.0) -> float:
     return float(np.sqrt(annualization) * returns.mean() / returns.std())
 
 
-def summary(
+def summary(  # noqa: C901
     equity_curve: pd.Series,
     trades: pd.DataFrame | None = None,
     predicted_returns: pd.Series | None = None,

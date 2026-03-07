@@ -106,7 +106,7 @@ class LivePredictor:
         result.update(payload)
         return result
 
-    def predict_latest(self) -> dict[str, Any]:
+    def predict_latest(self) -> dict[str, Any]:  # noqa: C901
         """Generate a prediction for the most recent bar and store it.
 
         Returns a structured result that always includes:

@@ -92,7 +92,7 @@ def _response_preview(response: Any, limit: int = 200) -> str | None:
     return compact[:limit]
 
 
-def _fetch_chunk(
+def _fetch_chunk(  # noqa: C901
     session: SessionProtocol,
     start: datetime,
     end: datetime,
@@ -241,7 +241,7 @@ def _load_existing(target: Path) -> pd.DataFrame | None:
     return None
 
 
-def fetch(
+def fetch(  # noqa: C901
     from_dt: datetime,
     to_dt: datetime,
     *,

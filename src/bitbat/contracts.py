@@ -76,7 +76,7 @@ def _expected_sentiment_features(
     return expected
 
 
-def ensure_feature_contract(
+def ensure_feature_contract(  # noqa: C901
     frame: pd.DataFrame,
     *,
     require_label: bool,
@@ -141,7 +141,7 @@ def ensure_feature_contract(
             raise ContractError("Feature frame missing 'r_forward'.")
         validated["r_forward"] = validated["r_forward"].astype("float64")
         if require_label and validated["r_forward"].isna().any():
-            raise ContractError("Feature frame forward returns must be non-null when labels required.")
+            raise ContractError("Feature frame forward returns must be non-null when labels required.")  # noqa: E501
         if "r_forward" not in ordered:
             ordered.append("r_forward")
 
