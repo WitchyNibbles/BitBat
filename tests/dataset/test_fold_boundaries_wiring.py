@@ -31,7 +31,7 @@ def _make_synthetic_prices(n_bars: int = 100, seed: int = 42) -> pd.DataFrame:
 
 
 def test_generate_price_features_fold_boundaries_changes_obv_second_segment() -> None:
-    """When fold_boundaries=[50] is provided, OBV after position 50 must differ from standard OBV."""
+    """When fold_boundaries=[50] is provided, OBV after position 50 must differ from standard."""
     prices = _make_synthetic_prices(n_bars=100)
     features_no_fold = generate_price_features(prices, freq="1h")
     features_with_fold = generate_price_features(prices, freq="1h", fold_boundaries=[50])
