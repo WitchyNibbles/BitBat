@@ -988,7 +988,7 @@ def model_train(
     dataset = _load_feature_dataset(
         freq_val,
         horizon_val,
-        require_label=False,
+        require_label=True,
         require_forward_return=True,
     )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
