@@ -58,7 +58,11 @@ Plans:
   2. Operator can run documented CLI command(s) to delete data/, models/, and autonomous.db and reach a clean-slate state without manual file manipulation
   3. After reset + retrain, realized directional accuracy on predictions that have passed the horizon exceeds 33% (random baseline for 3-class up/down/flat)
   4. The fix and reset procedure are verified by automated tests that run as part of the existing test suite
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 30-01-PLAN.md — Fix three root-cause bugs (train.py, infer.py, validator.py) + unit tests
+- [ ] 30-02-PLAN.md — Invert Phase 29 diagnostic tests + add bitbat system reset CLI command
+- [ ] 30-03-PLAN.md — Accuracy gate verification + operator reset + retrain checkpoint
 
 ### Phase 31: Accuracy Guardrail
 **Goal**: The monitor agent alerts operators when realized directional accuracy falls below a configurable threshold, preventing silent accuracy collapse from going undetected
@@ -124,8 +128,8 @@ Plans:
 | 26. Architecture Targeted Fixes | v1.5 | 2/2 | Complete | 2026-03-07 |
 | 27. Verification & Guardrail Hardening | v1.5 | 1/1 | Complete | 2026-03-07 |
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
-| 29. Diagnosis | 2/2 | Complete    | 2026-03-08 | - |
-| 30. Fix & Reset | v1.6 | 0/TBD | Not started | - |
+| 29. Diagnosis | v1.6 | 2/2 | Complete | 2026-03-08 |
+| 30. Fix & Reset | v1.6 | 0/3 | Not started | - |
 | 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
 | 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
 | 33. Path Centralization | v1.6 | 0/TBD | Not started | - |
