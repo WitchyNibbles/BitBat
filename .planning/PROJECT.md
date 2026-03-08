@@ -56,10 +56,16 @@ active prediction flows for the configured runtime pair.
 
 ### Active
 
-- [ ] DEBT-01: CLI monolith decomposition (cli.py 1802+ lines, 53 functions)
-- [ ] DEBT-02: Full path centralization (15+ hardcoded Path("models")/Path("metrics") sites)
-- [ ] DEBT-03: Dual DB access unification (SQLAlchemy ORM + raw sqlite3)
-- [ ] DEBT-04: XGBoost objective mismatch assessment (reg:squarederror for classification)
+- [ ] DIAG-01: Operator can identify which pipeline stage caused accuracy collapse
+- [ ] DIAG-02: Root cause documented with reproducible trace before fix
+- [ ] FIXR-01: Root cause of live accuracy ~1% fixed in code
+- [ ] FIXR-02: Clean reset procedure (data/ + models/ + autonomous.db) executable and documented
+- [ ] FIXR-03: After reset + retrain, live directional accuracy exceeds 33%
+- [ ] FIXR-04: Monitor alerts when realized accuracy falls below configurable threshold
+- [ ] DEBT-01: CLI monolith decomposed (cli.py 1802+ lines, 53 functions → focused modules)
+- [ ] DEBT-02: Hardcoded Path("models")/Path("metrics") centralized (15+ sites)
+- [ ] DEBT-03: Dual DB access unified (SQLAlchemy ORM + raw sqlite3 → single approach)
+- [ ] DEBT-04: XGBoost objective mismatch fixed (reg:squarederror → classification objective)
 
 ### Deferred (Future Milestone Candidates)
 
@@ -102,9 +108,18 @@ As of 2026-03-08, v1.5 completed the codebase health audit and remediation miles
 | Align UI/API config with default.yaml reality for v1.4 | Operators saw 1h-only options while runtime used 5m; trust requires visible truth | ✓ Shipped in v1.4 |
 | API as single source of truth for config values | Eliminates hardcoded frontend defaults diverging from backend | ✓ Shipped in v1.4 |
 
-## Current Focus
+## Current Milestone: v1.6 Accuracy Recovery & Technical Debt Remediation
 
-Planning v1.6 — address deferred tech debt (DEBT-01–04) and consider next capability expansion (MICR-01, PORT-01, EA-01).
+**Goal:** Diagnose and fix the live prediction accuracy collapse (~1%), restore the pipeline to a working state with clean reset + retrain if needed, and eliminate the four deferred tech debt items.
+
+**Target features:**
+- Root-cause diagnosis of live accuracy collapse
+- Clean reset + retrain procedure
+- Accuracy collapse guardrail in monitor
+- CLI monolith decomposition (DEBT-01)
+- Hardcoded path centralization (DEBT-02)
+- Dual DB access unification (DEBT-03)
+- XGBoost objective mismatch fix (DEBT-04)
 
 <details>
 <summary>Archived v1.4 planning context</summary>
@@ -142,4 +157,4 @@ monitor runbook and release gate hardening.
 
 </details>
 
-*Last updated: 2026-03-08 after v1.5 milestone*
+*Last updated: 2026-03-08 after v1.6 milestone start*

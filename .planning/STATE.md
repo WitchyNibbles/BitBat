@@ -1,31 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Codebase Health Audit & Critical Remediation
-status: unknown
-last_updated: "2026-03-08T03:09:14.810Z"
+milestone: v1.6
+milestone_name: Accuracy Recovery & Technical Debt Remediation
+status: planning
+last_updated: "2026-03-08"
 progress:
-  total_phases: 24
-  completed_phases: 24
-  total_plans: 63
-  completed_plans: 63
+  total_phases: 7
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-04)
+See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 28 — Activate Fold-Aware OBV
+**Current focus:** Milestone v1.6 — Accuracy Recovery & Technical Debt Remediation
 
 ## Current Position
 
-Phase: 28 of 28 (Activate Fold-Aware OBV)
-Plan: 1 of 1 in Phase 28 -- COMPLETE
-Status: Phase 28 Plan 01 complete
-Last activity: 2026-03-08 - Completed 28-01: wire fold_boundaries into ContinuousTrainer._do_retrain()
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-08 — Milestone v1.6 started
 
 Progress: [##########] 1/1 plans completed (Phase 28 Plan 01)
 
