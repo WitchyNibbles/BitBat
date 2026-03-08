@@ -164,7 +164,12 @@ class ContinuousTrainer:
             prices = prices.iloc[-self.rolling_window_bars :]
 
         # Generate features
-        features = generate_price_features(prices, enable_garch=self.enable_garch, freq=self.freq)
+        features = generate_price_features(
+            prices,
+            enable_garch=self.enable_garch,
+            freq=self.freq,
+            fold_boundaries=[self.train_window_bars],
+        )
         features = features.dropna()
         rename_mapping = {
             col: col if col.startswith("feat_") else f"feat_{col}" for col in features.columns
