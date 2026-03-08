@@ -26,7 +26,7 @@
 
 **Milestone Goal:** Diagnose and fix the live prediction accuracy collapse (~1%), restore the pipeline to a working state with clean reset + retrain, add an accuracy collapse guardrail to the monitor, and eliminate the four deferred tech debt items.
 
-- [ ] **Phase 29: Diagnosis** — Identify and document the root cause of live accuracy collapse before any fix is applied
+- [x] **Phase 29: Diagnosis** — Identify and document the root cause of live accuracy collapse before any fix is applied (completed 2026-03-08)
 - [ ] **Phase 30: Fix & Reset** — Fix root cause in code, provide a clean reset + retrain procedure, and verify accuracy exceeds random baseline
 - [ ] **Phase 31: Accuracy Guardrail** — Add monitor alert that fires when realized accuracy falls below a configurable threshold
 - [ ] **Phase 32: CLI Decomposition** — Split cli.py monolith (1802+ lines, 53 functions) into focused command modules
@@ -124,7 +124,7 @@ Plans:
 | 26. Architecture Targeted Fixes | v1.5 | 2/2 | Complete | 2026-03-07 |
 | 27. Verification & Guardrail Hardening | v1.5 | 1/1 | Complete | 2026-03-07 |
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
-| 29. Diagnosis | 1/2 | In Progress|  | - |
+| 29. Diagnosis | 2/2 | Complete   | 2026-03-08 | - |
 | 30. Fix & Reset | v1.6 | 0/TBD | Not started | - |
 | 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
 | 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |

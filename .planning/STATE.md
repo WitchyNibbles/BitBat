@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
-status: planning
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-03-08T11:06:01.309Z"
-last_activity: 2026-03-08 — v1.6 roadmap created; phases 29-35 defined
+status: executing
+stopped_at: Completed 29-02-PLAN.md
+last_updated: "2026-03-08T11:12:56.315Z"
+last_activity: "2026-03-08 — 29-01 complete: diagnostic test harness created"
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 29 of 35 (Diagnosis — identify root cause of live accuracy collapse)
-Plan: 01 complete, 02 next
-Status: In Progress
-Last activity: 2026-03-08 — 29-01 complete: diagnostic test harness created
+Phase: 29 of 35 (Diagnosis — complete; root cause documented in ROOT_CAUSE.md)
+Plan: 02 complete; Phase 29 COMPLETE
+Status: Phase 29 Complete — Phase 30 (Fix) next
+Last activity: 2026-03-08 — 29-02 complete: ROOT_CAUSE.md committed; DIAG-01 + DIAG-02 satisfied
 
-Progress: [░░░░░░░░░░] 0% (0/7 v1.6 phases complete)
+Progress: [█░░░░░░░░░] 14% (1/7 v1.6 phases complete)
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [░░░░░░░░░░] 0% (0/7 v1.6 phases complete)
 | 27 | 1/1 | 8min | 8min |
 | 28 | 1/1 | — | — |
 | Phase 29-diagnosis P01 | 1 | 2 tasks | 3 files |
+| Phase 29-diagnosis P02 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -56,6 +57,7 @@ Progress: [░░░░░░░░░░] 0% (0/7 v1.6 phases complete)
 
 - 29-01: Diagnosis-first TDD — tests assert bugs are present before fix code is written; assertions inverted after Phase 30.
 - 29-01: test_root_cause_md_exists intentionally RED (FAIL) — gates Phase 30 fix code on ROOT_CAUSE.md being committed first.
+- 29-02: ROOT_CAUSE.md committed before Phase 30 fix code — DIAG-02 constraint satisfied; structural test now GREEN.
 - v1.6 diagnosis-first: Phase 29 must document root cause before Phase 30 applies any fix.
 - Phase 35 (XGBoost Fix) depends on Phase 30 (reset + retrain) to validate the corrected objective end-to-end.
 - Phases 32-34 (tech debt) depend only on Phase 28 and are independent of the accuracy recovery track (29-31).
@@ -71,12 +73,13 @@ Progress: [░░░░░░░░░░] 0% (0/7 v1.6 phases complete)
 
 ### Blockers/Concerns
 
-- Phase 29 outcome (root cause) determines the scope of Phase 30 fix work — plan count TBD until diagnosis completes.
+- Phase 30 fix scope determined: 3 bugs in Stage 4 (reg:squarederror), Stage 5 (sign-only inference), Stage 6 (tau=0.0 hardcode + price gaps).
 - Accuracy recovery (phases 29-31) and tech debt (phases 32-35) can execute in parallel tracks if needed.
 - Preserve autonomous.db backward compatibility throughout DEBT-03 unification.
+- After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed").
 
 ## Session Continuity
 
-Last session: 2026-03-08T11:06:01.306Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-03-08T11:12:56.313Z
+Stopped at: Completed 29-02-PLAN.md
 Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse
