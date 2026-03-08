@@ -95,3 +95,13 @@
 
 ---
 
+
+## v1.5 Codebase Health Audit & Critical Remediation (Shipped: 2026-03-08)
+
+**Phases completed:** 24 phases, 63 plans, 3 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+

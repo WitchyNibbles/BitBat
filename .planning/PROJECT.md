@@ -1,20 +1,10 @@
 # BitBat Reliability and Timeline Evolution
 
-## Current Milestone: v1.5 Codebase Health Audit & Critical Remediation
-
-**Goal:** Comprehensive audit of the entire codebase against BitBat's core value promise — then fix critical gaps in pipeline correctness, architecture integrity, and production readiness.
-
-**Target features:**
-- Full codebase audit across pipeline correctness, architecture drift, dead/broken code
-- End-to-end usability validation (clone → ingest → predict → monitor)
-- Production readiness assessment (maintainability, deployability, error handling)
-- Critical issue remediation (high-severity fixes shipped; lower-severity cataloged)
-
 ## Current State
 
-- **Shipped version:** v1.4 (2026-03-01)
-- **Milestone result:** UI settings, presets, and API defaults now reflect the actual runtime configuration across the full sub-hourly frequency range.
-- **Release acceptance command:** `make test-release` (169 tests across 4 gates)
+- **Shipped version:** v1.5 (2026-03-08)
+- **Milestone result:** Full codebase audit completed; all silent production bugs fixed; architecture violations repaired; CI guardrails active; fold-aware OBV wired end-to-end. 638 tests passing.
+- **Release acceptance command:** `poetry run pytest` (638 tests) + `poetry run ruff check src/ tests/` + `poetry run lint-imports`
 
 ## What This Is
 
@@ -59,12 +49,17 @@ active prediction flows for the configured runtime pair.
 - ✓ PRES-01/02/03: Scalper (5m/30m) and Swing (15m/1h) presets in Streamlit and React — v1.4.
 - ✓ TEST-01/02: Preset parameter and settings round-trip test coverage — v1.4.
 
+- ✓ AUDT-01/02/03/04/05: Full codebase audit — test classification, dead code, branch coverage, complexity, E2E smoke test — v1.5.
+- ✓ CORR-01/02/03/04/05/06: All silently broken production paths fixed — retrainer CLI contract, CV metric keys, regression_metrics purity, TypeError guards, test_leakage.py, API config defaults — v1.5.
+- ✓ LEAK-01/02: OBV fold-boundary leakage assessed (2.33pp non-material) and fold-aware OBV implemented and wired into ContinuousTrainer — v1.5.
+- ✓ ARCH-01/02/03/04/05/06: Private APIs promoted, price loading consolidated, config reset added, api→gui import eliminated, CI guardrails (ruff C901 + import-linter) active — v1.5.
+
 ### Active
 
-- [ ] AUDIT-01: Comprehensive codebase audit for incongruences, code smells, and design errors
-- [ ] AUDIT-02: End-to-end pipeline usability validation (ingestion through monitoring)
-- [ ] AUDIT-03: Production readiness assessment (error handling, maintainability, deployability)
-- [ ] AUDIT-04: Critical issue remediation for high-severity findings
+- [ ] DEBT-01: CLI monolith decomposition (cli.py 1802+ lines, 53 functions)
+- [ ] DEBT-02: Full path centralization (15+ hardcoded Path("models")/Path("metrics") sites)
+- [ ] DEBT-03: Dual DB access unification (SQLAlchemy ORM + raw sqlite3)
+- [ ] DEBT-04: XGBoost objective mismatch assessment (reg:squarederror for classification)
 
 ### Deferred (Future Milestone Candidates)
 
@@ -79,10 +74,12 @@ active prediction flows for the configured runtime pair.
 
 ## Context
 
-As of 2026-03-01, v1.4 closed the configuration alignment gap: the API, React dashboard, and
-Streamlit GUI all expose the full sub-hourly frequency range (5m, 15m, 30m) with correct defaults
-from default.yaml, named trading presets (Scalper, Swing), human-readable labels, and automated
-regression tests covering both preset values and API round-trip persistence.
+As of 2026-03-08, v1.5 completed the codebase health audit and remediation milestone. Key outcomes:
+- **638 tests passing** with pytest markers on all 76 test files (behavioral/integration/structural)
+- **19/19 requirements satisfied** — all silent production bugs fixed, architecture violations repaired, CI guardrails active
+- **Remaining tech debt** explicitly deferred to v1.6+: cli.py monolith, path hardcoding, dual DB, XGBoost objective mismatch
+- **CI gates** now enforce: ruff C901 complexity (max=10) + import-linter forbidden contract (api→gui)
+- ~30,381 Python LOC across src/ + tests/
 
 ## Constraints
 
@@ -107,9 +104,7 @@ regression tests covering both preset values and API round-trip persistence.
 
 ## Current Focus
 
-Milestone v1.5: Codebase Health Audit & Critical Remediation — auditing the full codebase for
-incongruences, code smells, design errors, and broken paths against the core value promise, then
-fixing critical issues.
+Planning v1.6 — address deferred tech debt (DEBT-01–04) and consider next capability expansion (MICR-01, PORT-01, EA-01).
 
 <details>
 <summary>Archived v1.4 planning context</summary>
@@ -132,7 +127,19 @@ monitor runbook and release gate hardening.
 
 </details>
 
-| Audit before adding features | 4 milestones shipped rapidly; tech debt audit before expanding scope reduces compounding risk | — Pending |
+| Audit before adding features | 4 milestones shipped rapidly; tech debt audit before expanding scope reduces compounding risk | ✓ Confirmed — v1.5 audit found 14 significant issues, all critical ones fixed |
+| 11 noqa:C901 suppressions on pre-existing complexity | Enabling C901 gate required suppressing legacy violations rather than fixing them all; cleanest path forward without scope creep | ✓ Good — suppressions documented, gate active, DEBT-01 tracks the backlog |
+| fold_boundaries wired in ContinuousTrainer only (not CV loop) | Inference paths intentionally use fold_boundaries=None; OBV leakage non-material (2.33pp); retraining path is the correct activation site | ✓ Good — behavioral test confirms contract |
 
 ---
-*Last updated: 2026-03-04 after v1.5 milestone start*
+
+<details>
+<summary>Archived v1.5 planning context</summary>
+
+**Goal:** Comprehensive audit of the entire codebase against BitBat's core value promise — then fix critical gaps in pipeline correctness, architecture integrity, and production readiness.
+
+**Shipped:** Complete audit baseline (vulture, radon, coverage, markers, smoke test), all 14 critical/high/medium findings remediated, CI guardrails preventing recurrence.
+
+</details>
+
+*Last updated: 2026-03-08 after v1.5 milestone*
