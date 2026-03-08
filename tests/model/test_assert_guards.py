@@ -31,12 +31,25 @@ def _make_synthetic_data(
     return X, y
 
 
+def _make_direction_data(
+    n_samples: int = 50, n_features: int = 3, seed: int = 42
+) -> tuple[pd.DataFrame, pd.Series]:
+    """Create a small synthetic dataset with direction labels for XGBoost classification."""
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame(
+        rng.normal(size=(n_samples, n_features)),
+        columns=[f"feat_{i}" for i in range(n_features)],
+    )
+    y = pd.Series(rng.choice(["up", "down", "flat"], size=n_samples), name="target")
+    return X, y
+
+
 def test_fit_xgb_returns_booster_type(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """fit_xgb() with valid data returns an xgb.Booster instance."""
+    """fit_xgb() with valid direction labels returns an xgb.Booster instance."""
     import xgboost as xgb
 
     monkeypatch.chdir(tmp_path)
-    X, y = _make_synthetic_data()
+    X, y = _make_direction_data()
     model, importance = fit_xgb(X, y, persist=False)
 
     assert isinstance(model, xgb.Booster)

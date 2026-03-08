@@ -993,16 +993,18 @@ def model_train(
     )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
-    y = dataset["r_forward"]
     X.attrs["freq"] = freq_val
     X.attrs["horizon"] = horizon_val
 
     trained_paths: list[tuple[str, Path]] = []
     for model_family in selected_families:
         if model_family == "xgb":
-            model, _ = fit_xgb(X, y, seed=int(_config()["seed"]), persist=False)
+            # XGBoost expects direction labels (up/down/flat); fit_xgb encodes via DIRECTION_CLASSES
+            y_xgb = dataset["label"].astype(str)
+            model, _ = fit_xgb(X, y_xgb, seed=int(_config()["seed"]), persist=False)
         else:
-            model, _ = fit_random_forest(X, y, seed=int(_config()["seed"]), persist=False)
+            y_rf = dataset["r_forward"]
+            model, _ = fit_random_forest(X, y_rf, seed=int(_config()["seed"]), persist=False)
         model_path = save_baseline_artifact(
             model,
             family=model_family,
@@ -1281,7 +1283,7 @@ def batch_run(
 
     record = {
         "timestamp_utc": timestamp_py,
-        "predicted_return": float(prediction["predicted_return"]),
+        "predicted_return": prediction.get("predicted_return"),
         "predicted_price": prediction.get("predicted_price"),
         "freq": freq_val,
         "horizon": horizon_val,
@@ -1316,7 +1318,7 @@ def batch_run(
         init_database(db_url)
         db = AutonomousDB(db_url)
 
-        predicted_return = float(prediction["predicted_return"])
+        predicted_return = prediction.get("predicted_return")
         predicted_direction = prediction["predicted_direction"]
 
         with db.session() as session:

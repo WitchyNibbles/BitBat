@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-import numpy as np  # noqa: F401 — used in predict_bar (Task 2)
+import numpy as np
 import pandas as pd
 import xgboost as xgb
 
@@ -80,21 +80,21 @@ def predict_bar(
 
     feature_names = list(features_row.index)
     dmatrix = xgb.DMatrix(features_row.to_frame().T, feature_names=feature_names)
-    predicted_return = float(booster.predict(dmatrix)[0])
 
-    predicted_price = None
-    if current_price is not None:
-        predicted_price = current_price * (1 + predicted_return)
-
-    predicted_direction = "up" if predicted_return > 0 else "down"
-
-    p_up, p_down = directional_confidence(predicted_return, tau=tau)
+    # multi:softprob returns shape (1, 3); argmax over class axis gives direction index
+    probs = booster.predict(dmatrix)  # shape (1, 3)
+    class_idx = int(np.argmax(probs[0]))
+    predicted_direction = INT_TO_DIRECTION[class_idx]
+    p_up = float(probs[0][DIRECTION_CLASSES["up"]])
+    p_down = float(probs[0][DIRECTION_CLASSES["down"]])
+    p_flat = float(probs[0][DIRECTION_CLASSES["flat"]])
 
     return {
         "timestamp": timestamp,
-        "predicted_return": predicted_return,
-        "predicted_price": predicted_price,
+        "predicted_return": None,  # No longer a regression model
+        "predicted_price": None,  # Cannot compute without predicted return
         "predicted_direction": predicted_direction,
         "p_up": p_up,
         "p_down": p_down,
+        "p_flat": p_flat,
     }
