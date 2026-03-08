@@ -97,6 +97,15 @@ None - no external service configuration required.
 - Phase 30 must: change `reg:squarederror` to `multi:softprob`, fix inference to use tau threshold with flat class, fix `self.tau` hardcode in validator, and address price lookup gaps
 - After Phase 30 fixes and model retrain, the 4 diagnosis tests in tests/diagnosis/ will need assertion inversion (from "bug exists" to "bug is fixed")
 
+## Self-Check: PASSED
+
+- FOUND: ROOT_CAUSE.md at repo root
+- FOUND: 29-02-SUMMARY.md at .planning/phases/29-diagnosis/
+- FOUND: commit 48cda12 (ROOT_CAUSE.md)
+- FOUND: commit b58aec7 (metadata/SUMMARY)
+- 6/6 diagnostic + structural tests PASSED
+- 644/644 full suite PASSED, no regressions
+
 ---
 *Phase: 29-diagnosis*
 *Completed: 2026-03-08*

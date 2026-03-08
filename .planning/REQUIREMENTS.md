@@ -14,7 +14,7 @@
 
 - [x] **FIXR-01**: Root cause of live accuracy ~1% is fixed in code
 - [x] **FIXR-02**: A clean reset procedure (data/ + models/ + autonomous.db) is executable via CLI command(s) and documented
-- [ ] **FIXR-03**: After reset + retrain, live directional accuracy on realized predictions exceeds random baseline (>33%)
+- [x] **FIXR-03**: After reset + retrain, live directional accuracy on realized predictions exceeds random baseline (>33%)
 - [ ] **FIXR-04**: Monitor agent alerts when realized accuracy falls below a configurable threshold (default: 40%)
 
 ### Tech Debt
@@ -48,7 +48,7 @@
 | DIAG-02 | Phase 29 | Complete |
 | FIXR-01 | Phase 30 | Complete |
 | FIXR-02 | Phase 30 | Complete |
-| FIXR-03 | Phase 30 | Pending |
+| FIXR-03 | Phase 30 | Complete |
 | FIXR-04 | Phase 31 | Pending |
 | DEBT-01 | Phase 32 | Pending |
 | DEBT-02 | Phase 33 | Pending |

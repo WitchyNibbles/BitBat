@@ -27,7 +27,7 @@
 **Milestone Goal:** Diagnose and fix the live prediction accuracy collapse (~1%), restore the pipeline to a working state with clean reset + retrain, add an accuracy collapse guardrail to the monitor, and eliminate the four deferred tech debt items.
 
 - [x] **Phase 29: Diagnosis** — Identify and document the root cause of live accuracy collapse before any fix is applied (completed 2026-03-08)
-- [ ] **Phase 30: Fix & Reset** — Fix root cause in code, provide a clean reset + retrain procedure, and verify accuracy exceeds random baseline
+- [x] **Phase 30: Fix & Reset** — Fix root cause in code, provide a clean reset + retrain procedure, and verify accuracy exceeds random baseline (completed 2026-03-08)
 - [ ] **Phase 31: Accuracy Guardrail** — Add monitor alert that fires when realized accuracy falls below a configurable threshold
 - [ ] **Phase 32: CLI Decomposition** — Split cli.py monolith (1802+ lines, 53 functions) into focused command modules
 - [ ] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution
@@ -129,7 +129,7 @@ Plans:
 | 27. Verification & Guardrail Hardening | v1.5 | 1/1 | Complete | 2026-03-07 |
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
 | 29. Diagnosis | v1.6 | 2/2 | Complete | 2026-03-08 |
-| 30. Fix & Reset | 2/3 | In Progress|  | - |
+| 30. Fix & Reset | 3/3 | Complete   | 2026-03-08 | - |
 | 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
 | 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
 | 33. Path Centralization | v1.6 | 0/TBD | Not started | - |
