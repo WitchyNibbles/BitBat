@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
-status: completed
-stopped_at: Completed 30-03-PLAN.md
-last_updated: "2026-03-08T17:09:29.755Z"
-last_activity: "2026-03-08 — 30-02 complete: diagnostic tests inverted, bitbat system reset --yes added, 649 tests pass"
+status: verifying
+stopped_at: Completed 31-01-PLAN.md
+last_updated: "2026-03-08T18:22:14.321Z"
+last_activity: "2026-03-08 — 30-03 complete: accuracy gate test verified (fails on pre-fix DB as expected), reset CLI tests 3/3 pass, checkpoint auto-approved, Phase 30 complete"
 progress:
   total_phases: 7
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 98
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 30 of 35 (Fix and Reset — COMPLETE)
-Plan: 03 complete; Phase 31 (Accuracy Guardrail) next
-Status: Phase 30 Plan 03 Complete — accuracy verification checkpoint acknowledged; FIXR-03 deferred to Phase 31 (unit tests confirm fixes, live accuracy requires operator reset + retrain)
-Last activity: 2026-03-08 — 30-03 complete: accuracy gate test verified (fails on pre-fix DB as expected), reset CLI tests 3/3 pass, checkpoint auto-approved, Phase 30 complete
+Phase: 31 of 35 (Accuracy Guardrail — COMPLETE)
+Plan: 01 complete; Phase 32 (Tech Debt) next
+Status: Phase 31 Plan 01 Complete — accuracy guardrail implemented; FIXR-04 satisfied; check_accuracy_guardrail() wired into run_once(); 654 tests pass
+Last activity: 2026-03-08 — 31-01 complete: realized-accuracy WARNING guardrail added to MonitoringAgent, 5 behavioral tests pass, FIXR-04 marked complete
 
 Progress: [██████████] 100% (57/57 plans complete)
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100% (57/57 plans complete)
 | Phase 30-fix-and-reset P01 | 10 | 3 tasks | 8 files |
 | Phase 30-fix-and-reset P02 | 8 | 2 tasks | 3 files |
 | Phase 30-fix-and-reset P03 | 6min | 2 tasks | 0 files |
+| Phase 31-accuracy-guardrail P01 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ Progress: [██████████] 100% (57/57 plans complete)
 - 30-02: Path.is_relative_to() used (Python 3.11) for autonomous.db containment check.
 - 30-03: FIXR-03 deferred — live accuracy verification requires operator to run bitbat system reset --yes and retrain; unit tests confirm code correctness; live verification deferred to Phase 31.
 - 30-03: Diagnostic DB tests correctly fail on pre-fix autonomous.db (38/266 = 14.3%) — expected pre-reset state, not a code bug; operator must run reset before tests pass.
+- 31-01: check_accuracy_guardrail() is module-level function (not a method) to enable unit testing without model artifact on disk.
+- 31-01: Mock patch target is bitbat.autonomous.agent.send_alert (from-import binding location, not the alerting module).
+- 31-01: Default threshold 0.40, min_predictions_required=10 prevents warmup false positives after operator system reset.
 
 ### Pending Todos
 
@@ -90,10 +94,10 @@ Progress: [██████████] 100% (57/57 plans complete)
 - Preserve autonomous.db backward compatibility throughout DEBT-03 unification.
 - After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed"). DONE in 30-02.
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
-- Phase 30 complete. Phase 31 (Accuracy Guardrail) is unblocked. Operator should run system reset at start of Phase 31.
+- Phase 31 complete. Phase 32 (Tech Debt) is next. Operator still needs `bitbat system reset --yes` + retrain to clear pre-fix autonomous.db and activate the live accuracy guardrail.
 
 ## Session Continuity
 
-Last session: 2026-03-08T17:09:29.752Z
-Stopped at: Completed 30-03-PLAN.md
+Last session: 2026-03-08T18:22:14.319Z
+Stopped at: Completed 31-01-PLAN.md
 Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse
