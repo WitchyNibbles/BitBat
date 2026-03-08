@@ -6,10 +6,13 @@ import math
 from pathlib import Path
 from typing import Any
 
+import numpy as np  # noqa: F401 — used in predict_bar (Task 2)
 import pandas as pd
 import xgboost as xgb
 
 REQUIRED_FEATURES: list[str] | None = None
+DIRECTION_CLASSES: dict[str, int] = {"up": 0, "down": 1, "flat": 2}
+INT_TO_DIRECTION: dict[int, str] = {0: "up", 1: "down", 2: "flat"}
 
 
 def _ensure_model(model: xgb.Booster | str | Path) -> xgb.Booster:

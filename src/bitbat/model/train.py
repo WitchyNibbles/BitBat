@@ -13,6 +13,8 @@ from sklearn.ensemble import RandomForestRegressor
 BaselineFamily = Literal["xgb", "random_forest"]
 TreeBaselineModel = xgb.Booster | RandomForestRegressor
 
+DIRECTION_CLASSES: dict[str, int] = {"up": 0, "down": 1, "flat": 2}
+
 
 def _extract_freq_horizon(X_train: pd.DataFrame) -> tuple[str, str]:
     freq = "unknown"
@@ -45,13 +47,14 @@ def fit_baseline(
         raise TypeError("y_train must be a pandas Series.")
 
     X = X_train.astype(float)
-    y = y_train.astype("float64")
 
     if family == "xgb":
-        dtrain = xgb.DMatrix(X, label=y.to_numpy(), feature_names=list(X.columns))
+        y_encoded = y_train.map(DIRECTION_CLASSES).astype(int)
+        dtrain = xgb.DMatrix(X, label=y_encoded.to_numpy(), feature_names=list(X.columns))
         params = {
-            "objective": "reg:squarederror",
-            "eval_metric": "rmse",
+            "objective": "multi:softprob",
+            "num_class": 3,
+            "eval_metric": "mlogloss",
             "seed": seed,
             "eta": 0.05,
             "max_depth": 6,
@@ -71,7 +74,8 @@ def fit_baseline(
             random_state=seed,
             n_jobs=-1,
         )
-        random_forest.fit(X, y.to_numpy())
+        y_float = y_train.astype("float64")
+        random_forest.fit(X, y_float.to_numpy())
         importance = {
             feature: float(score)
             for feature, score in zip(
@@ -107,7 +111,7 @@ def fit_xgb(
     seed: int = 42,
     persist: bool = True,
 ) -> tuple[xgb.Booster, dict[str, float]]:
-    """Train an XGBoost regression model and persist it to disk."""
+    """Train an XGBoost classification model and persist it to disk."""
     model, importance = fit_baseline(
         X_train,
         y_train,
