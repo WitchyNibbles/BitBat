@@ -13,7 +13,6 @@ from bitbat.model.walk_forward import (
     WalkForwardValidator,
 )
 
-
 pytestmark = pytest.mark.behavioral
 
 @pytest.fixture(scope="module")

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import pandas as pd
-
-from bitbat.dataset.splits import walk_forward
 import pytest
 
+from bitbat.dataset.splits import walk_forward
 
 pytestmark = pytest.mark.behavioral
 

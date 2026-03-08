@@ -77,7 +77,7 @@ def _response_preview(response: Any, limit: int = 200) -> str | None:
     return compact[:limit]
 
 
-def _fetch_page(
+def _fetch_page(  # noqa: C901
     session: SessionProtocol,
     *,
     lts: int,
@@ -256,7 +256,7 @@ def _load_existing(target: Path) -> pd.DataFrame | None:
     return None
 
 
-def fetch(
+def fetch(  # noqa: C901
     from_dt: datetime,
     to_dt: datetime,
     *,

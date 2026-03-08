@@ -13,7 +13,6 @@ from bitbat.autonomous.models import PerformanceSnapshot, init_database
 from bitbat.autonomous.predictor import LivePredictor
 from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 
-
 pytestmark = pytest.mark.integration
 
 def _db_url(tmp_path: Path) -> str:

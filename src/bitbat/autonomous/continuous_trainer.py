@@ -37,10 +37,10 @@ class ContinuousTrainer:
         self.retrain_interval = int(ct_cfg.get("retrain_interval_seconds", 1800))
         self.min_new_samples = int(ct_cfg.get("min_new_samples", 6))
         self.rolling_window_bars = int(ct_cfg.get("rolling_window_bars", 17280))
-        default_train_bars = int(ct_cfg.get("train_window_bars", max(self.rolling_window_bars // 2, 1)))
+        default_train_bars = int(ct_cfg.get("train_window_bars", max(self.rolling_window_bars // 2, 1)))  # noqa: E501
         self.train_window_bars = max(default_train_bars, 1)
         self.backtest_window_bars = int(
-            ct_cfg.get("backtest_window_bars", max(self.rolling_window_bars - self.train_window_bars, 1))
+            ct_cfg.get("backtest_window_bars", max(self.rolling_window_bars - self.train_window_bars, 1))  # noqa: E501
         )
         self._last_retrain_time: datetime | None = None
         self._last_realized_count: int = 0

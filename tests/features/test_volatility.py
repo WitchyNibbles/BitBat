@@ -15,7 +15,6 @@ except ImportError:
 
 from bitbat.features.volatility import garch_features
 
-
 pytestmark = pytest.mark.behavioral
 
 def _synthetic_close(n: int = 500) -> pd.Series:

@@ -22,6 +22,8 @@ jobs:
         run: poetry run ruff check src/ tests/
       - name: Ruff format check
         run: poetry run ruff format --check src/ tests/
+      - name: Import architecture contracts
+        run: poetry run lint-imports
 
   test:
     runs-on: ubuntu-latest

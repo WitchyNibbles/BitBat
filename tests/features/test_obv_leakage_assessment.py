@@ -136,7 +136,7 @@ def test_obv_leakage_impact_assessment() -> None:
     is_material = diff > 0.03
 
     # Record results via print for test output inspection
-    print(f"\n--- OBV Leakage Impact Assessment ---")
+    print("\n--- OBV Leakage Impact Assessment ---")
     print(f"Mean accuracy WITH OBV:    {mean_with:.4f}")
     print(f"Mean accuracy WITHOUT OBV: {mean_without:.4f}")
     print(f"Absolute difference:       {diff:.4f}")

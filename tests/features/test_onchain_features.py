@@ -6,10 +6,9 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
-from bitbat.features.onchain import generate_onchain_features
 import pytest
 
+from bitbat.features.onchain import generate_onchain_features
 
 pytestmark = pytest.mark.behavioral
 

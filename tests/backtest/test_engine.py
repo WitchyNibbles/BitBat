@@ -7,7 +7,6 @@ import pytest
 
 from bitbat.backtest.engine import run
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_backtest_long_only() -> None:

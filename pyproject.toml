@@ -37,6 +37,7 @@ types-requests = "^2.32.0.20240914"
 vulture = "^2.14"
 radon = "^6.0.1"
 pytest-cov = "^7.0.0"
+import-linter = "^2.11"
 
 [tool.black]
 line-length = 100
@@ -50,8 +51,11 @@ src = ["src", "tests"]
 extend-exclude = ["data"]
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "I", "UP", "S", "C4", "RET", "SIM"]
+select = ["E", "F", "B", "I", "UP", "S", "C4", "RET", "SIM", "C901"]
 ignore = ["E203", "B008"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S608"]
@@ -80,6 +84,15 @@ markers = [
     "integration: integration test exercising multiple real components together",
     "structural: structural conformance test checking file existence, schemas, CLI contracts",
 ]
+
+[tool.importlinter]
+root_package = "bitbat"
+
+[[tool.importlinter.contracts]]
+name = "API layer must not import from GUI layer"
+type = "forbidden"
+source_modules = ["bitbat.api"]
+forbidden_modules = ["bitbat.gui"]
 
 [build-system]
 requires = ["poetry-core"]

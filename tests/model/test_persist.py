@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.ensemble import RandomForestRegressor
 import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
 
 from bitbat.model.persist import (
     default_model_artifact_path,
@@ -15,7 +15,6 @@ from bitbat.model.persist import (
     save,
     save_baseline_artifact,
 )
-
 
 pytestmark = pytest.mark.integration
 

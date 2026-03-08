@@ -7,7 +7,6 @@ import pytest
 from bitbat.timealign.bucket import bars_for_duration, to_bar
 from bitbat.timealign.calendar import ensure_utc
 
-
 pytestmark = pytest.mark.behavioral
 
 def test_to_bar_floors_expected_intervals() -> None:

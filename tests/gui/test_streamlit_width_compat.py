@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,7 +35,7 @@ def _iter_streamlit_calls(file_path: Path) -> list[ast.Call]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):  # noqa: SIM102
             if node.func.value.id == "st":
                 calls.append(node)
     return calls
@@ -109,7 +110,7 @@ def test_width_keyword_uses_supported_non_boolean_literals() -> None:
                 )
                 continue
 
-            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):  # noqa: SIM102
                 if value.value not in ALLOWED_WIDTH_LITERALS:
                     literal_offenders.append(
                         f"{file_path.relative_to(ROOT)}:{call.lineno}:{_call_target_name(call)}="

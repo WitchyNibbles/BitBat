@@ -84,7 +84,7 @@ def test_retrainer_subprocess_args_match_cli(tmp_path: Path, monkeypatch) -> Non
     # Check every --flag in the subprocess command is valid
     invalid_flags = []
     for arg in features_cmd:
-        if arg.startswith("--"):
+        if arg.startswith("--"):  # noqa: SIM102
             if arg not in valid_options:
                 invalid_flags.append(arg)
 

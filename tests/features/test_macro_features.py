@@ -6,10 +6,9 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
-from bitbat.features.macro import generate_macro_features
 import pytest
 
+from bitbat.features.macro import generate_macro_features
 
 pytestmark = pytest.mark.behavioral
 

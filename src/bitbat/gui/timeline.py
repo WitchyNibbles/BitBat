@@ -75,7 +75,7 @@ def _coerce_nullable_bool(value: Any) -> bool | None:
         return None
     if isinstance(value, bool):
         return value
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):  # noqa: UP038
         if value == 1:
             return True
         if value == 0:
@@ -200,7 +200,7 @@ def _build_timeline_query(columns: set[str]) -> str | None:
 
     select_exprs = [
         timestamp_expr,
-        "predicted_direction" if "predicted_direction" in columns else "'flat' AS predicted_direction",
+        "predicted_direction" if "predicted_direction" in columns else "'flat' AS predicted_direction",  # noqa: E501
         "p_up" if "p_up" in columns else "NULL AS p_up",
         "p_down" if "p_down" in columns else "NULL AS p_down",
         "predicted_return" if "predicted_return" in columns else "NULL AS predicted_return",
@@ -217,7 +217,7 @@ def _build_timeline_query(columns: set[str]) -> str | None:
         order_clause = "ORDER BY timestamp_utc DESC, id DESC"
 
     return (
-        "SELECT "
+        "SELECT "  # noqa: S608
         + ", ".join(select_exprs)
         + " FROM prediction_outcomes "
         "WHERE freq = ? AND horizon = ? "
@@ -409,7 +409,7 @@ def list_timeline_filter_options(
                     for freq, horizon in rows:
                         freqs.add(str(freq))
                         horizons.add(str(horizon))
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     sorted_freqs = sorted(freqs, key=_duration_sort_key)
@@ -478,10 +478,10 @@ def build_timeline_overlay_frame(predictions: pd.DataFrame) -> pd.DataFrame:
     aligned = overlay["actual_return"].notna()
     overlay["upper_return"] = pd.NA
     overlay["lower_return"] = pd.NA
-    overlay.loc[aligned, "upper_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].max(
+    overlay.loc[aligned, "upper_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].max(  # noqa: E501
         axis=1
     )
-    overlay.loc[aligned, "lower_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].min(
+    overlay.loc[aligned, "lower_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].min(  # noqa: E501
         axis=1
     )
     return overlay

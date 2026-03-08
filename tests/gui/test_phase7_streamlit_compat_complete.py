@@ -31,7 +31,7 @@ def _iter_streamlit_calls(file_path: Path) -> list[ast.Call]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):  # noqa: SIM102
             if node.func.value.id == "st":
                 calls.append(node)
     return calls
@@ -149,7 +149,7 @@ def test_phase7_runtime_width_contract_has_no_deprecated_keywords_or_booleans() 
             if isinstance(width_value, ast.Constant) and isinstance(width_value.value, bool):
                 boolean_width_offenders.append(f"{file_path.relative_to(ROOT)}:{call.lineno}")
 
-            if isinstance(width_value, ast.Constant) and isinstance(width_value.value, str):
+            if isinstance(width_value, ast.Constant) and isinstance(width_value.value, str):  # noqa: SIM102
                 if width_value.value not in ALLOWED_WIDTH_LITERALS:
                     unsupported_width_literals.append(
                         f"{file_path.relative_to(ROOT)}:{call.lineno}={width_value.value!r}"

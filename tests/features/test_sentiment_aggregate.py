@@ -4,10 +4,9 @@ from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
-
-from bitbat.features.sentiment import aggregate
 import pytest
 
+from bitbat.features.sentiment import aggregate
 
 pytestmark = pytest.mark.behavioral
 

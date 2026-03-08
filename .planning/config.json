@@ -3,11 +3,15 @@
   "depth": "comprehensive",
   "parallelization": false,
   "commit_docs": true,
-  "model_profile": "quality",
+  "model_profile": "balanced",
   "workflow": {
-    "research": false,
+    "research": true,
     "plan_check": true,
     "verifier": true,
-    "auto_advance": false
+    "auto_advance": true,
+    "nyquist_validation": true
+  },
+  "git": {
+    "branching_strategy": "phase"
   }
 }

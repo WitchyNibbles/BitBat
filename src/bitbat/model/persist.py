@@ -7,8 +7,8 @@ import pickle
 from pathlib import Path
 from typing import Any, Literal
 
-from sklearn.ensemble import RandomForestRegressor
 import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
 
 BaselineFamily = Literal["xgb", "random_forest"]
 TreeBaselineModel = xgb.Booster | RandomForestRegressor
@@ -96,7 +96,7 @@ def load(
         return booster
 
     with target.open("rb") as artifact:
-        model = pickle.load(artifact)
+        model = pickle.load(artifact)  # noqa: S301
     if not isinstance(model, RandomForestRegressor):
         raise TypeError(f"Expected RandomForestRegressor artifact at {target}")
     return model

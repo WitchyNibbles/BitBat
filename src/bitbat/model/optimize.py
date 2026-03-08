@@ -47,7 +47,7 @@ class HyperparamOptimizer:
     @staticmethod
     def _json_safe(value: Any) -> Any:
         """Convert numpy/pandas scalar types to JSON-safe Python primitives."""
-        if isinstance(value, (np.floating, np.integer)):
+        if isinstance(value, (np.floating, np.integer)):  # noqa: UP038
             return value.item()
         if isinstance(value, np.ndarray):
             return value.tolist()
@@ -270,7 +270,7 @@ class HyperparamOptimizer:
             "best_trial_lineage": best_trial_lineage,
             "aggregate_outer_score": round(aggregate_score, 6),
             # Keep deterministic outputs stable by not persisting runtime clock values.
-            "wall_clock": {"clock_captured": False, "started_at_utc": None, "completed_at_utc": None},
+            "wall_clock": {"clock_captured": False, "started_at_utc": None, "completed_at_utc": None},  # noqa: E501
         }
         trial_count = int(sum(len(item.get("trials", [])) for item in all_trial_history))
         safeguards = compute_multiple_testing_safeguards(

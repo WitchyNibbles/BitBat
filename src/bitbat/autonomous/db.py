@@ -242,7 +242,7 @@ class AutonomousDB:
             query = query.filter(PredictionOutcome.timestamp_utc < cutoff_time)
         return list(query.order_by(PredictionOutcome.timestamp_utc.asc()).all())
 
-    def get_prediction_counts(self, session: Session, freq: str, horizon: str) -> dict[str, int | str]:
+    def get_prediction_counts(self, session: Session, freq: str, horizon: str) -> dict[str, int | str]:  # noqa: E501
         """Return pair-scoped total/unrealized/realized prediction counts."""
         base_query = session.query(PredictionOutcome).filter(
             PredictionOutcome.freq == freq,

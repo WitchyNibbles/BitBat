@@ -4,11 +4,10 @@ from pathlib import Path
 
 import pandas as pd
 import pandas.testing as pd_testing
+import pytest
 
 from bitbat.io.duck import query
 from bitbat.io.fs import read_parquet, write_parquet
-import pytest
-
 
 pytestmark = pytest.mark.behavioral
 

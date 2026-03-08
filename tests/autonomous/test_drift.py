@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.drift import DriftDetector
 from bitbat.autonomous.models import init_database
-import pytest
-
 
 pytestmark = pytest.mark.behavioral
 

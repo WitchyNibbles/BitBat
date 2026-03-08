@@ -20,7 +20,6 @@ from bitbat.model.ensemble import MultiHorizonEnsemble
 from bitbat.model.optimize import HyperparamOptimizer
 from bitbat.model.walk_forward import WalkForwardValidator
 
-
 pytestmark = pytest.mark.integration
 
 @pytest.fixture(scope="module")

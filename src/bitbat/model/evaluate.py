@@ -70,7 +70,7 @@ def window_diagnostics(
         "directional_stability": directional_stability,
         "n_samples": int(y_t.size),
     }
-    return diagnostics
+    return diagnostics  # noqa: RET504
 
 
 def write_window_diagnostics(

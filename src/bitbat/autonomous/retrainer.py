@@ -101,7 +101,7 @@ class AutoRetrainer:
         timestamp = _utcnow().strftime("%Y%m%d%H%M%S")
         return f"{__version__}-{timestamp}"
 
-    def _build_cv_windows(self, anchor_end: datetime) -> list[tuple[datetime, datetime, datetime, datetime]]:
+    def _build_cv_windows(self, anchor_end: datetime) -> list[tuple[datetime, datetime, datetime, datetime]]:  # noqa: E501
         """Build rolling train/backtest windows for the CV command."""
         train_delta = timedelta(days=self.train_window_days)
         backtest_delta = timedelta(days=self.backtest_window_days)

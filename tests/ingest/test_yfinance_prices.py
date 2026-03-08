@@ -8,7 +8,6 @@ import pytest
 
 from bitbat.ingest.prices import fetch_yf
 
-
 pytestmark = pytest.mark.integration
 
 @pytest.mark.slow

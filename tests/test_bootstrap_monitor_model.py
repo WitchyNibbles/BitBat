@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from scripts import bootstrap_monitor_model
 
-
 pytestmark = pytest.mark.integration
 
 def test_bootstrap_runtime_model_runs_expected_cli_sequence(tmp_path: Path) -> None:

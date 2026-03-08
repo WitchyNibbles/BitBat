@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Codebase Health Audit & Critical Remediation
 status: unknown
-last_updated: "2026-03-07T09:29:49.745Z"
+last_updated: "2026-03-07T10:05:24.962Z"
 progress:
-  total_phases: 22
-  completed_phases: 22
-  total_plans: 61
-  completed_plans: 61
+  total_phases: 23
+  completed_phases: 23
+  total_plans: 62
+  completed_plans: 62
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 26 — Architecture Targeted Fixes
+**Current focus:** Phase 27 — Verification and Guardrail Hardening
 
 ## Current Position
 
-Phase: 26 of 27 (Architecture Targeted Fixes)
-Plan: 2 of N in Phase 26 -- COMPLETE
-Status: Phase 26 Plan 02 complete
-Last activity: 2026-03-07 — Completed 26-02 (config reset and API-GUI layer decoupling)
+Phase: 27 of 27 (Verification and Guardrail Hardening)
+Plan: 1 of N in Phase 27 -- COMPLETE
+Status: Phase 27 Plan 01 complete
+Last activity: 2026-03-07 — Completed 27-01 (C901 complexity gate and import-linter forbidden contract)
 
-Progress: [##########] 2/2 plans completed (Phase 26 Plans 01-02)
+Progress: [##########] 1/1 plans completed (Phase 27 Plan 01)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
+- Total plans completed: 9
 - Average duration: 5min
-- Total execution time: 0.75 hours
+- Total execution time: 0.88 hours
 
 **By Phase:**
 
@@ -42,7 +42,8 @@ Progress: [##########] 2/2 plans completed (Phase 26 Plans 01-02)
 |-------|-------|-------|----------|
 | 24 | 3/3 | 20min | 7min |
 | 25 | 4/4 | 17min | 4min |
-| 26 | 2/? | 14min | 7min |
+| 26 | 2/2 | 14min | 7min |
+| 27 | 1/1 | 8min | 8min |
 
 ## Accumulated Context
 
@@ -70,6 +71,7 @@ Progress: [##########] 2/2 plans completed (Phase 26 Plans 01-02)
 - OBV fold-boundary leakage empirically NOT material (2.33pp < 3pp threshold); fold-aware fix implemented as correct practice regardless.
 - ARCH-01/02: Backward-compat aliases (_generate_price_features = generate_price_features) kept in build.py; two load_prices variants created (glob-based for autonomous pipeline, flat-file for CLI); AST structural guard added to tests.
 - ARCH-03/04: Preset dataclass and get_ingestion_status relocated to bitbat.common layer; gui modules re-export for backward compat; reset_runtime_config() added to config/loader.py for clean test teardown; AST structural guards block future api->gui imports.
+- ARCH-05/06: C901 max-complexity=10 gate active in ruff; import-linter forbidden contract blocks api->gui imports; both enforced in CI lint job. Used forbidden (not layers) contract type to avoid over-constraining cross-cutting modules. orchestrator.py transitive gui import fixed (missed in phase 26).
 
 ### Pending Todos
 
@@ -84,5 +86,5 @@ Progress: [##########] 2/2 plans completed (Phase 26 Plans 01-02)
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 26-02-PLAN.md (config reset and API-GUI layer decoupling)
-Resume with: `/gsd:execute-phase` to continue Phase 26
+Stopped at: Completed 27-01-PLAN.md (C901 complexity gate and import-linter forbidden contract)
+Resume with: Phase 27 Plan 01 complete — v1.5 all requirements satisfied

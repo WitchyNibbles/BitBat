@@ -5,8 +5,9 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from bitbat.gui.widgets import get_latest_prediction
 import pytest
+
+from bitbat.gui.widgets import get_latest_prediction
 
 ROOT = Path(__file__).resolve().parents[2]
 STREAMLIT_DIR = ROOT / "streamlit"

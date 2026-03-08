@@ -12,7 +12,6 @@ from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import init_database
 from bitbat.autonomous.validator import PredictionValidator
 
-
 pytestmark = pytest.mark.integration
 
 def _db_url(tmp_path: Path) -> str:

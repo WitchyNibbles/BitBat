@@ -15,7 +15,6 @@ except ImportError:  # pragma: no cover - optional dependency
 from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError, classify_monitor_db_error
 from bitbat.autonomous.models import init_database
 
-
 pytestmark = pytest.mark.integration
 
 def _db_url(tmp_path: Path) -> str:

@@ -80,7 +80,7 @@ def test_no_assert_isinstance_in_production_code() -> None:
             if isinstance(node, ast.Assert):
                 # Check if the test is a call to isinstance
                 test = node.test
-                if isinstance(test, ast.Call) and isinstance(test.func, ast.Name):
+                if isinstance(test, ast.Call) and isinstance(test.func, ast.Name):  # noqa: SIM102
                     if test.func.id == "isinstance":
                         rel_path = py_file.relative_to(src_root.parent.parent)
                         violations.append(f"{rel_path}:{node.lineno}")
