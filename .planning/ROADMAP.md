@@ -129,7 +129,7 @@ Plans:
 | 27. Verification & Guardrail Hardening | v1.5 | 1/1 | Complete | 2026-03-07 |
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
 | 29. Diagnosis | v1.6 | 2/2 | Complete | 2026-03-08 |
-| 30. Fix & Reset | v1.6 | 0/3 | Not started | - |
+| 30. Fix & Reset | 1/3 | In Progress|  | - |
 | 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
 | 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
 | 33. Path Centralization | v1.6 | 0/TBD | Not started | - |

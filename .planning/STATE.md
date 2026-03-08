@@ -1,14 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
-status: unknown
-last_updated: "2026-03-08T11:17:06.188Z"
+status: completed
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-03-08T12:05:16.222Z"
+last_activity: "2026-03-08 — 29-02 complete: ROOT_CAUSE.md committed; DIAG-01 + DIAG-02 satisfied"
 progress:
-  total_phases: 20
-  completed_phases: 20
-  total_plans: 54
-  completed_plans: 54
+  total_phases: 7
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 3
+  percent: 14
 ---
 
 # Project State
@@ -18,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 — Phase 29: Diagnosis
+**Current focus:** Milestone v1.6 — Phase 30: Fix and Reset
 
 ## Current Position
 
-Phase: 29 of 35 (Diagnosis — complete; root cause documented in ROOT_CAUSE.md)
-Plan: 02 complete; Phase 29 COMPLETE
-Status: Phase 29 Complete — Phase 30 (Fix) next
-Last activity: 2026-03-08 — 29-02 complete: ROOT_CAUSE.md committed; DIAG-01 + DIAG-02 satisfied
+Phase: 30 of 35 (Fix and Reset — in progress)
+Plan: 01 complete; Phase 30 Plan 02 next
+Status: Phase 30 Plan 01 Complete — three root-cause bugs fixed (FIXR-01 satisfied)
+Last activity: 2026-03-08 — 30-01 complete: multi:softprob, argmax decoding, validator tau fixed; 650 tests pass
 
-Progress: [█░░░░░░░░░] 14% (1/7 v1.6 phases complete)
+Progress: [██████████] 96% (55/57 plans complete)
 
 ## Performance Metrics
 
@@ -47,6 +50,7 @@ Progress: [█░░░░░░░░░] 14% (1/7 v1.6 phases complete)
 | 28 | 1/1 | — | — |
 | Phase 29-diagnosis P01 | 1 | 2 tasks | 3 files |
 | Phase 29-diagnosis P02 | 5 | 2 tasks | 1 files |
+| Phase 30-fix-and-reset P01 | 10 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -63,6 +67,10 @@ Progress: [█░░░░░░░░░] 14% (1/7 v1.6 phases complete)
 - DEBT-03: DB unification — autonomous.db schema must be preserved; no data migration required.
 - DEBT-04: XGBoost objective — reg:squarederror is a regression objective; multi:softprob is the correct 3-class classification objective.
 - All v1.0-v1.5 validated contracts are non-regression constraints for every v1.6 phase.
+- 30-01: DIRECTION_CLASSES identical in train.py and infer.py, guarded by test_direction_classes_consistent_across_modules.
+- 30-01: predict_bar returns predicted_return=None and p_flat for 3-class classification; directional_confidence kept but not called.
+- 30-01: cli model_train uses require_label=True so label column survives ensure_feature_contract column filtering.
+- 30-01: validator tau wired from constructor/config; get_runtime_config() fallback with default 0.01.
 
 ### Pending Todos
 
@@ -77,6 +85,6 @@ Progress: [█░░░░░░░░░] 14% (1/7 v1.6 phases complete)
 
 ## Session Continuity
 
-Last session: 2026-03-08T11:12:56.313Z
-Stopped at: Completed 29-02-PLAN.md
+Last session: 2026-03-08T12:05:16.220Z
+Stopped at: Completed 30-01-PLAN.md
 Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse
