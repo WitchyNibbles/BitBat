@@ -13,6 +13,7 @@ from bitbat.autonomous.models import PerformanceSnapshot, init_database
 
 pytestmark = pytest.mark.integration
 
+
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'session3.db'}"
 

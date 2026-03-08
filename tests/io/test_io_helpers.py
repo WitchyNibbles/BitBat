@@ -11,6 +11,7 @@ from bitbat.io.fs import read_parquet, write_parquet
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_parquet_roundtrip_preserves_schema(tmp_path: Path) -> None:
     frame = pd.DataFrame({
         "id": pd.Series([1, 2, 3], dtype="int64"),

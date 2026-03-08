@@ -15,6 +15,7 @@ from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture()
 def client() -> SyncASGIClient:
     return SyncASGIClient(create_app())
@@ -67,8 +68,9 @@ def incompatible_schema_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> P
     engine = create_database_engine(f"sqlite:///{db_path}")
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE prediction_outcomes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp_utc DATETIME NOT NULL,
@@ -89,7 +91,8 @@ def incompatible_schema_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> P
                 realized_at DATETIME
             )
             """
-        ))
+            )
+        )
     engine.dispose()
     return db_path
 

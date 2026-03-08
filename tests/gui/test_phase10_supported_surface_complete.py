@@ -31,6 +31,7 @@ RETIRED_PAGES = {
 
 pytestmark = pytest.mark.structural
 
+
 def test_phase10_supported_surface_active_pages_inventory() -> None:
     active = {p.name for p in PAGES_DIR.glob("*.py")}
 

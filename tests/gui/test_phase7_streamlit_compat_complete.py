@@ -19,6 +19,7 @@ ALLOWED_WIDTH_LITERALS = {"stretch", "content"}
 
 pytestmark = pytest.mark.integration
 
+
 def _runtime_streamlit_files() -> list[Path]:
     files = [STREAMLIT_DIR / "app.py"]
     files.extend(sorted(PAGES_DIR.glob("*.py")))
@@ -157,9 +158,9 @@ def test_phase7_runtime_width_contract_has_no_deprecated_keywords_or_booleans() 
 
     assert not deprecated_offenders, f"Deprecated width keyword usage found: {deprecated_offenders}"
     assert not boolean_width_offenders, f"Boolean width usage found: {boolean_width_offenders}"
-    assert not unsupported_width_literals, (
-        f"Unsupported width literals found: {unsupported_width_literals}"
-    )
+    assert (
+        not unsupported_width_literals
+    ), f"Unsupported width literals found: {unsupported_width_literals}"
 
 
 def test_phase7_primary_gui_workflow_signals_remain_operational(phase7_gui_db: Path) -> None:

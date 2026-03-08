@@ -12,6 +12,7 @@ from bitbat.autonomous.retrainer import AutoRetrainer
 
 pytestmark = pytest.mark.behavioral
 
+
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'retrainer.db'}"
 

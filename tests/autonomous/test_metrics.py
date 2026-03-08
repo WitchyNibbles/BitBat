@@ -9,6 +9,7 @@ from bitbat.autonomous.models import PredictionOutcome
 
 pytestmark = pytest.mark.behavioral
 
+
 def _prediction(
     idx: int,
     *,

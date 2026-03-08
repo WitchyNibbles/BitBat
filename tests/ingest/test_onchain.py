@@ -12,6 +12,7 @@ from bitbat.ingest.onchain import _fetch_metric, fetch_blockchain_info
 
 pytestmark = pytest.mark.integration
 
+
 class FakeResponse:
     status_code = 200
 

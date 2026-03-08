@@ -138,9 +138,7 @@ class DriftDetector:
         reasons: list[str] = []
 
         if mae > self.mae_threshold:
-            reasons.append(
-                f"MAE exceeds threshold: {mae:.6f} > {self.mae_threshold:.6f}"
-            )
+            reasons.append(f"MAE exceeds threshold: {mae:.6f} > {self.mae_threshold:.6f}")
 
         if directional_accuracy < self.directional_accuracy_threshold:
             reasons.append(

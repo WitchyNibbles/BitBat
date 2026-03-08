@@ -296,9 +296,7 @@ async def get_settings() -> SettingsResponse:
                 freq=raw.get("freq", defaults.get("freq", "5m")),
                 horizon=raw.get("horizon", defaults.get("horizon", "30m")),
                 tau=raw.get("tau", defaults.get("tau", 0.01)),
-                enter_threshold=raw.get(
-                    "enter_threshold", defaults.get("enter_threshold", 0.6)
-                ),
+                enter_threshold=raw.get("enter_threshold", defaults.get("enter_threshold", 0.6)),
                 valid_freqs=valid_f,
                 valid_horizons=valid_h,
             )

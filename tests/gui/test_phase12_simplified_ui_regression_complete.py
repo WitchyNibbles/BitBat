@@ -31,6 +31,7 @@ RETIRED_PAGES = {
 
 pytestmark = pytest.mark.structural
 
+
 def test_phase12_supported_surface_contract_remains_locked() -> None:
     active = {path.name for path in PAGES_DIR.glob("*.py")}
     retired = {path.name for path in RETIRED_DIR.glob("*.py")}

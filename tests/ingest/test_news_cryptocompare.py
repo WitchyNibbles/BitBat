@@ -19,6 +19,7 @@ from bitbat.io.fs import read_parquet
 
 pytestmark = pytest.mark.integration
 
+
 def _ts(value: str) -> int:
     return int(datetime.fromisoformat(value).replace(tzinfo=UTC).timestamp())
 

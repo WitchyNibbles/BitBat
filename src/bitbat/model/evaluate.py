@@ -32,20 +32,12 @@ def window_diagnostics(
     realized_volatility = float(np.std(y_t)) if y_t.size else 0.0
     predicted_volatility = float(np.std(y_p)) if y_p.size else 0.0
     volatility_ratio = (
-        float(predicted_volatility / realized_volatility)
-        if realized_volatility > 0
-        else 0.0
+        float(predicted_volatility / realized_volatility) if realized_volatility > 0 else 0.0
     )
 
-    directional_accuracy = (
-        float(np.mean(np.sign(y_t) == np.sign(y_p)))
-        if y_t.size
-        else 0.0
-    )
+    directional_accuracy = float(np.mean(np.sign(y_t) == np.sign(y_p))) if y_t.size else 0.0
     directional_stability = (
-        float(np.mean(np.sign(y_p[1:]) == np.sign(y_p[:-1])))
-        if y_p.size > 1
-        else 1.0
+        float(np.mean(np.sign(y_p[1:]) == np.sign(y_p[:-1]))) if y_p.size > 1 else 1.0
     )
 
     if realized_volatility >= 0.01:
@@ -120,11 +112,7 @@ def regression_metrics(
     directional_accuracy = float(np.mean(sign_match))
 
     # Correlation
-    correlation = (
-        float(np.corrcoef(y_t, y_p)[0, 1])
-        if y_t.std() > 0 and y_p.std() > 0
-        else 0.0
-    )
+    correlation = float(np.corrcoef(y_t, y_p)[0, 1]) if y_t.std() > 0 and y_p.std() > 0 else 0.0
 
     return {
         "mae": mae,
@@ -380,9 +368,7 @@ def build_candidate_report(
                 "mean_mae": round(_fold_mean(folds, "mae"), 6),
             },
             "directional": {
-                "mean_directional_accuracy": round(
-                    _fold_mean(folds, "directional_accuracy"), 6
-                ),
+                "mean_directional_accuracy": round(_fold_mean(folds, "directional_accuracy"), 6),
                 "mean_correlation": round(_fold_mean(folds, "correlation"), 6),
             },
             "risk": {
@@ -476,8 +462,7 @@ def select_champion_report(
     )
 
     winner_eligible = (
-        float(winner_directional.get("mean_directional_accuracy", 0.0))
-        >= min_directional_accuracy
+        float(winner_directional.get("mean_directional_accuracy", 0.0)) >= min_directional_accuracy
         and float(winner_risk.get("mean_max_drawdown", 0.0)) >= max_drawdown_floor
         and winner_safeguards_pass
     )
@@ -519,9 +504,7 @@ def select_champion_report(
             and winner_net_sharpe >= incumbent_net_sharpe
             and winner_net_return >= incumbent_net_return
         )
-        reason = (
-            "candidate-beats-incumbent" if promote_candidate else "incumbent-retained-by-rule"
-        )
+        reason = "candidate-beats-incumbent" if promote_candidate else "incumbent-retained-by-rule"
         promotion_gate = evaluate_promotion_gate(
             candidate_report=winner_report,
             incumbent_report=incumbent,

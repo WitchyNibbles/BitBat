@@ -226,8 +226,7 @@ def build_xy(
         contract_label_mode = "triple_barrier"
     else:
         raise ValueError(
-            f"Unsupported label_mode '{label_mode}'. "
-            "Use 'return_direction' or 'triple_barrier'."
+            f"Unsupported label_mode '{label_mode}'. " "Use 'return_direction' or 'triple_barrier'."
         )
 
     label_frame = label_frame.loc[features.index]

@@ -14,6 +14,7 @@ from bitbat.autonomous.validator import PredictionValidator
 
 pytestmark = pytest.mark.integration
 
+
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'validator.db'}"
 

@@ -96,9 +96,7 @@ class WalkForwardResult:
                 float(np.mean([f.gross_sharpe for f in self.fold_results])), 4
             )
             result["total_costs"] = round(sum(f.total_costs for f in self.fold_results), 6)
-            result["total_fee_costs"] = round(
-                sum(f.total_fee_costs for f in self.fold_results), 6
-            )
+            result["total_fee_costs"] = round(sum(f.total_fee_costs for f in self.fold_results), 6)
             result["total_slippage_costs"] = round(
                 sum(f.total_slippage_costs for f in self.fold_results), 6
             )
@@ -113,22 +111,20 @@ class WalkForwardResult:
             family = str(self.fold_results[0].diagnostics.get("family", "xgb"))
             fold_metrics: list[dict[str, Any]] = []
             for fold in self.fold_results:
-                fold_metrics.append(
-                    {
-                        "rmse": float(fold.rmse),
-                        "mae": float(fold.mae),
-                        "directional_accuracy": float(fold.directional_accuracy),
-                        "correlation": float(fold.diagnostics.get("volatility_ratio", 0.0)),
-                        "net_sharpe": float(fold.net_sharpe),
-                        "gross_sharpe": float(fold.gross_sharpe),
-                        "max_drawdown": float(fold.diagnostics.get("drift_score", 0.0) * -1.0),
-                        "net_return": float(fold.net_return),
-                        "gross_return": float(fold.gross_return),
-                        "total_costs": float(fold.total_costs),
-                        "total_fee_costs": float(fold.total_fee_costs),
-                        "total_slippage_costs": float(fold.total_slippage_costs),
-                    }
-                )
+                fold_metrics.append({
+                    "rmse": float(fold.rmse),
+                    "mae": float(fold.mae),
+                    "directional_accuracy": float(fold.directional_accuracy),
+                    "correlation": float(fold.diagnostics.get("volatility_ratio", 0.0)),
+                    "net_sharpe": float(fold.net_sharpe),
+                    "gross_sharpe": float(fold.gross_sharpe),
+                    "max_drawdown": float(fold.diagnostics.get("drift_score", 0.0) * -1.0),
+                    "net_return": float(fold.net_return),
+                    "gross_return": float(fold.gross_return),
+                    "total_costs": float(fold.total_costs),
+                    "total_fee_costs": float(fold.total_fee_costs),
+                    "total_slippage_costs": float(fold.total_slippage_costs),
+                })
             result["candidate_report"] = build_candidate_report(
                 candidate_id=family,
                 family=family,

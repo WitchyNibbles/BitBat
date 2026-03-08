@@ -336,13 +336,11 @@ class TestTimelineStatusMetrics:
 
     def test_timeline_insights_follow_filtered_window_subset(self) -> None:
         predictions = pd.DataFrame({
-            "timestamp_utc": pd.to_datetime(
-                [
-                    "2024-02-01 00:00:00",
-                    "2024-02-08 00:00:00",
-                    "2024-02-09 00:00:00",
-                ]
-            ),
+            "timestamp_utc": pd.to_datetime([
+                "2024-02-01 00:00:00",
+                "2024-02-08 00:00:00",
+                "2024-02-09 00:00:00",
+            ]),
             "predicted_direction": ["up", "down", "up"],
             "p_up": [0.82, 0.22, None],
             "p_down": [0.12, 0.70, None],

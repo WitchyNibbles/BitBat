@@ -12,6 +12,7 @@ from bitbat.features.onchain import generate_onchain_features
 
 pytestmark = pytest.mark.behavioral
 
+
 def _synthetic_onchain(n_days: int = 100) -> pd.DataFrame:
     """Build a synthetic daily on-chain DataFrame."""
     rng = np.random.default_rng(42)

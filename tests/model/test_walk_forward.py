@@ -15,10 +15,9 @@ from bitbat.model.walk_forward import (
 
 pytestmark = pytest.mark.behavioral
 
+
 @pytest.fixture(scope="module")
-def synthetic_data() -> (
-    tuple[pd.DataFrame, pd.Series, list[Fold]]
-):
+def synthetic_data() -> tuple[pd.DataFrame, pd.Series, list[Fold]]:
     rng = np.random.default_rng(42)
     n = 200
     idx = pd.date_range("2024-01-01", periods=n, freq="1h")
@@ -46,34 +45,22 @@ def result(synthetic_data: tuple) -> WalkForwardResult:
 
 
 class TestWalkForwardValidator:
-    def test_returns_result(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_returns_result(self, result: WalkForwardResult) -> None:
         assert isinstance(result, WalkForwardResult)
 
-    def test_two_folds(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_two_folds(self, result: WalkForwardResult) -> None:
         assert result.n_folds == 2
 
-    def test_mean_rmse_positive(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_mean_rmse_positive(self, result: WalkForwardResult) -> None:
         assert result.mean_rmse > 0
 
-    def test_mean_mae_positive(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_mean_mae_positive(self, result: WalkForwardResult) -> None:
         assert result.mean_mae > 0
 
-    def test_mean_directional_accuracy_in_range(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_mean_directional_accuracy_in_range(self, result: WalkForwardResult) -> None:
         assert 0.0 <= result.mean_directional_accuracy <= 1.0
 
-    def test_fold_results_have_data(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_fold_results_have_data(self, result: WalkForwardResult) -> None:
         for fr in result.fold_results:
             assert isinstance(fr, FoldResult)
             assert fr.train_size > 0
@@ -83,32 +70,24 @@ class TestWalkForwardValidator:
             assert "regime" in fr.diagnostics
             assert fr.diagnostics["n_samples"] == fr.test_size
 
-    def test_fold_metadata_captures_leakage_controls(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_fold_metadata_captures_leakage_controls(self, result: WalkForwardResult) -> None:
         for fr in result.fold_results:
             assert "embargo_bars" in fr.window_metadata
             assert "purge_bars" in fr.window_metadata
             assert fr.window_metadata["embargo_bars"] >= 0
             assert fr.window_metadata["purge_bars"] >= 0
 
-    def test_all_predictions_concatenated(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_all_predictions_concatenated(self, result: WalkForwardResult) -> None:
         preds = result.all_predictions
         assert isinstance(preds, pd.DataFrame)
         assert len(preds) == 100  # 50 + 50 test bars
 
-    def test_predictions_have_columns(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_predictions_have_columns(self, result: WalkForwardResult) -> None:
         preds = result.all_predictions
         assert "predicted" in preds.columns
         assert "actual" in preds.columns
 
-    def test_summary_dict(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_summary_dict(self, result: WalkForwardResult) -> None:
         s = result.summary()
         assert "n_folds" in s
         assert "mean_rmse" in s
@@ -116,18 +95,14 @@ class TestWalkForwardValidator:
         assert "fold_diagnostics" in s
         assert s["n_folds"] == 2
 
-    def test_summary_includes_candidate_report_payload(
-        self, result: WalkForwardResult
-    ) -> None:
+    def test_summary_includes_candidate_report_payload(self, result: WalkForwardResult) -> None:
         s = result.summary()
         assert "candidate_report" in s
         assert "regression" in s["candidate_report"]
         assert "directional" in s["candidate_report"]
         assert "risk" in s["candidate_report"]
 
-    def test_custom_xgb_params(
-        self, synthetic_data: tuple
-    ) -> None:
+    def test_custom_xgb_params(self, synthetic_data: tuple) -> None:
         X, y, folds = synthetic_data
         v = WalkForwardValidator(
             X,

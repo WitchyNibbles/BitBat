@@ -182,34 +182,30 @@ def _predict_baseline(
 def _raise_monitor_schema_error(exc: SchemaCompatibilityError, db_url: str) -> NoReturn:
     missing = format_missing_columns(exc.report) or "unknown"
     raise click.ClickException(
-        "\n".join(
-            [
-                "Autonomous DB schema is incompatible for monitor commands.",
-                f"Missing columns: {missing}",
-                (
-                    "Run: poetry run python scripts/init_autonomous_db.py "
-                    f'--database-url "{db_url}" --audit'
-                ),
-                (
-                    "Then: poetry run python scripts/init_autonomous_db.py "
-                    f'--database-url "{db_url}" --upgrade'
-                ),
-            ]
-        )
+        "\n".join([
+            "Autonomous DB schema is incompatible for monitor commands.",
+            f"Missing columns: {missing}",
+            (
+                "Run: poetry run python scripts/init_autonomous_db.py "
+                f'--database-url "{db_url}" --audit'
+            ),
+            (
+                "Then: poetry run python scripts/init_autonomous_db.py "
+                f'--database-url "{db_url}" --upgrade'
+            ),
+        ])
     ) from exc
 
 
 def _raise_monitor_runtime_db_error(exc: MonitorDatabaseError) -> NoReturn:
     raise click.ClickException(
-        "\n".join(
-            [
-                "Autonomous monitor runtime database failure.",
-                f"Step: {exc.step}",
-                f"Error class: {exc.error_class}",
-                f"Detail: {exc.detail}",
-                f"Remediation: {exc.remediation}",
-            ]
-        )
+        "\n".join([
+            "Autonomous monitor runtime database failure.",
+            f"Step: {exc.step}",
+            f"Error class: {exc.error_class}",
+            f"Detail: {exc.detail}",
+            f"Remediation: {exc.remediation}",
+        ])
     ) from exc
 
 
@@ -234,15 +230,13 @@ def _emit_monitor_startup_context(freq: str, horizon: str) -> None:
 
 def _raise_monitor_model_preflight_error(exc: FileNotFoundError) -> NoReturn:
     raise click.ClickException(
-        "\n".join(
-            [
-                "Autonomous monitor startup blocked: model artifact missing.",
-                f"Detail: {exc}",
-                "Remediation:",
-                "  1. Use --config or BITBAT_CONFIG to select the intended freq/horizon pair.",
-                "  2. Train/copy the expected model artifact: models/<freq>_<horizon>/xgb.json.",
-            ]
-        )
+        "\n".join([
+            "Autonomous monitor startup blocked: model artifact missing.",
+            f"Detail: {exc}",
+            "Remediation:",
+            "  1. Use --config or BITBAT_CONFIG to select the intended freq/horizon pair.",
+            "  2. Train/copy the expected model artifact: models/<freq>_<horizon>/xgb.json.",
+        ])
     ) from exc
 
 
@@ -585,16 +579,18 @@ def model_cv(  # noqa: C901
     resolved_embargo_bars = (
         embargo_bars
         if embargo_bars is not None
-        else int(cfg_embargo_bars) if cfg_embargo_bars not in (None, "") else 1
+        else int(cfg_embargo_bars)
+        if cfg_embargo_bars not in (None, "")
+        else 1
     )
     resolved_purge_bars = (
         purge_bars
         if purge_bars is not None
-        else int(cfg_purge_bars) if cfg_purge_bars not in (None, "") else 0
+        else int(cfg_purge_bars)
+        if cfg_purge_bars not in (None, "")
+        else 0
     )
-    resolved_label_horizon = (
-        label_horizon if label_horizon not in (None, "") else cfg_label_horizon
-    )
+    resolved_label_horizon = label_horizon if label_horizon not in (None, "") else cfg_label_horizon
 
     window_spec: list[tuple[str, str, str, str]] = list(windows)
     if not window_spec:
@@ -604,9 +600,7 @@ def model_cv(  # noqa: C901
                 train_window=str(resolved_train_window),
                 backtest_window=str(resolved_backtest_window),
                 step=(
-                    str(resolved_window_step)
-                    if resolved_window_step not in ("", None)
-                    else None
+                    str(resolved_window_step) if resolved_window_step not in ("", None) else None
                 ),
                 start=start,
                 end=end,
@@ -624,9 +618,7 @@ def model_cv(  # noqa: C901
         embargo_bars=int(resolved_embargo_bars),
         purge_bars=int(resolved_purge_bars),
         label_horizon=(
-            str(resolved_label_horizon)
-            if resolved_label_horizon not in (None, "")
-            else None
+            str(resolved_label_horizon) if resolved_label_horizon not in (None, "") else None
         ),
     )
 
@@ -725,12 +717,8 @@ def model_cv(  # noqa: C901
         safeguard_max_overfit_probability = float(
             optimization_cfg.get("max_overfit_probability", 0.50)
         )
-        promotion_min_consecutive = int(
-            promotion_cfg.get("min_consecutive_outperformance", 2)
-        )
-        promotion_drawdown_floor = float(
-            promotion_cfg.get("max_drawdown_floor", -0.35)
-        )
+        promotion_min_consecutive = int(promotion_cfg.get("min_consecutive_outperformance", 2))
+        promotion_drawdown_floor = float(promotion_cfg.get("max_drawdown_floor", -0.35))
 
         candidate_reports: dict[str, dict[str, Any]] = {}
         for model_family, folds_summary in summary_by_family.items():
@@ -882,32 +870,20 @@ def model_optimize(
     y = dataset["r_forward"]
 
     model_cfg = _config().get("model", {})
-    optimization_cfg = (
-        model_cfg.get("optimization", {}) if isinstance(model_cfg, dict) else {}
-    )
+    optimization_cfg = model_cfg.get("optimization", {}) if isinstance(model_cfg, dict) else {}
     cv_cfg = model_cfg.get("cv", {}) if isinstance(model_cfg, dict) else {}
 
     resolved_trials = int(trials if trials is not None else optimization_cfg.get("trials", 20))
     timeout_raw = timeout if timeout is not None else optimization_cfg.get("timeout_seconds")
-    resolved_timeout = (
-        int(timeout_raw)
-        if timeout_raw not in (None, "", 0, "0")
-        else None
-    )
+    resolved_timeout = int(timeout_raw) if timeout_raw not in (None, "", 0, "0") else None
     resolved_train_window = (
-        train_window
-        or optimization_cfg.get("train_window")
-        or cv_cfg.get("train_window")
+        train_window or optimization_cfg.get("train_window") or cv_cfg.get("train_window")
     )
     resolved_backtest_window = (
-        backtest_window
-        or optimization_cfg.get("backtest_window")
-        or cv_cfg.get("backtest_window")
+        backtest_window or optimization_cfg.get("backtest_window") or cv_cfg.get("backtest_window")
     )
     resolved_window_step = (
-        window_step
-        or optimization_cfg.get("window_step")
-        or cv_cfg.get("window_step")
+        window_step or optimization_cfg.get("window_step") or cv_cfg.get("window_step")
     )
     resolved_embargo_bars = (
         embargo_bars
@@ -922,8 +898,7 @@ def model_optimize(
     resolved_label_horizon = (
         label_horizon
         if label_horizon not in (None, "")
-        else optimization_cfg.get("label_horizon")
-        or cv_cfg.get("label_horizon")
+        else optimization_cfg.get("label_horizon") or cv_cfg.get("label_horizon")
     )
 
     window_spec: list[tuple[str, str, str, str]] = list(windows)
@@ -934,9 +909,7 @@ def model_optimize(
                 train_window=str(resolved_train_window),
                 backtest_window=str(resolved_backtest_window),
                 step=(
-                    str(resolved_window_step)
-                    if resolved_window_step not in ("", None)
-                    else None
+                    str(resolved_window_step) if resolved_window_step not in ("", None) else None
                 ),
                 start=start,
                 end=end,
@@ -954,9 +927,7 @@ def model_optimize(
         embargo_bars=int(resolved_embargo_bars),
         purge_bars=int(resolved_purge_bars),
         label_horizon=(
-            str(resolved_label_horizon)
-            if resolved_label_horizon not in (None, "")
-            else None
+            str(resolved_label_horizon) if resolved_label_horizon not in (None, "") else None
         ),
     )
     if not folds:
@@ -977,9 +948,7 @@ def model_optimize(
             "embargo_bars": int(resolved_embargo_bars),
             "purge_bars": int(resolved_purge_bars),
             "label_horizon": (
-                str(resolved_label_horizon)
-                if resolved_label_horizon not in (None, "")
-                else None
+                str(resolved_label_horizon) if resolved_label_horizon not in (None, "") else None
             ),
         },
     }
@@ -1179,15 +1148,9 @@ def backtest_run(
     horizon_val = _resolve_setting(horizon, "horizon")
     cfg = _config()
     cost = cost_bps if cost_bps is not None else float(cfg["cost_bps"])
-    resolved_fee_bps = (
-        fee_bps
-        if fee_bps is not None
-        else float(cfg.get("fee_bps", cost))
-    )
+    resolved_fee_bps = fee_bps if fee_bps is not None else float(cfg.get("fee_bps", cost))
     resolved_slippage_bps = (
-        slippage_bps
-        if slippage_bps is not None
-        else float(cfg.get("slippage_bps", 0.0))
+        slippage_bps if slippage_bps is not None else float(cfg.get("slippage_bps", 0.0))
     )
 
     if allow_short_flag and no_allow_short_flag:
@@ -1301,7 +1264,11 @@ def batch_run(
     current_price = float(prices["close"].iloc[-1])
     tau = float(_config().get("tau", 0.01) or 0.01)
     prediction = predict_bar(
-        booster, feature_row, timestamp=latest_ts, current_price=current_price, tau=tau,
+        booster,
+        feature_row,
+        timestamp=latest_ts,
+        current_price=current_price,
+        tau=tau,
     )
 
     timestamp_value = prediction.get("timestamp", latest_ts)
@@ -1495,7 +1462,9 @@ def monitor_run_once(freq: str | None, horizon: str | None) -> None:
     prediction_payload = result.get("prediction")
     prediction_state = result.get("prediction_state")
     if prediction_state is None and isinstance(prediction_payload, dict):
-        prediction_state = "generated" if prediction_payload.get("status") == "generated" else "none"  # noqa: E501
+        prediction_state = (
+            "generated" if prediction_payload.get("status") == "generated" else "none"
+        )  # noqa: E501
     prediction_state = str(prediction_state or "unknown")
 
     prediction_reason = result.get("prediction_reason")

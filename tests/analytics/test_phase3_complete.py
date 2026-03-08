@@ -26,6 +26,7 @@ from bitbat.backtest.engine import run as backtest_run
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture(scope="module")
 def dataset_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Write a realistic synthetic feature dataset parquet."""

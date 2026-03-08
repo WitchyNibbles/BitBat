@@ -25,6 +25,7 @@ from bitbat.gui.widgets import (
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture()
 def empty_db(tmp_path: Path) -> Path:
     """DB file that exists but has no tables."""
@@ -155,9 +156,7 @@ class TestDbQuery:
         assert result == []
 
     def test_returns_rows_from_valid_query(self, populated_db: Path) -> None:
-        rows = db_query(
-            populated_db, "SELECT COUNT(*) FROM prediction_outcomes"
-        )
+        rows = db_query(populated_db, "SELECT COUNT(*) FROM prediction_outcomes")
         assert rows == [(1,)]
 
 
@@ -186,9 +185,7 @@ class TestGetSystemStatus:
             "CREATE TABLE performance_snapshots "
             "(snapshot_time TEXT, hit_rate REAL, total_predictions INTEGER)"
         )
-        old_time = (
-            datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=5)
-        ).isoformat()
+        old_time = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=5)).isoformat()
         con.execute(
             "INSERT INTO performance_snapshots VALUES (?,?,?)",
             (old_time, 0.6, 100),
@@ -206,9 +203,7 @@ class TestGetSystemStatus:
         heartbeat.write_text(
             json.dumps({
                 "status": "ok",
-                "updated_at": datetime.now(UTC)
-                .replace(tzinfo=None)
-                .isoformat(),
+                "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
             })
         )
 
@@ -291,12 +286,9 @@ class TestGetRecentEvents:
         )
         for i in range(15):
             con.execute(
-                "INSERT INTO system_logs "
-                "(created_at, level, message) VALUES (?,?,?)",
+                "INSERT INTO system_logs " "(created_at, level, message) VALUES (?,?,?)",
                 (
-                    datetime.now(UTC)
-                    .replace(tzinfo=None)
-                    .isoformat(),
+                    datetime.now(UTC).replace(tzinfo=None).isoformat(),
                     "INFO",
                     f"event {i}",
                 ),
@@ -307,9 +299,7 @@ class TestGetRecentEvents:
         events = get_recent_events(db, limit=5)
         assert len(events) == 5
 
-    def test_reads_timestamp_column_when_present(
-        self, tmp_path: Path
-    ) -> None:
+    def test_reads_timestamp_column_when_present(self, tmp_path: Path) -> None:
         db = tmp_path / "logs_ts.db"
         con = sqlite3.connect(str(db))
         con.execute(
@@ -318,8 +308,7 @@ class TestGetRecentEvents:
             "level TEXT, message TEXT)"
         )
         con.execute(
-            "INSERT INTO system_logs "
-            "(timestamp, level, message) VALUES (?,?,?)",
+            "INSERT INTO system_logs " "(timestamp, level, message) VALUES (?,?,?)",
             (
                 datetime.now(UTC).replace(tzinfo=None).isoformat(),
                 "INFO",
@@ -363,25 +352,19 @@ class TestMinutesUntilNextPrediction:
         assert minutes_until_next_prediction(None) is None
 
     def test_returns_zero_or_positive(self) -> None:
-        recent = (
-            datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=30)
-        ).isoformat()
+        recent = (datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=30)).isoformat()
         mins = minutes_until_next_prediction(recent, interval_hours=1)
         assert mins is not None
         assert mins >= 0
 
     def test_approximately_correct(self) -> None:
-        created = (
-            datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=45)
-        ).isoformat()
+        created = (datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=45)).isoformat()
         mins = minutes_until_next_prediction(created, interval_hours=1)
         assert mins is not None
         assert 10 <= mins <= 20
 
     def test_zero_when_overdue(self) -> None:
-        old = (
-            datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
-        ).isoformat()
+        old = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)).isoformat()
         mins = minutes_until_next_prediction(old, interval_hours=1)
         assert mins == 0
 

@@ -117,9 +117,7 @@ class MonitoringAgent:
 
             config = get_runtime_config()
             data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
-            svc = PriceIngestionService(
-                symbol="BTC-USD", interval=self.freq, data_dir=data_dir
-            )
+            svc = PriceIngestionService(symbol="BTC-USD", interval=self.freq, data_dir=data_dir)
             n = svc.fetch_with_retry()
             if n > 0:
                 logger.info("Ingested %d new price bars", n)
@@ -250,9 +248,7 @@ class MonitoringAgent:
         metrics = PerformanceMetrics(recent_predictions).to_dict()
         pending_count = int(len(pending_predictions))
         realized_count = int(metrics.get("realized_predictions", 0))
-        prediction_state = (
-            "generated" if prediction_result.get("status") == "generated" else "none"
-        )
+        prediction_state = "generated" if prediction_result.get("status") == "generated" else "none"
         prediction_reason = str(prediction_result.get("reason", "unknown"))
         prediction_message = str(prediction_result.get("message", ""))
         if prediction_state == "generated":

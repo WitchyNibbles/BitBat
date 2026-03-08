@@ -3,6 +3,7 @@
 Verifies that generate_price_features() uses obv_fold_aware() when
 fold_boundaries is provided, producing different OBV values after the split.
 """
+
 from __future__ import annotations
 
 import numpy as np

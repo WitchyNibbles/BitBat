@@ -15,6 +15,7 @@ SERVICE_TEMPLATE = ROOT / "deployment" / "bitbat-monitor.service"
 
 pytestmark = pytest.mark.structural
 
+
 def test_monitor_runbook_contains_required_operator_contracts() -> None:
     content = RUNBOOK.read_text(encoding="utf-8")
 
@@ -36,7 +37,7 @@ def test_monitor_service_template_matches_documented_config_wiring() -> None:
     assert "Environment=BITBAT_CONFIG=" in service
     assert "run_monitoring_agent.py --config ${BITBAT_CONFIG}" in service
     assert "deployment/bitbat-monitor.service" in runbook
-    assert "scripts/run_monitoring_agent.py --config \"$BITBAT_CONFIG\"" in strategy
+    assert 'scripts/run_monitoring_agent.py --config "$BITBAT_CONFIG"' in strategy
 
 
 def test_docs_hub_and_testing_quality_reference_monitor_runbook_contract() -> None:

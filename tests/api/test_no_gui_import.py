@@ -21,9 +21,7 @@ def _gui_imports_in_file(path: Path) -> list[str]:
     return [
         node.module or ""
         for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
-        and node.module is not None
-        and "gui" in node.module
+        if isinstance(node, ast.ImportFrom) and node.module is not None and "gui" in node.module
     ]
 
 

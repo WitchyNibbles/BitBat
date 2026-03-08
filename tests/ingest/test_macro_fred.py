@@ -12,6 +12,7 @@ from bitbat.ingest.macro_fred import _fetch_series, fetch_fred
 
 pytestmark = pytest.mark.integration
 
+
 class FakeResponse:
     """Minimal mock for requests.get return value."""
 

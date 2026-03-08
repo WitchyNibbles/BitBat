@@ -5,7 +5,13 @@ from __future__ import annotations
 import pandas as pd
 
 _SUPPORTED_FREQUENCIES: set[str] = {
-    "1m", "5m", "15m", "30m", "1h", "4h", "24h",
+    "1m",
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "4h",
+    "24h",
 }
 
 # pandas >= 2.2 deprecated 'm' for minutes; map to 'min'.

@@ -8,6 +8,7 @@ from bitbat.timealign.asof import align_features_asof, ensure_no_future_matches
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_align_features_asof_is_boundary_inclusive() -> None:
     target = pd.date_range("2024-01-01 00:00:00", periods=4, freq="1h", name="timestamp_utc")
     source = pd.DataFrame(

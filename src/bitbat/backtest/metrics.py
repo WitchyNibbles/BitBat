@@ -95,9 +95,7 @@ def summary(  # noqa: C901
 
     if predicted_returns is not None and actual_returns is not None:
         # Align on shared index and drop NaNs
-        aligned = pd.DataFrame(
-            {"pred": predicted_returns, "actual": actual_returns}
-        ).dropna()
+        aligned = pd.DataFrame({"pred": predicted_returns, "actual": actual_returns}).dropna()
         if len(aligned) > 0:
             errors = aligned["pred"] - aligned["actual"]
             metrics["prediction_mae"] = float(errors.abs().mean())

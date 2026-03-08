@@ -15,9 +15,8 @@ from bitbat.model.train import fit_baseline, fit_random_forest, fit_xgb
 
 pytestmark = pytest.mark.behavioral
 
-def test_fit_xgb_trains_and_saves(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+
+def test_fit_xgb_trains_and_saves(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     rng = np.random.default_rng(0)
     X = pd.DataFrame(
         rng.normal(size=(50, 6)),

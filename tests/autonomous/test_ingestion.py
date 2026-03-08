@@ -22,6 +22,7 @@ from bitbat.autonomous.rate_limiter import RateLimiter
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture()
 def tmp_rate_limiter(tmp_path: Path) -> RateLimiter:
     state = tmp_path / "test_rate_limit.json"

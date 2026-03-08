@@ -45,9 +45,7 @@ def _find_features_build_command(commands: list[list[str]]) -> list[str]:
     for cmd in commands:
         if len(cmd) >= 5 and cmd[3] == "features" and cmd[4] == "build":
             return cmd
-    raise AssertionError(
-        f"No 'features build' command found among captured commands: {commands}"
-    )
+    raise AssertionError(f"No 'features build' command found among captured commands: {commands}")
 
 
 def test_retrainer_features_build_has_no_tau_arg(tmp_path: Path, monkeypatch) -> None:
@@ -56,9 +54,9 @@ def test_retrainer_features_build_has_no_tau_arg(tmp_path: Path, monkeypatch) ->
     retrainer.retrain()
 
     features_cmd = _find_features_build_command(commands)
-    assert "--tau" not in features_cmd, (
-        f"'--tau' must not appear in the features build command: {features_cmd}"
-    )
+    assert (
+        "--tau" not in features_cmd
+    ), f"'--tau' must not appear in the features build command: {features_cmd}"
 
 
 def test_retrainer_subprocess_args_match_cli(tmp_path: Path, monkeypatch) -> None:

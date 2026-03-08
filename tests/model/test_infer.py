@@ -11,15 +11,12 @@ from bitbat.model.infer import predict_bar
 
 pytestmark = pytest.mark.behavioral
 
+
 def _train_model() -> tuple[xgb.Booster, pd.DataFrame]:
     rng = np.random.default_rng(0)
-    X = pd.DataFrame(
-        rng.normal(size=(120, 4)), columns=list("abcd")
-    )
+    X = pd.DataFrame(rng.normal(size=(120, 4)), columns=list("abcd"))
     y = rng.normal(0.0, 0.01, size=120)
-    dtrain = xgb.DMatrix(
-        X, label=y, feature_names=list(X.columns)
-    )
+    dtrain = xgb.DMatrix(X, label=y, feature_names=list(X.columns))
     booster = xgb.train(
         {"objective": "reg:squarederror"},
         dtrain,

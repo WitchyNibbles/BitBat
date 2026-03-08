@@ -103,6 +103,6 @@ def test_generate_price_features_uses_fold_aware_when_provided() -> None:
     # Bars after boundary 50 should differ (reset vs carry-forward)
     second_half_default = obv_default.iloc[50:].values
     second_half_fold = obv_fold.iloc[50:].values
-    assert not np.allclose(second_half_default, second_half_fold), (
-        "Expected OBV to differ after fold boundary when fold_boundaries is provided"
-    )
+    assert not np.allclose(
+        second_half_default, second_half_fold
+    ), "Expected OBV to differ after fold boundary when fold_boundaries is provided"

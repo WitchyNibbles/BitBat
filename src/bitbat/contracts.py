@@ -131,9 +131,7 @@ def ensure_feature_contract(  # noqa: C901
         invalid_labels = validated.loc[~validated["label"].isin(allowed_labels), "label"]
         if not invalid_labels.empty:
             ordered_labels = ", ".join(sorted(allowed_labels))
-            raise ContractError(
-                f"Feature frame labels must be one of: {ordered_labels}."
-            )
+            raise ContractError(f"Feature frame labels must be one of: {ordered_labels}.")
         ordered.append("label")
 
     if require_forward_return:
@@ -141,7 +139,9 @@ def ensure_feature_contract(  # noqa: C901
             raise ContractError("Feature frame missing 'r_forward'.")
         validated["r_forward"] = validated["r_forward"].astype("float64")
         if require_label and validated["r_forward"].isna().any():
-            raise ContractError("Feature frame forward returns must be non-null when labels required.")  # noqa: E501
+            raise ContractError(
+                "Feature frame forward returns must be non-null when labels required."
+            )  # noqa: E501
         if "r_forward" not in ordered:
             ordered.append("r_forward")
 
@@ -182,4 +182,3 @@ def ensure_predictions_contract(frame: pd.DataFrame) -> pd.DataFrame:
         "float64"
     )
     return validated[expected]
-

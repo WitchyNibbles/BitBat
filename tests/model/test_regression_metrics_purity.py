@@ -14,9 +14,7 @@ from bitbat.model.evaluate import regression_metrics, write_regression_metrics
 pytestmark = pytest.mark.behavioral
 
 
-def test_regression_metrics_no_file_io(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_regression_metrics_no_file_io(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """regression_metrics() must not create any files or directories."""
     monkeypatch.chdir(tmp_path)
 
@@ -28,9 +26,9 @@ def test_regression_metrics_no_file_io(
 
     # No files should exist in the working directory
     created_files = list(tmp_path.rglob("*"))
-    assert created_files == [], (
-        f"regression_metrics() created files as side effects: {created_files}"
-    )
+    assert (
+        created_files == []
+    ), f"regression_metrics() created files as side effects: {created_files}"
 
 
 def test_regression_metrics_returns_expected_keys() -> None:

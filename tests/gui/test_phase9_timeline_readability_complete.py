@@ -26,6 +26,7 @@ except ImportError:
 
 pytestmark = pytest.mark.integration
 
+
 def _seed_phase9_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
     con.execute(
@@ -76,7 +77,19 @@ def _seed_phase9_db(db_path: Path) -> None:
             "1h",
             "4h",
         ),
-        ("2024-07-01 04:00:00", "down", 0.12, 0.81, -0.011, 43_010.0, -0.012, "down", 1, "1h", "4h"),  # noqa: E501
+        (
+            "2024-07-01 04:00:00",
+            "down",
+            0.12,
+            0.81,
+            -0.011,
+            43_010.0,
+            -0.012,
+            "down",
+            1,
+            "1h",
+            "4h",
+        ),  # noqa: E501
         ("2024-06-10 00:00:00", "up", 0.70, 0.22, 0.005, 42_600.0, 0.004, "up", 1, "1h", "4h"),
     ]
 
@@ -98,15 +111,13 @@ def _seed_phase9_prices(data_dir: Path) -> None:
     prices_dir = data_dir / "raw" / "prices"
     prices_dir.mkdir(parents=True)
     prices = pd.DataFrame({
-        "timestamp_utc": pd.to_datetime(
-            [
-                "2024-07-01 00:00:00",
-                "2024-07-01 01:00:00",
-                "2024-07-01 02:00:00",
-                "2024-07-01 03:00:00",
-                "2024-07-01 04:00:00",
-            ]
-        ),
+        "timestamp_utc": pd.to_datetime([
+            "2024-07-01 00:00:00",
+            "2024-07-01 01:00:00",
+            "2024-07-01 02:00:00",
+            "2024-07-01 03:00:00",
+            "2024-07-01 04:00:00",
+        ]),
         "close": [43_280.0, 43_110.0, 43_240.0, 43_200.0, 43_030.0],
     })
     prices.to_parquet(prices_dir / "btcusd_yf_1h.parquet")

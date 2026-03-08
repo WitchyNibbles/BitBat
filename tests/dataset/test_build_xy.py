@@ -13,12 +13,10 @@ from bitbat.dataset.build import build_xy
 
 pytestmark = pytest.mark.integration
 
+
 def _make_prices(start: datetime, periods: int = 60) -> pd.DataFrame:
     timestamps = [start + timedelta(hours=i) for i in range(periods)]
-    close = (
-        np.linspace(100, 120, periods)
-        + np.random.default_rng(0).normal(0, 1, periods)
-    )
+    close = np.linspace(100, 120, periods) + np.random.default_rng(0).normal(0, 1, periods)
     high = close + np.random.default_rng(1).normal(1, 0.5, periods)
     low = close - np.random.default_rng(2).normal(1, 0.5, periods)
     volume = np.random.default_rng(3).integers(100, 200, periods)
@@ -46,9 +44,7 @@ def _make_news(start: datetime, periods: int = 60) -> pd.DataFrame:
     })
 
 
-def test_build_xy_shapes_and_outputs(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_build_xy_shapes_and_outputs(tmp_path: Path, monkeypatch: Any) -> None:
     start = datetime(2024, 1, 1)
     prices = _make_prices(start)
     news = _make_news(start)
@@ -91,9 +87,7 @@ def test_build_xy_shapes_and_outputs(
     assert (dataset["label"].to_numpy() == expected_labels).all()
     assert dataset["timestamp_utc"].is_monotonic_increasing
     assert dataset["timestamp_utc"].is_unique
-    feature_columns = [
-        column for column in dataset.columns if column.startswith("feat_")
-    ]
+    feature_columns = [column for column in dataset.columns if column.startswith("feat_")]
     assert feature_columns
     assert all(column.startswith("feat_") for column in feature_columns)
 
@@ -157,14 +151,8 @@ def test_build_xy_triple_barrier_label_mode_compatibility(
     assert y_default.dtype == np.float64
     assert y_barrier.dtype == np.float64
 
-    default_dataset = pd.read_parquet(
-        output_default / "features" / "1h_2h" / "dataset.parquet"
-    )
-    barrier_dataset = pd.read_parquet(
-        output_barrier / "features" / "1h_2h" / "dataset.parquet"
-    )
+    default_dataset = pd.read_parquet(output_default / "features" / "1h_2h" / "dataset.parquet")
+    barrier_dataset = pd.read_parquet(output_barrier / "features" / "1h_2h" / "dataset.parquet")
 
     assert set(default_dataset["label"].unique()).issubset({"up", "down", "flat"})
-    assert set(barrier_dataset["label"].unique()).issubset(
-        {"take_profit", "stop_loss", "timeout"}
-    )
+    assert set(barrier_dataset["label"].unique()).issubset({"take_profit", "stop_loss", "timeout"})

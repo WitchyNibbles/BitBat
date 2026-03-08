@@ -13,6 +13,7 @@ from bitbat.contracts import (
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_feature_contract_requires_feat_prefix() -> None:
     frame = pd.DataFrame({
         "timestamp_utc": pd.date_range("2024-01-01", periods=3, freq="1h"),
@@ -20,9 +21,7 @@ def test_feature_contract_requires_feat_prefix() -> None:
     })
 
     with pytest.raises(ContractError):
-        ensure_feature_contract(
-            frame, require_label=False, require_forward_return=False
-        )
+        ensure_feature_contract(frame, require_label=False, require_forward_return=False)
 
 
 def test_feature_contract_happy_path() -> None:
@@ -40,7 +39,10 @@ def test_feature_contract_happy_path() -> None:
         require_features_full=False,
     )
     assert list(validated.columns) == [
-        "timestamp_utc", "feat_a", "label", "r_forward",
+        "timestamp_utc",
+        "feat_a",
+        "label",
+        "r_forward",
     ]
 
 

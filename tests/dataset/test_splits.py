@@ -7,6 +7,7 @@ from bitbat.dataset.splits import walk_forward
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_walk_forward_embargo_removes_overlap() -> None:
     idx = pd.date_range("2024-01-01", periods=100, freq="1h")
     folds = walk_forward(

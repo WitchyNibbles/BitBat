@@ -12,6 +12,7 @@ from bitbat.features.macro import generate_macro_features
 
 pytestmark = pytest.mark.behavioral
 
+
 def _synthetic_macro(n_days: int = 100) -> pd.DataFrame:
     """Build a synthetic daily macro DataFrame."""
     rng = np.random.default_rng(42)

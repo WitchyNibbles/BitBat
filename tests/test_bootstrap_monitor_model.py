@@ -9,6 +9,7 @@ from scripts import bootstrap_monitor_model
 
 pytestmark = pytest.mark.integration
 
+
 def test_bootstrap_runtime_model_runs_expected_cli_sequence(tmp_path: Path) -> None:
     config_path = tmp_path / "runtime.yaml"
     config_path.write_text('freq: "5m"\nhorizon: "30m"\n', encoding="utf-8")

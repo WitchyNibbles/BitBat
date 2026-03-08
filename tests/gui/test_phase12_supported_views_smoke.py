@@ -23,6 +23,7 @@ SUPPORTED_PAGE_FILES = {
 
 pytestmark = pytest.mark.structural
 
+
 def _read(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8")
 

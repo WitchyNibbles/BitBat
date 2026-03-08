@@ -86,6 +86,5 @@ def test_no_assert_isinstance_in_production_code() -> None:
                         violations.append(f"{rel_path}:{node.lineno}")
 
     assert violations == [], (
-        f"Found 'assert isinstance' in production code (stripped by python -O): "
-        f"{violations}"
+        f"Found 'assert isinstance' in production code (stripped by python -O): " f"{violations}"
     )

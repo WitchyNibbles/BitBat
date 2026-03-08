@@ -16,6 +16,7 @@ from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture()
 def client() -> SyncASGIClient:
     app = create_app()

@@ -9,10 +9,9 @@ from bitbat.timealign.calendar import ensure_utc
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_to_bar_floors_expected_intervals() -> None:
-    base = pd.date_range(
-        "2024-01-01 00:45:00+00:00", periods=10, freq="53min", tz="UTC"
-    )
+    base = pd.date_range("2024-01-01 00:45:00+00:00", periods=10, freq="53min", tz="UTC")
     series = pd.Series(base.tz_convert("UTC"))
 
     hourly = to_bar(series, "1h")
@@ -41,9 +40,7 @@ def test_to_bar_floors_expected_intervals() -> None:
 
 
 def test_to_bar_accepts_five_minute() -> None:
-    base = pd.date_range(
-        "2024-01-01 00:03:00+00:00", periods=5, freq="1min", tz="UTC"
-    )
+    base = pd.date_range("2024-01-01 00:03:00+00:00", periods=5, freq="1min", tz="UTC")
     series = pd.Series(base.tz_convert("UTC"))
     result = to_bar(series, "5m")
     expected = pd.Series(
@@ -55,9 +52,7 @@ def test_to_bar_accepts_five_minute() -> None:
 
 
 def test_to_bar_rejects_unknown_frequency() -> None:
-    series = pd.Series(
-        pd.date_range("2024-01-01", periods=2, freq="1h", tz="UTC")
-    )
+    series = pd.Series(pd.date_range("2024-01-01", periods=2, freq="1h", tz="UTC"))
     with pytest.raises(ValueError):
         to_bar(series, "99x")
 
@@ -94,9 +89,7 @@ def test_ensure_utc_normalises_column() -> None:
         index=normalised.index,
         name="timestamp",
     )
-    pd_testing.assert_series_equal(
-        normalised["timestamp"], expected, check_index_type=False
-    )
+    pd_testing.assert_series_equal(normalised["timestamp"], expected, check_index_type=False)
 
     # Original left untouched
     assert frame["timestamp"].iloc[0] == "2024-01-01T00:00:00Z"

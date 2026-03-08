@@ -89,7 +89,9 @@ def fit_baseline(
         model_path = _default_model_path(family, freq, horizon)
         if family == "xgb":
             if not isinstance(model, xgb.Booster):
-                raise TypeError(f"Expected xgb.Booster for family 'xgb', got {type(model).__name__}")  # noqa: E501
+                raise TypeError(
+                    f"Expected xgb.Booster for family 'xgb', got {type(model).__name__}"
+                )  # noqa: E501
             model.save_model(str(model_path))
         else:
             with model_path.open("wb") as artifact:
@@ -134,5 +136,7 @@ def fit_random_forest(
         persist=persist,
     )
     if not isinstance(model, RandomForestRegressor):
-        raise TypeError(f"Expected RandomForestRegressor from fit_baseline, got {type(model).__name__}")  # noqa: E501
+        raise TypeError(
+            f"Expected RandomForestRegressor from fit_baseline, got {type(model).__name__}"
+        )  # noqa: E501
     return model, importance

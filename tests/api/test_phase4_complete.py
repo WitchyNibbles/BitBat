@@ -31,6 +31,7 @@ from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture(scope="module")
 def full_env(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Set up a complete environment: DB with predictions + trained model."""
@@ -108,6 +109,7 @@ def full_env(tmp_path_factory: pytest.TempPathFactory) -> Path:
     # sourced from default.yaml (currently 5m/30m). Without these files the
     # detailed-health probe reports "degraded" even though 1h_4h is fully set up.
     from bitbat.config.loader import load_config
+
     cfg = load_config()
     cfg_freq = str(cfg.get("freq", "1h"))
     cfg_horizon = str(cfg.get("horizon", "4h"))

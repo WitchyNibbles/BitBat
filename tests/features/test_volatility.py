@@ -17,6 +17,7 @@ from bitbat.features.volatility import garch_features
 
 pytestmark = pytest.mark.behavioral
 
+
 def _synthetic_close(n: int = 500) -> pd.Series:
     """Generate a synthetic hourly close price series with vol clustering."""
     rng = np.random.default_rng(42)

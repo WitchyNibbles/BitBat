@@ -14,6 +14,7 @@ from tests.api.client import SyncASGIClient
 
 pytestmark = pytest.mark.integration
 
+
 @pytest.fixture()
 def client() -> SyncASGIClient:
     app = create_app()
@@ -24,8 +25,9 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
     engine = create_database_engine(database_url)
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE prediction_outcomes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp_utc DATETIME NOT NULL,
@@ -46,7 +48,8 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
                 realized_at DATETIME
             )
             """
-        ))
+            )
+        )
     engine.dispose()
 
 
@@ -130,8 +133,7 @@ class TestDetailedHealthEndpoint:
         assert data["schema_readiness"]["compatibility_state"] == "incompatible"
         assert data["schema_readiness"]["is_compatible"] is False
         assert (
-            "predicted_price"
-            in data["schema_readiness"]["missing_columns"]["prediction_outcomes"]
+            "predicted_price" in data["schema_readiness"]["missing_columns"]["prediction_outcomes"]
         )
         assert data["schema_readiness"]["missing_columns_text"] is not None
         assert data["schema_readiness"]["missing_columns_text"] in schema_service["detail"]

@@ -19,6 +19,7 @@ from bitbat.io.fs import read_parquet, write_parquet
 
 pytestmark = pytest.mark.integration
 
+
 def _write_test_config(
     path: Path,
     *,
@@ -325,18 +326,14 @@ def test_cli_features_build_label_mode_default_compatibility(
     )
     prices_path = tmp_path / "data" / "raw" / "prices" / "btcusd_yf_1h.parquet"
     prices_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(
-        {
-            "timestamp_utc": pd.to_datetime(
-                ["2024-01-01 00:00:00", "2024-01-01 01:00:00"]
-            ),
-            "open": [100.0, 101.0],
-            "high": [101.0, 102.0],
-            "low": [99.0, 100.0],
-            "close": [100.5, 101.5],
-            "volume": [1000, 1200],
-        }
-    ).to_parquet(prices_path, index=False)
+    pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 01:00:00"]),
+        "open": [100.0, 101.0],
+        "high": [101.0, 102.0],
+        "low": [99.0, 100.0],
+        "close": [100.5, 101.5],
+        "volume": [1000, 1200],
+    }).to_parquet(prices_path, index=False)
 
     captured: dict[str, Any] = {}
 
@@ -382,18 +379,14 @@ def test_cli_features_build_triple_barrier_label_mode(
     )
     prices_path = tmp_path / "data" / "raw" / "prices" / "btcusd_yf_1h.parquet"
     prices_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(
-        {
-            "timestamp_utc": pd.to_datetime(
-                ["2024-01-01 00:00:00", "2024-01-01 01:00:00"]
-            ),
-            "open": [100.0, 101.0],
-            "high": [101.0, 102.0],
-            "low": [99.0, 100.0],
-            "close": [100.5, 101.5],
-            "volume": [1000, 1200],
-        }
-    ).to_parquet(prices_path, index=False)
+    pd.DataFrame({
+        "timestamp_utc": pd.to_datetime(["2024-01-01 00:00:00", "2024-01-01 01:00:00"]),
+        "open": [100.0, 101.0],
+        "high": [101.0, 102.0],
+        "low": [99.0, 100.0],
+        "close": [100.5, 101.5],
+        "volume": [1000, 1200],
+    }).to_parquet(prices_path, index=False)
 
     captured: dict[str, Any] = {}
 
@@ -658,15 +651,13 @@ def test_cli_model_cv_purge_embargo_controls_from_config_and_cli(
     )
     with config_path.open("a", encoding="utf-8") as handle:
         handle.write(
-            "\n".join(
-                [
-                    "model:",
-                    "  cv:",
-                    "    purge_bars: 2",
-                    "    embargo_bars: 1",
-                    '    label_horizon: "4h"',
-                ]
-            )
+            "\n".join([
+                "model:",
+                "  cv:",
+                "    purge_bars: 2",
+                "    embargo_bars: 1",
+                '    label_horizon: "4h"',
+            ])
             + "\n"
         )
 
@@ -762,6 +753,7 @@ def test_cli_model_cv_purge_embargo_controls_from_config_and_cli(
     assert captured["purge_bars"] == 5
     assert captured["embargo_bars"] == 3
     assert captured["label_horizon"] == "6h"
+
 
 def test_cli_model_cv_family_both(
     monkeypatch: pytest.MonkeyPatch,
@@ -988,20 +980,18 @@ def test_cli_model_optimize_persists_nested_summary(
     )
     with config_path.open("a", encoding="utf-8") as handle:
         handle.write(
-            "\n".join(
-                [
-                    "model:",
-                    "  optimization:",
-                    "    trials: 9",
-                    "    timeout_seconds: 120",
-                    "    train_window: \"2D\"",
-                    "    backtest_window: \"1D\"",
-                    "    window_step: \"1D\"",
-                    "    embargo_bars: 1",
-                    "    purge_bars: 0",
-                    "    label_horizon: \"4h\"",
-                ]
-            )
+            "\n".join([
+                "model:",
+                "  optimization:",
+                "    trials: 9",
+                "    timeout_seconds: 120",
+                '    train_window: "2D"',
+                '    backtest_window: "1D"',
+                '    window_step: "1D"',
+                "    embargo_bars: 1",
+                "    purge_bars: 0",
+                '    label_horizon: "4h"',
+            ])
             + "\n"
         )
 
@@ -1123,13 +1113,11 @@ def test_cli_model_cv_persists_safeguard_payloads_and_block_reason(
     )
     with config_path.open("a", encoding="utf-8") as handle:
         handle.write(
-            "\n".join(
-                [
-                    "model:",
-                    "  optimization:",
-                    "    trials: 25",
-                ]
-            )
+            "\n".join([
+                "model:",
+                "  optimization:",
+                "    trials: 25",
+            ])
             + "\n"
         )
 
@@ -1255,14 +1243,12 @@ def test_cli_model_cv_persists_promotion_gate_details(  # noqa: C901
     )
     with config_path.open("a", encoding="utf-8") as handle:
         handle.write(
-            "\n".join(
-                [
-                    "model:",
-                    "  promotion_gate:",
-                    "    min_consecutive_outperformance: 2",
-                    "    max_drawdown_floor: -0.25",
-                ]
-            )
+            "\n".join([
+                "model:",
+                "  promotion_gate:",
+                "    min_consecutive_outperformance: 2",
+                "    max_drawdown_floor: -0.25",
+            ])
             + "\n"
         )
 
@@ -2247,16 +2233,18 @@ def test_cli_monitor_run_once_schema_error_message(
     class BrokenDB:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             del args, kwargs
-            report = SchemaAuditReport(tables=(
-                TableSchemaAudit(
-                    table_name="prediction_outcomes",
-                    required_columns=("predicted_price",),
-                    existing_columns=(),
-                    missing_columns=("predicted_price",),
-                    addable_missing_columns=("predicted_price",),
-                    blocking_missing_columns=(),
-                ),
-            ))
+            report = SchemaAuditReport(
+                tables=(
+                    TableSchemaAudit(
+                        table_name="prediction_outcomes",
+                        required_columns=("predicted_price",),
+                        existing_columns=(),
+                        missing_columns=("predicted_price",),
+                        addable_missing_columns=("predicted_price",),
+                        blocking_missing_columns=(),
+                    ),
+                )
+            )
             raise SchemaCompatibilityError(report, db_url)
 
     monkeypatch.chdir(tmp_path)
@@ -2599,16 +2587,18 @@ def test_cli_monitor_status_and_snapshots_schema_error_message(
     class BrokenDB:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             del args, kwargs
-            report = SchemaAuditReport(tables=(
-                TableSchemaAudit(
-                    table_name="performance_snapshots",
-                    required_columns=("directional_accuracy",),
-                    existing_columns=(),
-                    missing_columns=("directional_accuracy",),
-                    addable_missing_columns=("directional_accuracy",),
-                    blocking_missing_columns=(),
-                ),
-            ))
+            report = SchemaAuditReport(
+                tables=(
+                    TableSchemaAudit(
+                        table_name="performance_snapshots",
+                        required_columns=("directional_accuracy",),
+                        existing_columns=(),
+                        missing_columns=("directional_accuracy",),
+                        addable_missing_columns=("directional_accuracy",),
+                        blocking_missing_columns=(),
+                    ),
+                )
+            )
             raise SchemaCompatibilityError(report, db_url)
 
     monkeypatch.chdir(tmp_path)

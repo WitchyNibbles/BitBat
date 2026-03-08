@@ -393,9 +393,13 @@ def _rebuild_table_with_current_schema(connection: Connection, table_name: str) 
     cols_csv = ", ".join(f'"{c}"' for c in shared_columns)
 
     # Generate DDL from ORM metadata (includes updated CHECK constraints)
-    create_ddl = CreateTable(orm_table).compile(
-        dialect=connection.engine.dialect,
-    ).string.strip()
+    create_ddl = (
+        CreateTable(orm_table)
+        .compile(
+            dialect=connection.engine.dialect,
+        )
+        .string.strip()
+    )
 
     connection.execute(text(f'ALTER TABLE "{table_name}" RENAME TO "{temp_name}"'))
     connection.execute(text(create_ddl))
@@ -438,15 +442,19 @@ def upgrade_schema_compatibility(
                     continue
                 for column_name in table.addable_missing_columns:
                     contract = RUNTIME_SCHEMA_CONTRACT[table.table_name][column_name]
-                    connection.execute(text(
-                        f'ALTER TABLE "{table.table_name}" '
-                        f'ADD COLUMN "{column_name}" {contract.sql_type}'
-                    ))
-                    actions.append(SchemaUpgradeAction(
-                        table_name=table.table_name,
-                        column_name=column_name,
-                        sql_type=contract.sql_type,
-                    ))
+                    connection.execute(
+                        text(
+                            f'ALTER TABLE "{table.table_name}" '
+                            f'ADD COLUMN "{column_name}" {contract.sql_type}'
+                        )
+                    )
+                    actions.append(
+                        SchemaUpgradeAction(
+                            table_name=table.table_name,
+                            column_name=column_name,
+                            sql_type=contract.sql_type,
+                        )
+                    )
 
             # Rebuild tables whose CHECK constraints are stale (e.g. new enum
             # values added to trigger_reason).  SQLite does not support ALTER
@@ -457,11 +465,13 @@ def upgrade_schema_compatibility(
                 if table_name not in rebuilt_tables:
                     _rebuild_table_with_current_schema(connection, table_name)
                     rebuilt_tables.add(table_name)
-                    actions.append(SchemaUpgradeAction(
-                        table_name=table_name,
-                        column_name=f"__check__{constraint_name}",
-                        sql_type="REBUILT",
-                    ))
+                    actions.append(
+                        SchemaUpgradeAction(
+                            table_name=table_name,
+                            column_name=f"__check__{constraint_name}",
+                            sql_type="REBUILT",
+                        )
+                    )
 
         report_after = audit_schema_compatibility(engine=connection)
         return SchemaUpgradeResult(

@@ -6,6 +6,7 @@ import pytest
 
 pytestmark = pytest.mark.structural
 
+
 def test_persistence_overview_exists() -> None:
     """Persistence overview doc should exist and mention key storage paths."""
     root = Path(__file__).resolve().parents[2]
@@ -18,4 +19,3 @@ def test_persistence_overview_exists() -> None:
     assert "data/raw" in content
     assert "data/features" in content
     assert "models/" in content
-

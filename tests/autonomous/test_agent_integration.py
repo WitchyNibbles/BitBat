@@ -15,6 +15,7 @@ from bitbat.autonomous.schema_compat import SchemaCompatibilityError
 
 pytestmark = pytest.mark.integration
 
+
 def _db_url(tmp_path: Path) -> str:
     return f"sqlite:///{tmp_path / 'agent.db'}"
 
@@ -65,8 +66,9 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
     db = AutonomousDB(database_url, auto_upgrade_schema=False)
     with db.engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE prediction_outcomes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp_utc DATETIME NOT NULL,
@@ -87,7 +89,8 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
                 realized_at DATETIME
             )
             """
-        ))
+            )
+        )
 
 
 def _disable_ingestion(agent: MonitoringAgent) -> None:

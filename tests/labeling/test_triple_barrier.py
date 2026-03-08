@@ -8,6 +8,7 @@ from bitbat.labeling.triple_barrier import triple_barrier
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_triple_barrier_hits_take_profit_stop_loss_and_timeout() -> None:
     index = pd.date_range("2024-01-01 00:00:00", periods=4, freq="1h")
     prices = pd.DataFrame({"close": [100.0, 103.0, 104.0, 101.0]}, index=index)

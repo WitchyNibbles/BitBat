@@ -23,9 +23,8 @@ from bitbat.model.evaluate import (
 
 pytestmark = pytest.mark.behavioral
 
-def test_regression_metrics_outputs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+
+def test_regression_metrics_outputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     rng = np.random.default_rng(42)
     y_true = pd.Series(rng.normal(0.0, 0.01, size=100))
     y_pred = y_true + rng.normal(0.0, 0.005, size=100)
@@ -153,8 +152,12 @@ def test_candidate_report_is_deterministic_for_same_input() -> None:
         }
     ]
 
-    first = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)  # noqa: E501
-    second = build_candidate_report(candidate_id="rf", family="random_forest", fold_metrics=fold_metrics)  # noqa: E501
+    first = build_candidate_report(
+        candidate_id="rf", family="random_forest", fold_metrics=fold_metrics
+    )  # noqa: E501
+    second = build_candidate_report(
+        candidate_id="rf", family="random_forest", fold_metrics=fold_metrics
+    )  # noqa: E501
     assert first == second
 
 

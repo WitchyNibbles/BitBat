@@ -27,6 +27,7 @@ from bitbat.autonomous.rate_limiter import RateLimiter
 
 pytestmark = pytest.mark.integration
 
+
 def _fake_yf_history(n: int = 3) -> pd.DataFrame:
     times = pd.date_range("2024-01-15 10:00", periods=n, freq="h", tz="UTC")
     return pd.DataFrame(

@@ -16,6 +16,7 @@ from bitbat.backtest.metrics import summary
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_summary_outputs_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     idx = pd.date_range(datetime(2024, 1, 1), periods=10, freq="1h")
     equity = pd.Series(np.linspace(1, 1.1, len(idx)), index=idx)

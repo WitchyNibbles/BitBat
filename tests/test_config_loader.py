@@ -9,6 +9,7 @@ pytest.importorskip("yaml", reason="PyYAML required for config loader tests.")
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_load_default_config() -> None:
     root = Path(__file__).resolve().parents[1]
     config_path = root / "src" / "bitbat" / "config" / "default.yaml"

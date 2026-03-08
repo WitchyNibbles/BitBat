@@ -8,6 +8,7 @@ from scripts import run_monitoring_agent
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_write_heartbeat_includes_runtime_and_config_metadata(tmp_path: Path) -> None:
     heartbeat = tmp_path / "monitoring_agent_heartbeat.json"
 

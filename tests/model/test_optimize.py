@@ -19,10 +19,9 @@ from bitbat.model.optimize import (
 
 pytestmark = pytest.mark.behavioral
 
+
 @pytest.fixture(scope="module")
-def synthetic_data() -> (
-    tuple[pd.DataFrame, pd.Series, list[Fold]]
-):
+def synthetic_data() -> tuple[pd.DataFrame, pd.Series, list[Fold]]:
     """Build a synthetic dataset with walk-forward folds."""
     rng = np.random.default_rng(42)
     n = 200
@@ -71,32 +70,22 @@ def result(
 
 
 class TestOptimizer:
-    def test_creates_without_error(
-        self, synthetic_data: tuple
-    ) -> None:
+    def test_creates_without_error(self, synthetic_data: tuple) -> None:
         X, y, folds = synthetic_data
         opt = HyperparamOptimizer(X, y, folds)
         assert opt is not None
 
-    def test_cv_score_returns_float(
-        self, optimizer: HyperparamOptimizer
-    ) -> None:
-        score = optimizer._cv_score(
-            {"eta": 0.1, "max_depth": 3}
-        )
+    def test_cv_score_returns_float(self, optimizer: HyperparamOptimizer) -> None:
+        score = optimizer._cv_score({"eta": 0.1, "max_depth": 3})
         assert isinstance(score, float)
         assert score > 0
 
-    def test_cv_score_lower_is_better(
-        self, optimizer: HyperparamOptimizer
-    ) -> None:
-        score_shallow = optimizer._cv_score(
-            {
-                "eta": 0.1,
-                "max_depth": 2,
-                "num_boost_round": 10,
-            }
-        )
+    def test_cv_score_lower_is_better(self, optimizer: HyperparamOptimizer) -> None:
+        score_shallow = optimizer._cv_score({
+            "eta": 0.1,
+            "max_depth": 2,
+            "num_boost_round": 10,
+        })
         # Just check it returns a valid score
         assert isinstance(score_shallow, float)
         assert score_shallow > 0
@@ -108,52 +97,36 @@ class TestOptimizer:
 
 
 class TestOptimizationResult:
-    def test_returns_result(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_returns_result(self, result: OptimizationResult) -> None:
         assert isinstance(result, OptimizationResult)
 
-    def test_best_params_is_dict(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_best_params_is_dict(self, result: OptimizationResult) -> None:
         assert isinstance(result.best_params, dict)
         assert len(result.best_params) > 0
 
-    def test_best_score_positive(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_best_score_positive(self, result: OptimizationResult) -> None:
         assert result.best_score > 0
 
-    def test_n_trials_matches(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_n_trials_matches(self, result: OptimizationResult) -> None:
         assert result.n_trials == 5
 
-    def test_has_study(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_has_study(self, result: OptimizationResult) -> None:
         import optuna
 
         assert isinstance(result.study, optuna.Study)
 
-    def test_to_xgb_params_separates_rounds(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_to_xgb_params_separates_rounds(self, result: OptimizationResult) -> None:
         params, num_rounds = result.to_xgb_params()
         assert "num_boost_round" not in params
         assert isinstance(num_rounds, int)
         assert num_rounds >= 20
 
-    def test_to_xgb_params_has_eta(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_to_xgb_params_has_eta(self, result: OptimizationResult) -> None:
         params, _ = result.to_xgb_params()
         assert "eta" in params
         assert "max_depth" in params
 
-    def test_summary_json_serialisable(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_summary_json_serialisable(self, result: OptimizationResult) -> None:
         import json
 
         s = result.summary()
@@ -162,17 +135,13 @@ class TestOptimizationResult:
         assert "best_score" in s
         assert "n_trials" in s
 
-    def test_summary_best_score_rounded(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_summary_best_score_rounded(self, result: OptimizationResult) -> None:
         s = result.summary()
         # Should have at most 6 decimal places
         score_str = str(s["best_score"])
         assert len(score_str.split(".")[-1]) <= 6
 
-    def test_summary_includes_nested_outer_fold_metadata(
-        self, result: OptimizationResult
-    ) -> None:
+    def test_summary_includes_nested_outer_fold_metadata(self, result: OptimizationResult) -> None:
         summary = result.summary()
         assert summary.get("mode") == "nested_walk_forward"
         outer = summary.get("outer_folds")
@@ -246,17 +215,13 @@ class TestEdgeCases:
         y = pd.Series(rng.normal(0.0, 0.01, size=10))
         empty_folds: list[Fold] = []
         opt = HyperparamOptimizer(X, y, empty_folds)
-        score = opt._cv_score(
-            {"eta": 0.1, "max_depth": 3}
-        )
+        score = opt._cv_score({"eta": 0.1, "max_depth": 3})
         assert score == 999.0
 
     def test_single_fold(self) -> None:
         rng = np.random.default_rng(7)
         n = 60
-        idx = pd.date_range(
-            "2024-01-01", periods=n, freq="1h"
-        )
+        idx = pd.date_range("2024-01-01", periods=n, freq="1h")
         X = pd.DataFrame(
             {
                 "a": rng.normal(size=n),

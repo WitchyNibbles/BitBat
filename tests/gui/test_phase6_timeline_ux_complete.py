@@ -27,6 +27,7 @@ except ImportError:
 
 pytestmark = pytest.mark.integration
 
+
 def _seed_phase6_db(db_path: Path) -> None:
     con = sqlite3.connect(str(db_path))
     con.execute(
@@ -132,13 +133,11 @@ def _seed_prices(data_dir: Path) -> None:
     prices_dir = data_dir / "raw" / "prices"
     prices_dir.mkdir(parents=True)
     prices = pd.DataFrame({
-        "timestamp_utc": pd.to_datetime(
-            [
-                "2024-05-01 00:00:00",
-                "2024-05-01 01:00:00",
-                "2024-05-01 02:00:00",
-            ]
-        ),
+        "timestamp_utc": pd.to_datetime([
+            "2024-05-01 00:00:00",
+            "2024-05-01 01:00:00",
+            "2024-05-01 02:00:00",
+        ]),
         "close": [43_080.0, 43_000.0, 43_140.0],
     })
     prices.to_parquet(prices_dir / "btcusd_yf_1h.parquet")

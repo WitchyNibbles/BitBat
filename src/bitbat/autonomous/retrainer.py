@@ -101,7 +101,9 @@ class AutoRetrainer:
         timestamp = _utcnow().strftime("%Y%m%d%H%M%S")
         return f"{__version__}-{timestamp}"
 
-    def _build_cv_windows(self, anchor_end: datetime) -> list[tuple[datetime, datetime, datetime, datetime]]:  # noqa: E501
+    def _build_cv_windows(
+        self, anchor_end: datetime
+    ) -> list[tuple[datetime, datetime, datetime, datetime]]:  # noqa: E501
         """Build rolling train/backtest windows for the CV command."""
         train_delta = timedelta(days=self.train_window_days)
         backtest_delta = timedelta(days=self.backtest_window_days)
@@ -137,10 +139,7 @@ class AutoRetrainer:
             if isinstance(champion_decision, dict)
             else new_model.get("promotion_gate", {})
         )
-        if (
-            isinstance(promotion_gate, dict)
-            and promotion_gate.get("pass") is False
-        ):
+        if isinstance(promotion_gate, dict) and promotion_gate.get("pass") is False:
             return False
 
         improvement = new_cv - old_cv
@@ -198,31 +197,34 @@ class AutoRetrainer:
                 "features",
                 "build",
             ])
-            self._run_command([
-                "poetry",
-                "run",
-                "bitbat",
-                "model",
-                "cv",
-                "--freq",
-                self.freq,
-                "--horizon",
-                self.horizon,
-                "--start",
-                start_iso,
-                "--end",
-                end_iso,
-            ] + [
-                arg
-                for train_start, train_end, test_start, test_end in windows
-                for arg in (
-                    "--windows",
-                    train_start.strftime("%Y-%m-%d %H:%M:%S"),
-                    train_end.strftime("%Y-%m-%d %H:%M:%S"),
-                    test_start.strftime("%Y-%m-%d %H:%M:%S"),
-                    test_end.strftime("%Y-%m-%d %H:%M:%S"),
-                )
-            ])
+            self._run_command(
+                [
+                    "poetry",
+                    "run",
+                    "bitbat",
+                    "model",
+                    "cv",
+                    "--freq",
+                    self.freq,
+                    "--horizon",
+                    self.horizon,
+                    "--start",
+                    start_iso,
+                    "--end",
+                    end_iso,
+                ]
+                + [
+                    arg
+                    for train_start, train_end, test_start, test_end in windows
+                    for arg in (
+                        "--windows",
+                        train_start.strftime("%Y-%m-%d %H:%M:%S"),
+                        train_end.strftime("%Y-%m-%d %H:%M:%S"),
+                        test_start.strftime("%Y-%m-%d %H:%M:%S"),
+                        test_end.strftime("%Y-%m-%d %H:%M:%S"),
+                    )
+                ]
+            )
             self._run_command([
                 "poetry",
                 "run",

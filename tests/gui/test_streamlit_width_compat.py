@@ -23,6 +23,7 @@ RETIRED_PAGE_PATHS = {
 
 pytestmark = pytest.mark.structural
 
+
 def _runtime_streamlit_files() -> list[Path]:
     files = [STREAMLIT_DIR / "app.py"]
     files.extend(sorted(PAGES_DIR.glob("*.py")))

@@ -16,6 +16,7 @@ from bitbat.backtest.engine import run as backtest_run
 
 pytestmark = pytest.mark.behavioral
 
+
 def _make_equity(n: int = 100, seed: int = 42) -> pd.Series:
     """Construct a synthetic equity curve from a random walk."""
     rng = np.random.default_rng(seed)

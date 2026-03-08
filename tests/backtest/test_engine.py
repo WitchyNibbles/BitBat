@@ -9,6 +9,7 @@ from bitbat.backtest.engine import run
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_backtest_long_only() -> None:
     idx = pd.date_range(datetime(2024, 1, 1), periods=5, freq="1h")
     prices = pd.Series([100, 101, 102, 101, 103], index=idx, dtype=float)
@@ -75,9 +76,7 @@ def test_zero_cost_gives_equal_pnl() -> None:
 
     trades, _ = run(prices, predicted_returns, cost_bps=0.0)
 
-    pd.testing.assert_series_equal(
-        trades["pnl"], trades["gross_pnl"], check_names=False
-    )
+    pd.testing.assert_series_equal(trades["pnl"], trades["gross_pnl"], check_names=False)
     assert (trades["costs"] == 0.0).all()
 
 
@@ -96,9 +95,7 @@ def test_min_signal_filters_noise() -> None:
     idx = pd.date_range(datetime(2024, 1, 1), periods=5, freq="1h")
     prices = pd.Series([100, 101, 102, 103, 104], index=idx, dtype=float)
     # Very small predicted returns below min_signal
-    predicted_returns = pd.Series(
-        [0.0001, 0.0001, 0.0001, 0.0001, 0.0001], index=idx
-    )
+    predicted_returns = pd.Series([0.0001, 0.0001, 0.0001, 0.0001, 0.0001], index=idx)
 
     trades, _ = run(prices, predicted_returns, min_signal=0.0005)
 

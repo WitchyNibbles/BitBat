@@ -164,7 +164,10 @@ class LivePredictor:
             enable_sentiment = bool(config.get("enable_sentiment", True))
             if enable_sentiment:
                 news_path = (
-                    self.data_dir / "raw" / "news" / f"cryptocompare_{self.freq}"
+                    self.data_dir
+                    / "raw"
+                    / "news"
+                    / f"cryptocompare_{self.freq}"
                     / f"cryptocompare_btc_{self.freq}.parquet"
                 )
                 if news_path.exists():
@@ -284,7 +287,11 @@ class LivePredictor:
         current_price = float(prices["close"].iloc[-1])
         tau = float(config.get("tau", 0.01) or 0.01)
         prediction = predict_bar(
-            booster, feature_row, timestamp=latest_ts, current_price=current_price, tau=tau,
+            booster,
+            feature_row,
+            timestamp=latest_ts,
+            current_price=current_price,
+            tau=tau,
         )
 
         predicted_return = float(prediction["predicted_return"])

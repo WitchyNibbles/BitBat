@@ -102,9 +102,7 @@ def test_features_no_future_timestamps() -> None:
     check_indices = [40, 60, 80, 95]
     for idx in check_indices:
         truncated_prices = prices.iloc[: idx + 1].copy()
-        features_trunc = _generate_price_features(
-            truncated_prices, enable_garch=False, freq="1h"
-        )
+        features_trunc = _generate_price_features(truncated_prices, enable_garch=False, freq="1h")
 
         # Both should have this index present
         ts = prices.index[idx]

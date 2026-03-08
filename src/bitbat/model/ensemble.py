@@ -140,9 +140,9 @@ class MultiHorizonEnsemble:
 
         # Weighted average of predicted returns
         total_weight = sum(hp.weight for hp in horizon_preds)
-        predicted_return = sum(
-            hp.predicted_return * hp.weight for hp in horizon_preds
-        ) / total_weight
+        predicted_return = (
+            sum(hp.predicted_return * hp.weight for hp in horizon_preds) / total_weight
+        )
 
         direction = "up" if predicted_return > 0 else "down"
         # Confidence: agreement among horizons (fraction pointing same direction)

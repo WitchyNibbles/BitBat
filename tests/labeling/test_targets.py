@@ -12,6 +12,7 @@ from bitbat.labeling.targets import (
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_classify_threshold_edges() -> None:
     series = pd.Series([0.02, 0.01, 0.0, -0.01, -0.02])
     labels = classify(series, tau=0.01)

@@ -28,6 +28,7 @@ except ImportError:
 
 pytestmark = pytest.mark.integration
 
+
 def _create_test_db(db_path: Path) -> None:
     """Create an autonomous DB with mixed legacy and new prediction rows."""
     import sqlite3
@@ -112,39 +113,35 @@ def _create_matrix_db(db_path: Path) -> None:
     base = pd.Timestamp("2024-01-01 00:00:00")
     for i in range(6):
         ts = base + pd.Timedelta(hours=i)
-        rows.append(
-            (
-                str(ts),
-                "up" if i % 2 == 0 else "down",
-                0.7 if i % 2 == 0 else 0.2,
-                0.2 if i % 2 == 0 else 0.7,
-                0.005 if i % 2 == 0 else -0.005,
-                40_000.0 + i * 100,
-                0.003 if i < 3 else None,
-                "up" if i < 3 else None,
-                1 if i < 3 else None,
-                "1h",
-                "4h",
-            )
-        )
+        rows.append((
+            str(ts),
+            "up" if i % 2 == 0 else "down",
+            0.7 if i % 2 == 0 else 0.2,
+            0.2 if i % 2 == 0 else 0.7,
+            0.005 if i % 2 == 0 else -0.005,
+            40_000.0 + i * 100,
+            0.003 if i < 3 else None,
+            "up" if i < 3 else None,
+            1 if i < 3 else None,
+            "1h",
+            "4h",
+        ))
 
     for i in range(2):
         ts = base + pd.Timedelta(minutes=15 * i)
-        rows.append(
-            (
-                str(ts),
-                "down",
-                0.1,
-                0.8,
-                -0.01,
-                39_500.0 - i * 50,
-                -0.008,
-                "down",
-                1,
-                "15m",
-                "1h",
-            )
-        )
+        rows.append((
+            str(ts),
+            "down",
+            0.1,
+            0.8,
+            -0.01,
+            39_500.0 - i * 50,
+            -0.008,
+            "down",
+            1,
+            "15m",
+            "1h",
+        ))
 
     con.executemany(
         """
@@ -324,13 +321,11 @@ def test_list_timeline_filter_options_uses_db_pairs(tmp_path: Path) -> None:
 
 def test_apply_timeline_filters_default_last_7_days() -> None:
     predictions = pd.DataFrame({
-        "timestamp_utc": pd.to_datetime(
-            [
-                "2024-01-01 00:00:00",
-                "2024-01-08 00:00:00",
-                "2024-01-10 00:00:00",
-            ]
-        ),
+        "timestamp_utc": pd.to_datetime([
+            "2024-01-01 00:00:00",
+            "2024-01-08 00:00:00",
+            "2024-01-10 00:00:00",
+        ]),
         "predicted_direction": ["up", "down", "flat"],
         "correct": [1, None, None],
     })
@@ -372,14 +367,12 @@ def test_summarize_timeline_insights_includes_avg_confidence() -> None:
 
 def test_summarize_timeline_insights_matches_filtered_subset() -> None:
     predictions = pd.DataFrame({
-        "timestamp_utc": pd.to_datetime(
-            [
-                "2024-01-01 00:00:00",
-                "2024-01-08 00:00:00",
-                "2024-01-09 00:00:00",
-                "2024-01-10 00:00:00",
-            ]
-        ),
+        "timestamp_utc": pd.to_datetime([
+            "2024-01-01 00:00:00",
+            "2024-01-08 00:00:00",
+            "2024-01-09 00:00:00",
+            "2024-01-10 00:00:00",
+        ]),
         "predicted_direction": ["up", "down", "up", "flat"],
         "p_up": [0.8, 0.2, 0.7, None],
         "p_down": [0.1, 0.7, 0.2, None],

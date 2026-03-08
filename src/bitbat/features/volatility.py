@@ -35,6 +35,7 @@ def garch_features(
     if window is None:
         if freq is not None:
             from bitbat.timealign.bucket import bars_for_duration
+
             window = bars_for_duration("48h", freq)
         else:
             window = 168

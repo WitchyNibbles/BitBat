@@ -28,6 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 pytestmark = pytest.mark.integration
 
+
 def _db_url(tmp_path: Path, filename: str) -> str:
     return f"sqlite:///{tmp_path / filename}"
 
@@ -41,8 +42,9 @@ def _create_legacy_prediction_outcomes(
     init_database(database_url, engine=engine)
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE prediction_outcomes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp_utc DATETIME NOT NULL,
@@ -63,10 +65,12 @@ def _create_legacy_prediction_outcomes(
                 realized_at DATETIME
             )
             """
-        ))
+            )
+        )
         if with_row:
-            conn.execute(text(
-                """
+            conn.execute(
+                text(
+                    """
                 INSERT INTO prediction_outcomes (
                     timestamp_utc,
                     prediction_timestamp,
@@ -103,7 +107,8 @@ def _create_legacy_prediction_outcomes(
                     NULL
                 )
                 """
-            ))
+                )
+            )
     engine.dispose()
 
 
@@ -116,8 +121,9 @@ def _create_legacy_performance_snapshots(
     init_database(database_url, engine=engine)
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS performance_snapshots"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE performance_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 model_version VARCHAR(64) NOT NULL,
@@ -137,10 +143,12 @@ def _create_legacy_performance_snapshots(
                 created_at DATETIME NOT NULL
             )
             """
-        ))
+            )
+        )
         if with_row:
-            conn.execute(text(
-                """
+            conn.execute(
+                text(
+                    """
                 INSERT INTO performance_snapshots (
                     model_version,
                     freq,
@@ -175,7 +183,8 @@ def _create_legacy_performance_snapshots(
                     '2026-02-24 00:00:00'
                 )
                 """
-            ))
+                )
+            )
     engine.dispose()
 
 
@@ -289,10 +298,12 @@ def test_upgrade_is_idempotent_and_preserves_rows(tmp_path: Path) -> None:
 
     engine = create_database_engine(database_url)
     with engine.connect() as conn:
-        row = conn.execute(text(
-            "SELECT predicted_direction, predicted_return, model_version "
-            "FROM prediction_outcomes LIMIT 1"
-        )).one()
+        row = conn.execute(
+            text(
+                "SELECT predicted_direction, predicted_return, model_version "
+                "FROM prediction_outcomes LIMIT 1"
+            )
+        ).one()
     engine.dispose()
 
     assert row[0] == "up"
@@ -328,8 +339,9 @@ def test_upgrade_rebuilds_stale_check_constraint_on_retraining_events(tmp_path: 
     # Replace retraining_events with old schema missing 'continuous' in CHECK
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS retraining_events"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE retraining_events (
                 id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 trigger_reason VARCHAR(32) NOT NULL,
@@ -352,11 +364,14 @@ def test_upgrade_rebuilds_stale_check_constraint_on_retraining_events(tmp_path: 
                 )
             )
             """
-        ))
-        conn.execute(text(
-            "INSERT INTO retraining_events (trigger_reason, status, started_at) "
-            "VALUES ('manual', 'completed', '2026-02-01 00:00:00')"
-        ))
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO retraining_events (trigger_reason, status, started_at) "
+                "VALUES ('manual', 'completed', '2026-02-01 00:00:00')"
+            )
+        )
     engine.dispose()
 
     # AutonomousDB auto-upgrades on init; this should rebuild the table

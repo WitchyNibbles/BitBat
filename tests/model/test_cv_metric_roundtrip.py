@@ -68,9 +68,9 @@ def test_cv_summary_roundtrip_consistency(tmp_path: Path) -> None:
     retrainer._cv_summary_path = lambda: summary_path  # type: ignore[assignment]
 
     actual_score = retrainer._read_cv_score()
-    assert actual_score == pytest.approx(expected_score), (
-        f"Round-trip mismatch: wrote {expected_score}, read {actual_score}"
-    )
+    assert actual_score == pytest.approx(
+        expected_score
+    ), f"Round-trip mismatch: wrote {expected_score}, read {actual_score}"
 
 
 def test_cv_summary_key_names_match_between_writer_and_reader() -> None:
@@ -107,6 +107,6 @@ def test_cv_summary_key_names_match_between_writer_and_reader() -> None:
                 break
 
     aggregate_block = "\n".join(cv_summary_writer_lines)
-    assert f'"{old_key}"' not in aggregate_block, (
-        f'cli.py still writes the old key "{old_key}" in the cv_summary aggregate dict'
-    )
+    assert (
+        f'"{old_key}"' not in aggregate_block
+    ), f'cli.py still writes the old key "{old_key}" in the cv_summary aggregate dict'

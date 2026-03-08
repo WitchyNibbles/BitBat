@@ -200,7 +200,9 @@ def _build_timeline_query(columns: set[str]) -> str | None:
 
     select_exprs = [
         timestamp_expr,
-        "predicted_direction" if "predicted_direction" in columns else "'flat' AS predicted_direction",  # noqa: E501
+        "predicted_direction"
+        if "predicted_direction" in columns
+        else "'flat' AS predicted_direction",  # noqa: E501
         "p_up" if "p_up" in columns else "NULL AS p_up",
         "p_down" if "p_down" in columns else "NULL AS p_down",
         "predicted_return" if "predicted_return" in columns else "NULL AS predicted_return",
@@ -220,9 +222,7 @@ def _build_timeline_query(columns: set[str]) -> str | None:
         "SELECT "  # noqa: S608
         + ", ".join(select_exprs)
         + " FROM prediction_outcomes "
-        "WHERE freq = ? AND horizon = ? "
-        + order_clause
-        + " "
+        "WHERE freq = ? AND horizon = ? " + order_clause + " "
         "LIMIT ?"
     )
 
@@ -283,19 +283,17 @@ def _build_marker_frame(
             status = "pending"
 
         status_label = _STATUS_STYLES[status]["label"]
-        rows.append(
-            {
-                "timestamp_utc": ts,
-                "marker_price": price_at_ts,
-                "predicted_direction": direction,
-                "prediction_status": status,
-                "trace_name": _marker_trace_name(direction, status_label),
-                "confidence_text": _format_percent(row.get("confidence"), decimals=2),
-                "predicted_return_text": _format_percent(row.get("predicted_return"), signed=True),
-                "actual_return_text": _format_percent(row.get("actual_return"), signed=True),
-                "status_label": status_label,
-            }
-        )
+        rows.append({
+            "timestamp_utc": ts,
+            "marker_price": price_at_ts,
+            "predicted_direction": direction,
+            "prediction_status": status,
+            "trace_name": _marker_trace_name(direction, status_label),
+            "confidence_text": _format_percent(row.get("confidence"), decimals=2),
+            "predicted_return_text": _format_percent(row.get("predicted_return"), signed=True),
+            "actual_return_text": _format_percent(row.get("actual_return"), signed=True),
+            "status_label": status_label,
+        })
 
     if not rows:
         return pd.DataFrame(
@@ -478,10 +476,14 @@ def build_timeline_overlay_frame(predictions: pd.DataFrame) -> pd.DataFrame:
     aligned = overlay["actual_return"].notna()
     overlay["upper_return"] = pd.NA
     overlay["lower_return"] = pd.NA
-    overlay.loc[aligned, "upper_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].max(  # noqa: E501
+    overlay.loc[aligned, "upper_return"] = overlay.loc[
+        aligned, ["predicted_return", "actual_return"]
+    ].max(  # noqa: E501
         axis=1
     )
-    overlay.loc[aligned, "lower_return"] = overlay.loc[aligned, ["predicted_return", "actual_return"]].min(  # noqa: E501
+    overlay.loc[aligned, "lower_return"] = overlay.loc[
+        aligned, ["predicted_return", "actual_return"]
+    ].min(  # noqa: E501
         axis=1
     )
     return overlay
@@ -499,54 +501,46 @@ def _add_overlay_traces(
     lower_percent = overlay["lower_return"].astype("Float64") * 100.0
 
     axis_kwargs = {"yaxis": yaxis} if yaxis != "y" else {}
-    fig.add_trace(
-        {
-            "type": "scatter",
-            "x": overlay["timestamp_utc"],
-            "y": predicted_percent,
-            "mode": "lines",
-            "name": "Predicted Return",
-            "line": {"color": "#22C55E", "width": 2},
-            **axis_kwargs,
-        }
-    )
-    fig.add_trace(
-        {
-            "type": "scatter",
-            "x": overlay["timestamp_utc"],
-            "y": realized_percent,
-            "mode": "lines",
-            "name": "Realized Return",
-            "line": {"color": "#F97316", "width": 2},
-            "connectgaps": False,
-            **axis_kwargs,
-        }
-    )
-    fig.add_trace(
-        {
-            "type": "scatter",
-            "x": overlay["timestamp_utc"],
-            "y": lower_percent,
-            "mode": "lines",
-            "line": {"color": "rgba(0,0,0,0)", "width": 0},
-            "showlegend": False,
-            "hoverinfo": "skip",
-            **axis_kwargs,
-        }
-    )
-    fig.add_trace(
-        {
-            "type": "scatter",
-            "x": overlay["timestamp_utc"],
-            "y": upper_percent,
-            "mode": "lines",
-            "name": "Mismatch Band",
-            "line": {"color": "rgba(251,191,36,0.40)", "width": 1},
-            "fill": "tonexty",
-            "fillcolor": "rgba(251,191,36,0.15)",
-            **axis_kwargs,
-        }
-    )
+    fig.add_trace({
+        "type": "scatter",
+        "x": overlay["timestamp_utc"],
+        "y": predicted_percent,
+        "mode": "lines",
+        "name": "Predicted Return",
+        "line": {"color": "#22C55E", "width": 2},
+        **axis_kwargs,
+    })
+    fig.add_trace({
+        "type": "scatter",
+        "x": overlay["timestamp_utc"],
+        "y": realized_percent,
+        "mode": "lines",
+        "name": "Realized Return",
+        "line": {"color": "#F97316", "width": 2},
+        "connectgaps": False,
+        **axis_kwargs,
+    })
+    fig.add_trace({
+        "type": "scatter",
+        "x": overlay["timestamp_utc"],
+        "y": lower_percent,
+        "mode": "lines",
+        "line": {"color": "rgba(0,0,0,0)", "width": 0},
+        "showlegend": False,
+        "hoverinfo": "skip",
+        **axis_kwargs,
+    })
+    fig.add_trace({
+        "type": "scatter",
+        "x": overlay["timestamp_utc"],
+        "y": upper_percent,
+        "mode": "lines",
+        "name": "Mismatch Band",
+        "line": {"color": "rgba(251,191,36,0.40)", "width": 1},
+        "fill": "tonexty",
+        "fillcolor": "rgba(251,191,36,0.15)",
+        **axis_kwargs,
+    })
 
 
 def get_price_series(

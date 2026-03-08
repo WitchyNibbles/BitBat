@@ -27,6 +27,7 @@ REQUIRED_GATE_FILES = [
 
 pytestmark = pytest.mark.structural
 
+
 def _runtime_streamlit_files() -> list[Path]:
     files = [STREAMLIT_DIR / "app.py"]
     files.extend(sorted(PAGES_DIR.glob("*.py")))
@@ -58,14 +59,18 @@ def test_phase8_release_required_gate_files_exist() -> None:
 
 
 def test_phase8_release_depends_on_canonical_d1_and_d2_suite_contracts() -> None:
-    assert "tests/autonomous/test_phase8_d1_monitor_schema_complete.py" in d1_gate.D1_CANONICAL_SUITE  # noqa: E501
+    assert (
+        "tests/autonomous/test_phase8_d1_monitor_schema_complete.py" in d1_gate.D1_CANONICAL_SUITE
+    )  # noqa: E501
     assert "tests/test_cli.py" in d1_gate.D1_CANONICAL_SUITE
     assert "tests/gui/test_phase8_d2_timeline_complete.py" in d2_gate.D2_CANONICAL_SUITES
     assert "tests/gui/test_phase6_timeline_ux_complete.py" in d2_gate.D2_CANONICAL_SUITES
     assert "tests/gui/test_phase9_timeline_readability_complete.py" in d2_gate.D2_CANONICAL_SUITES
     assert "tests/gui/test_phase10_supported_surface_complete.py" in d2_gate.D2_CANONICAL_SUITES
     assert "tests/gui/test_phase11_runtime_stability_complete.py" in d2_gate.D2_CANONICAL_SUITES
-    assert "tests/gui/test_phase12_simplified_ui_regression_complete.py" in d2_gate.D2_CANONICAL_SUITES  # noqa: E501
+    assert (
+        "tests/gui/test_phase12_simplified_ui_regression_complete.py" in d2_gate.D2_CANONICAL_SUITES
+    )  # noqa: E501
     assert "tests/gui/test_phase12_supported_views_smoke.py" in d2_gate.D2_CANONICAL_SUITES
 
 
@@ -84,12 +89,12 @@ def test_phase8_release_runtime_streamlit_contract_has_no_deprecated_width_keywo
             if isinstance(width_value, ast.Constant) and isinstance(width_value.value, bool):
                 boolean_width_offenders.append(f"{file_path.relative_to(ROOT)}:{call.lineno}")
 
-    assert not deprecated_offenders, (
-        f"Deprecated Streamlit width usage detected in runtime files: {deprecated_offenders}"
-    )
-    assert not boolean_width_offenders, (
-        f"Boolean Streamlit width usage detected in runtime files: {boolean_width_offenders}"
-    )
+    assert (
+        not deprecated_offenders
+    ), f"Deprecated Streamlit width usage detected in runtime files: {deprecated_offenders}"
+    assert (
+        not boolean_width_offenders
+    ), f"Boolean Streamlit width usage detected in runtime files: {boolean_width_offenders}"
 
 
 def test_phase8_release_makefile_target_covers_d1_d2_d3_commands() -> None:

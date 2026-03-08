@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 pytestmark = pytest.mark.integration
 
+
 def _run_init_script(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         [sys.executable, str(SCRIPT), *args],
@@ -34,8 +35,9 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
     engine = create_database_engine(database_url)
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS prediction_outcomes"))
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE prediction_outcomes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp_utc DATETIME NOT NULL,
@@ -56,9 +58,11 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
                 realized_at DATETIME
             )
             """
-        ))
-        conn.execute(text(
-            """
+            )
+        )
+        conn.execute(
+            text(
+                """
             INSERT INTO prediction_outcomes (
                 timestamp_utc,
                 prediction_timestamp,
@@ -95,17 +99,20 @@ def _create_legacy_prediction_outcomes(database_url: str) -> None:
                 NULL
             )
             """
-        ))
+            )
+        )
     engine.dispose()
 
 
 def _prediction_row_snapshot(database_url: str) -> tuple[int, str, float | None, str]:
     engine = create_database_engine(database_url)
     with engine.connect() as conn:
-        row = conn.execute(text(
-            "SELECT id, predicted_direction, predicted_return, model_version "
-            "FROM prediction_outcomes LIMIT 1"
-        )).one()
+        row = conn.execute(
+            text(
+                "SELECT id, predicted_direction, predicted_return, model_version "
+                "FROM prediction_outcomes LIMIT 1"
+            )
+        ).one()
         total = int(conn.execute(text("SELECT COUNT(*) FROM prediction_outcomes")).scalar() or 0)
     engine.dispose()
     return total, str(row[1]), float(row[2]) if row[2] is not None else None, str(row[3])

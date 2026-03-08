@@ -8,6 +8,7 @@ from bitbat.labeling.returns import forward_return, parse_horizon
 
 pytestmark = pytest.mark.behavioral
 
+
 def test_forward_return_hourly_alignment() -> None:
     index = pd.to_datetime([
         "2024-01-01 00:00:00",
