@@ -124,7 +124,7 @@ Plans:
 | 26. Architecture Targeted Fixes | v1.5 | 2/2 | Complete | 2026-03-07 |
 | 27. Verification & Guardrail Hardening | v1.5 | 1/1 | Complete | 2026-03-07 |
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
-| 29. Diagnosis | 2/2 | Complete   | 2026-03-08 | - |
+| 29. Diagnosis | 2/2 | Complete    | 2026-03-08 | - |
 | 30. Fix & Reset | v1.6 | 0/TBD | Not started | - |
 | 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
 | 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
