@@ -108,4 +108,4 @@ Phases execute in numeric order: 24 -> 25 -> 26 -> 27 -> 28
 | 25. Critical Correctness Remediation | 4/4 | Complete   | 2026-03-06 | - |
 | 26. Architecture Targeted Fixes | 2/2 | Complete    | 2026-03-07 | - |
 | 27. Verification & Guardrail Hardening | 1/1 | Complete    | 2026-03-07 | - |
-| 28. Activate Fold-Aware OBV | 0/1 | In Progress | - | - |
+| 28. Activate Fold-Aware OBV | 1/1 | Complete    | 2026-03-08 | - |

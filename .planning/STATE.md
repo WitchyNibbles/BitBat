@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: Codebase Health Audit & Critical Remediation
 status: unknown
-last_updated: "2026-03-07T10:05:24.962Z"
+last_updated: "2026-03-08T02:57:11.674Z"
 progress:
-  total_phases: 23
-  completed_phases: 23
-  total_plans: 62
-  completed_plans: 62
+  total_phases: 24
+  completed_phases: 24
+  total_plans: 63
+  completed_plans: 63
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Phase 27 — Verification and Guardrail Hardening
+**Current focus:** Phase 28 — Activate Fold-Aware OBV
 
 ## Current Position
 
-Phase: 27 of 27 (Verification and Guardrail Hardening)
-Plan: 1 of N in Phase 27 -- COMPLETE
-Status: Phase 27 Plan 01 complete
-Last activity: 2026-03-07 — Completed 27-01 (C901 complexity gate and import-linter forbidden contract)
+Phase: 28 of 28 (Activate Fold-Aware OBV)
+Plan: 1 of 1 in Phase 28 -- COMPLETE
+Status: Phase 28 Plan 01 complete
+Last activity: 2026-03-08 - Completed 28-01: wire fold_boundaries into ContinuousTrainer._do_retrain()
 
-Progress: [##########] 1/1 plans completed (Phase 27 Plan 01)
+Progress: [##########] 1/1 plans completed (Phase 28 Plan 01)
 
 ## Performance Metrics
 
@@ -72,10 +72,17 @@ Progress: [##########] 1/1 plans completed (Phase 27 Plan 01)
 - ARCH-01/02: Backward-compat aliases (_generate_price_features = generate_price_features) kept in build.py; two load_prices variants created (glob-based for autonomous pipeline, flat-file for CLI); AST structural guard added to tests.
 - ARCH-03/04: Preset dataclass and get_ingestion_status relocated to bitbat.common layer; gui modules re-export for backward compat; reset_runtime_config() added to config/loader.py for clean test teardown; AST structural guards block future api->gui imports.
 - ARCH-05/06: C901 max-complexity=10 gate active in ruff; import-linter forbidden contract blocks api->gui imports; both enforced in CI lint job. Used forbidden (not layers) contract type to avoid over-constraining cross-cutting modules. orchestrator.py transitive gui import fixed (missed in phase 26).
+- LEAK-02 closed: fold_boundaries=[self.train_window_bars] passed to generate_price_features() in ContinuousTrainer._do_retrain(); inference paths (predictor.py, batch cli) intentionally retain fold_boundaries=None.
 
 ### Pending Todos
 
 (None)
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | fix metrics.py to use _FREQ/_HORIZON from api/defaults.py | 2026-03-07 | c03721f | [1-fix-metrics-py-to-use-freq-horizon-from-](.planning/quick/1-fix-metrics-py-to-use-freq-horizon-from-/) |
 
 ### Blockers/Concerns
 
@@ -85,6 +92,6 @@ Progress: [##########] 1/1 plans completed (Phase 27 Plan 01)
 
 ## Session Continuity
 
-Last session: 2026-03-07
-Stopped at: Completed 27-01-PLAN.md (C901 complexity gate and import-linter forbidden contract)
-Resume with: Phase 27 Plan 01 complete — v1.5 all requirements satisfied
+Last session: 2026-03-08
+Stopped at: Completed 28-01-PLAN.md (wire fold_boundaries into ContinuousTrainer._do_retrain())
+Resume with: Phase 28 Plan 01 complete — LEAK-02 production activation gap closed
