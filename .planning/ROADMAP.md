@@ -73,7 +73,9 @@ Plans:
   2. The accuracy threshold is configurable via the existing config YAML without code changes
   3. The guardrail fires under simulated low-accuracy conditions in an automated test (not only in live operation)
   4. Alert includes the observed accuracy value, the threshold, and the number of realized predictions used in the calculation
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 31-01-PLAN.md — Add accuracy guardrail config + check_accuracy_guardrail function + agent wiring + 5 behavioral tests
 
 ### Phase 32: CLI Decomposition
 **Goal**: cli.py is split into focused command-group modules with no behavioral change, eliminating the 1802+ line monolith and satisfying the deferred DEBT-01 obligation
@@ -130,7 +132,7 @@ Plans:
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
 | 29. Diagnosis | v1.6 | 2/2 | Complete | 2026-03-08 |
 | 30. Fix & Reset | 3/3 | Complete   | 2026-03-08 | - |
-| 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
+| 31. Accuracy Guardrail | v1.6 | 0/1 | Not started | - |
 | 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
 | 33. Path Centralization | v1.6 | 0/TBD | Not started | - |
 | 34. DB Unification | v1.6 | 0/TBD | Not started | - |
