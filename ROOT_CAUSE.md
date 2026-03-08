@@ -146,7 +146,7 @@ The result is **38/266 = 14.3%** — less than half the 33% random baseline. Wit
 To confirm the 14.3% accuracy figure directly from the live SQLite database:
 
 ```bash
-poetry run pytest tests/diagnosis/test_pipeline_stage_trace.py::test_accuracy_collapse_is_below_random_baseline -v
+poetry run pytest tests/diagnosis/test_pipeline_stage_trace.py::test_accuracy_below_random_baseline -v
 ```
 
 This test queries `data/autonomous.db` and asserts `hit_rate < 0.33`.
