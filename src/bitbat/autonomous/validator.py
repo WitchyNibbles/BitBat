@@ -42,8 +42,9 @@ class PredictionValidator:
         self.freq = freq
         self.horizon = horizon
 
-        # tau kept for backward compat but unused in main validation path
-        self.tau = 0.0
+        cfg = get_runtime_config() or load_config()
+        cfg_tau = float(cfg.get("tau", 0.01))
+        self.tau = tau if tau is not None else cfg_tau
         self.horizon_delta = self._parse_horizon(horizon)
 
         logger.info(

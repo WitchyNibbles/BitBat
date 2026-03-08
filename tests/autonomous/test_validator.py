@@ -204,3 +204,25 @@ def test_find_predictions_to_validate_surfaces_runtime_db_error(
     message = str(exc_info.value)
     assert "validate.fetch_unrealized_predictions" in message
     assert "--audit" in message
+
+
+def test_validator_uses_constructor_tau() -> None:
+    """Bug 3 FIXED: PredictionValidator uses constructor tau, not hardcoded 0.0."""
+    from unittest.mock import MagicMock
+
+    db = MagicMock()
+    validator = PredictionValidator(db, freq="5m", horizon="30m", tau=0.05)
+    # 0.03 is between -0.05 and +0.05 → should be "flat" with tau=0.05
+    assert validator.tau == 0.05
+    assert validator.classify_direction(0.03) == "flat"
+    # 0.06 is above +0.05 → should be "up"
+    assert validator.classify_direction(0.06) == "up"
+
+
+def test_validator_default_tau_from_config() -> None:
+    """When tau=None, validator loads tau from config (default=0.01)."""
+    from unittest.mock import MagicMock
+
+    db = MagicMock()
+    validator = PredictionValidator(db, freq="5m", horizon="30m", tau=None)
+    assert validator.tau > 0.0, f"Expected tau > 0.0 from config, got {validator.tau}"
