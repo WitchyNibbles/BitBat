@@ -52,7 +52,7 @@ def test_guardrail_fires_on_low_accuracy() -> None:
     metrics = _metrics(hit_rate=0.0, realized_predictions=20)
     config = _config(realized_accuracy_threshold=0.40)
 
-    with patch("bitbat.autonomous.alerting.send_alert") as mock_alert:
+    with patch("bitbat.autonomous.agent.send_alert") as mock_alert:
         result = check_accuracy_guardrail(metrics, "1h", "4h", config=config)
 
     assert result is True
@@ -71,7 +71,7 @@ def test_guardrail_respects_custom_threshold() -> None:
     metrics = _metrics(hit_rate=0.35, realized_predictions=20)
     config = _config(realized_accuracy_threshold=0.30)
 
-    with patch("bitbat.autonomous.alerting.send_alert") as mock_alert:
+    with patch("bitbat.autonomous.agent.send_alert") as mock_alert:
         result = check_accuracy_guardrail(metrics, "1h", "4h", config=config)
 
     assert result is False
@@ -88,7 +88,7 @@ def test_guardrail_skips_insufficient_samples() -> None:
     metrics = _metrics(hit_rate=0.0, realized_predictions=5)
     config = _config(min_predictions_required=10)
 
-    with patch("bitbat.autonomous.alerting.send_alert") as mock_alert:
+    with patch("bitbat.autonomous.agent.send_alert") as mock_alert:
         result = check_accuracy_guardrail(metrics, "1h", "4h", config=config)
 
     assert result is False
@@ -101,11 +101,14 @@ def test_guardrail_skips_insufficient_samples() -> None:
 
 
 def test_guardrail_alert_details() -> None:
-    """Alert details dict must contain: observed_accuracy, threshold, realized_predictions, freq, horizon."""
+    """Alert details dict must contain required keys.
+
+    Keys: observed_accuracy, threshold, realized_predictions, freq, horizon.
+    """
     metrics = _metrics(hit_rate=0.10, realized_predictions=20)
     config = _config(realized_accuracy_threshold=0.40)
 
-    with patch("bitbat.autonomous.alerting.send_alert") as mock_alert:
+    with patch("bitbat.autonomous.agent.send_alert") as mock_alert:
         check_accuracy_guardrail(metrics, "1h", "4h", config=config)
 
     mock_alert.assert_called_once()
@@ -130,4 +133,5 @@ def test_guardrail_alert_details() -> None:
 def test_guardrail_config_key_in_default_yaml() -> None:
     """default.yaml must have autonomous.accuracy_guardrail.realized_accuracy_threshold == 0.40."""
     config = load_config()
-    assert config["autonomous"]["accuracy_guardrail"]["realized_accuracy_threshold"] == pytest.approx(0.40)
+    guardrail = config["autonomous"]["accuracy_guardrail"]
+    assert guardrail["realized_accuracy_threshold"] == pytest.approx(0.40)

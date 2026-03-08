@@ -24,6 +24,49 @@ from bitbat.config.loader import get_runtime_config, load_config
 logger = logging.getLogger(__name__)
 
 
+def check_accuracy_guardrail(
+    metrics: dict[str, Any],
+    freq: str,
+    horizon: str,
+    config: dict[str, Any] | None = None,
+) -> bool:
+    """Fire a WARNING alert if realized accuracy is below the configured threshold.
+
+    Returns True if alert was fired, False otherwise.
+    """
+    if config is None:
+        config = get_runtime_config() or load_config()
+
+    autonomous = config.get("autonomous", {})
+    guardrail_cfg = autonomous.get("accuracy_guardrail", {})
+
+    if not bool(guardrail_cfg.get("enabled", True)):
+        return False
+
+    min_required = int(guardrail_cfg.get("min_predictions_required", 10))
+    threshold = float(guardrail_cfg.get("realized_accuracy_threshold", 0.40))
+
+    realized = int(metrics.get("realized_predictions", 0))
+    if realized < min_required:
+        return False
+
+    observed_accuracy = float(metrics.get("hit_rate", 1.0))
+    if observed_accuracy < threshold:
+        send_alert(
+            "WARNING",
+            f"Realized accuracy below threshold for {freq}/{horizon}",
+            {
+                "observed_accuracy": observed_accuracy,
+                "threshold": threshold,
+                "realized_predictions": realized,
+                "freq": freq,
+                "horizon": horizon,
+            },
+        )
+        return True
+    return False
+
+
 class MonitoringAgent:
     """Coordinate autonomous monitoring pipeline steps."""
 
@@ -280,6 +323,8 @@ class MonitoringAgent:
                 {"reason": drift_reason, "metrics": drift_metrics},
             )
 
+        accuracy_alert_fired = check_accuracy_guardrail(metrics, self.freq, self.horizon)
+
         # Continuous retraining: retrain on schedule when enough new samples exist
         if self.continuous_trainer.should_retrain():
             retraining_triggered = True
@@ -312,6 +357,7 @@ class MonitoringAgent:
             "drift_reason": drift_reason,
             "retraining_triggered": retraining_triggered,
             "retraining_result": retraining_result,
+            "accuracy_alert_fired": accuracy_alert_fired,
             "metrics": metrics,
         }
 

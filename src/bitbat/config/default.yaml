@@ -70,6 +70,13 @@ autonomous:
     rmse_increase_threshold: 1.5
     window_days: 30
 
+  # Accuracy guardrail — alert when realized hit rate falls below threshold
+  accuracy_guardrail:
+    enabled: true
+    min_predictions_required: 10
+    realized_accuracy_threshold: 0.40
+    window_days: 30
+
   # Retraining settings
   retraining:
     enabled: true
