@@ -1692,7 +1692,7 @@ def test_cli_batch_run(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("bitbat.ingest.prices.fetch_yf", fake_fetch_prices)
     monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch_news)
-    monkeypatch.setattr("bitbat.cli._generate_price_features", fake_price_features)
+    monkeypatch.setattr("bitbat.cli.generate_price_features", fake_price_features)
     monkeypatch.setattr("bitbat.cli.aggregate_sentiment", fake_sentiment)
     monkeypatch.setattr("bitbat.cli.load_model", lambda path: FakeModel())
     monkeypatch.setattr("bitbat.cli.predict_bar", fake_predict)

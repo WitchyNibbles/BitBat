@@ -144,7 +144,7 @@ class ContinuousTrainer:
             return {"status": "failed", "error": str(exc), "duration_seconds": round(duration, 1)}
 
     def _do_retrain(self, old_version: str) -> dict[str, Any]:
-        from bitbat.dataset.build import _generate_price_features
+        from bitbat.dataset.build import generate_price_features
         from bitbat.labeling.returns import forward_return
         from bitbat.model.evaluate import (
             regression_metrics,
@@ -164,7 +164,7 @@ class ContinuousTrainer:
             prices = prices.iloc[-self.rolling_window_bars :]
 
         # Generate features
-        features = _generate_price_features(prices, enable_garch=self.enable_garch, freq=self.freq)
+        features = generate_price_features(prices, enable_garch=self.enable_garch, freq=self.freq)
         features = features.dropna()
         rename_mapping = {
             col: col if col.startswith("feat_") else f"feat_{col}" for col in features.columns
@@ -298,25 +298,7 @@ class ContinuousTrainer:
         }
 
     def _load_prices(self) -> pd.DataFrame:
-        prices_root = self.data_dir / "raw" / "prices"
-        frames: list[pd.DataFrame] = []
-        if prices_root.exists():
-            for pf in sorted(prices_root.glob("**/*.parquet")):
-                try:
-                    df = pd.read_parquet(pf)
-                    if "timestamp_utc" in df.columns and "close" in df.columns:
-                        frames.append(df)
-                except Exception:  # noqa: S110
-                    pass
-        if not frames:
-            raise RuntimeError(f"No price data found under {prices_root}")
-        merged = pd.concat(frames, ignore_index=True)
-        merged["timestamp_utc"] = pd.to_datetime(
-            merged["timestamp_utc"], utc=True, errors="coerce"
-        ).dt.tz_localize(None)
-        merged = (
-            merged.sort_values("timestamp_utc")
-            .drop_duplicates(subset=["timestamp_utc"], keep="last")
-            .reset_index(drop=True)
-        )
-        return merged.set_index("timestamp_utc").sort_index()
+        """Load price bars by delegating to the shared :func:`bitbat.io.prices.load_prices`."""
+        from bitbat.io.prices import load_prices
+
+        return load_prices(self.data_dir, self.freq)

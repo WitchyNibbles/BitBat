@@ -54,7 +54,6 @@ def test_one_click_success(tmp_path: Any) -> None:
     # Override config to use tmp_path (via monkeypatch for safe cleanup)
     import bitbat.config.loader as loader_mod
 
-    _original = loader_mod._ACTIVE_CONFIG
     loader_mod._ACTIVE_CONFIG = {
         "data_dir": str(tmp_path / "data"),
         "enable_sentiment": False,
@@ -88,7 +87,7 @@ def test_one_click_success(tmp_path: Any) -> None:
         )
 
     # Restore config to avoid leaking into other tests
-    loader_mod._ACTIVE_CONFIG = _original
+    loader_mod.reset_runtime_config()
 
     assert result["status"] == "success"
     assert result["training_samples"] == 3

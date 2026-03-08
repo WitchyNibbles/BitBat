@@ -24,7 +24,7 @@ from bitbat.config.loader import (
     set_runtime_config,
 )
 from bitbat.contracts import ensure_feature_contract, ensure_predictions_contract
-from bitbat.dataset.build import _generate_price_features, build_xy
+from bitbat.dataset.build import build_xy, generate_price_features
 from bitbat.dataset.splits import generate_rolling_windows, walk_forward
 from bitbat.features.sentiment import aggregate as aggregate_sentiment
 from bitbat.ingest import prices as prices_module
@@ -128,13 +128,13 @@ def _load_feature_dataset(
 
 
 def _load_prices_indexed(freq: str) -> pd.DataFrame:
-    prices_path = _data_path("raw", "prices", f"btcusd_yf_{freq}.parquet")
-    _ensure_path_exists(prices_path, "Prices parquet")
-    return (
-        ensure_utc(pd.read_parquet(prices_path), "timestamp_utc")
-        .set_index("timestamp_utc")
-        .sort_index()
-    )
+    from bitbat.io.prices import load_prices_for_cli
+
+    data_dir = Path(_config()["data_dir"]).expanduser()
+    try:
+        return load_prices_for_cli(freq, data_dir=data_dir)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _load_news() -> pd.DataFrame:
@@ -1252,7 +1252,7 @@ def batch_run(
     enable_sentiment = _sentiment_enabled()
 
     enable_garch = bool(_config().get("enable_garch", False))
-    price_features = _generate_price_features(prices, enable_garch=enable_garch)
+    price_features = generate_price_features(prices, enable_garch=enable_garch)
     if enable_sentiment:
         news = _load_news()
         bar_df = prices.reset_index()[["timestamp_utc"]]

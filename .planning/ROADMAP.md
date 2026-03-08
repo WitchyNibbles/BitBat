@@ -14,7 +14,7 @@
 
 - [x] **Phase 24: Audit Baseline** - Classify test suite, measure coverage and complexity, run dead code detection, and execute E2E pipeline smoke test to establish a trustworthy baseline before any fixes (completed 2026-03-04)
 - [x] **Phase 25: Critical Correctness Remediation** - Fix silently broken production paths (retrainer CLI contract, CV metric keys, OBV leakage) and close missing guardrails (test_leakage.py, assert guards, API defaults) (completed 2026-03-06)
-- [ ] **Phase 26: Architecture Targeted Fixes** - Promote private APIs, consolidate duplicated logic, add config reset for test isolation, and eliminate cross-layer imports
+- [x] **Phase 26: Architecture Targeted Fixes** - Promote private APIs, consolidate duplicated logic, add config reset for test isolation, and eliminate cross-layer imports (completed 2026-03-07)
 - [ ] **Phase 27: Verification & Guardrail Hardening** - Add CI gates (import-linter contracts, ruff C901 complexity) that prevent recurrence of the issues found in phases 24-26
 
 ## Phase Details
@@ -68,8 +68,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 26-01-PLAN.md — Promote private feature pipeline functions to public API and consolidate price loading into shared module
-- [ ] 26-02-PLAN.md — Add config reset for test isolation and eliminate API-to-GUI cross-layer imports
+- [x] 26-01-PLAN.md — Promote private feature pipeline functions to public API and consolidate price loading into shared module
+- [x] 26-02-PLAN.md — Add config reset for test isolation and eliminate API-to-GUI cross-layer imports
 
 ### Phase 27: Verification & Guardrail Hardening
 **Goal**: CI gates prevent recurrence of the architecture drift and complexity creep found during this audit
@@ -78,10 +78,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. import-linter contracts are committed and enforced in CI, and introducing a cross-layer import (e.g., api importing from gui) causes CI to fail
   2. ruff C901 complexity gate is active in CI with max-complexity = 10, and adding a function with cyclomatic complexity > 10 causes CI to fail
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 27-01: TBD
+- [ ] 27-01-PLAN.md — Enable ruff C901 complexity gate, install import-linter forbidden contract, and wire both into CI
 
 ## Progress
 
@@ -92,5 +92,5 @@ Phases execute in numeric order: 24 -> 25 -> 26 -> 27
 |-------|-----------|----------------|--------|-----------|
 | 24. Audit Baseline | 3/3 | Complete    | 2026-03-04 | - |
 | 25. Critical Correctness Remediation | 4/4 | Complete   | 2026-03-06 | - |
-| 26. Architecture Targeted Fixes | v1.5 | 0/2 | Not started | - |
-| 27. Verification & Guardrail Hardening | v1.5 | 0/? | Not started | - |
+| 26. Architecture Targeted Fixes | 2/2 | Complete    | 2026-03-07 | - |
+| 27. Verification & Guardrail Hardening | v1.5 | 0/1 | Not started | - |

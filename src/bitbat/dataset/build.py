@@ -51,7 +51,7 @@ def _load_parquet(path: str | Path) -> pd.DataFrame:
     return pd.read_parquet(target)
 
 
-def _generate_price_features(
+def generate_price_features(
     prices: pd.DataFrame,
     *,
     enable_garch: bool = False,
@@ -88,7 +88,7 @@ def _generate_price_features(
     return features
 
 
-def _join_auxiliary_features(
+def join_auxiliary_features(
     features: pd.DataFrame,
     *,
     macro_parquet: str | Path | None = None,
@@ -165,7 +165,7 @@ def build_xy(
 
     prices = ensure_utc(prices, "timestamp_utc").set_index("timestamp_utc").sort_index()
 
-    price_features = _generate_price_features(prices, enable_garch=enable_garch, freq=freq)
+    price_features = generate_price_features(prices, enable_garch=enable_garch, freq=freq)
 
     if enable_sentiment:
         if news_parquet is None:
@@ -187,7 +187,7 @@ def build_xy(
         features = price_features.copy()
 
     # Join auxiliary feature sources (macro, on-chain)
-    features = _join_auxiliary_features(
+    features = join_auxiliary_features(
         features,
         macro_parquet=macro_parquet,
         onchain_parquet=onchain_parquet,
@@ -286,3 +286,9 @@ def build_xy(
     (output_dir / "meta.json").write_text(json.dumps(meta.__dict__), encoding="utf-8")
 
     return X, y, meta
+
+
+# Backward-compatibility aliases — keep old private names working for any
+# untracked callers while the public names are the canonical API.
+_generate_price_features = generate_price_features
+_join_auxiliary_features = join_auxiliary_features

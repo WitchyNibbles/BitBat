@@ -89,3 +89,16 @@ def get_runtime_config_source() -> str:
     if _ACTIVE_SOURCE is None:
         load_config(cache=True)
     return str(_ACTIVE_SOURCE or "default")
+
+
+def reset_runtime_config() -> None:
+    """Reset all cached runtime configuration state.
+
+    Intended for use in test teardown to prevent config state from leaking
+    between tests. After calling this, the next call to get_runtime_config()
+    will reload from disk.
+    """
+    global _ACTIVE_CONFIG, _ACTIVE_PATH, _ACTIVE_SOURCE
+    _ACTIVE_CONFIG = None
+    _ACTIVE_PATH = None
+    _ACTIVE_SOURCE = None

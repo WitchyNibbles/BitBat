@@ -216,7 +216,7 @@ async def performance_snapshots(
 @router.get("/ingestion-status")
 async def ingestion_status() -> dict[str, Any]:
     """Return freshness information for ingested data files."""
-    from bitbat.gui.widgets import get_ingestion_status
+    from bitbat.common.ingestion_status import get_ingestion_status
 
     return get_ingestion_status(Path("data"))
 
@@ -229,7 +229,7 @@ async def ingestion_status() -> dict[str, Any]:
 @router.post("/training/start", response_model=TrainingResponse)
 async def start_training(request: TrainingRequest) -> TrainingResponse:
     """Kick off a full training pipeline with the given preset."""
-    from bitbat.gui.presets import list_presets
+    from bitbat.common.presets import list_presets
 
     available = list_presets()
     preset_key = request.preset.lower()
@@ -352,7 +352,7 @@ async def update_settings(request: SettingsUpdateRequest) -> SettingsResponse:
 
     # If a preset is specified, resolve its values as the new base
     if request.preset is not None:
-        from bitbat.gui.presets import get_preset, list_presets
+        from bitbat.common.presets import get_preset, list_presets
 
         preset_key = request.preset.lower()
         available = list_presets()
