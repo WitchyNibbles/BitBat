@@ -86,7 +86,11 @@ Plans:
   2. Every existing CLI command (`bitbat --help` surface) continues to work identically — no command names, flags, or output formats changed
   3. The ruff C901 complexity gate passes on all new modules without noqa suppressions
   4. Existing CLI tests pass without modification
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 32-01-PLAN.md — Create cli/ package skeleton: _helpers.py + __init__.py + commands/__init__.py
+- [ ] 32-02-PLAN.md — Move 8 simple command groups (prices, news, features, backtest, batch, validate, ingest, system) into commands/
+- [ ] 32-03-PLAN.md — Move model + monitor groups, refactor model_cv for C901, update test monkeypatch targets
 
 ### Phase 33: Path Centralization
 **Goal**: All 15+ hardcoded Path("models") and Path("metrics") occurrences are replaced with a single config-driven resolution point, so operators can relocate artifacts by changing one config value
