@@ -3,12 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: planning
-last_updated: "2026-03-08"
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-03-08T11:06:01.309Z"
+last_activity: 2026-03-08 — v1.6 roadmap created; phases 29-35 defined
 progress:
   total_phases: 7
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 0
 ---
 
 # Project State
@@ -18,25 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 — Accuracy Recovery & Technical Debt Remediation
+**Current focus:** Milestone v1.6 — Phase 29: Diagnosis
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-08 — Milestone v1.6 started
+Phase: 29 of 35 (Diagnosis — identify root cause of live accuracy collapse)
+Plan: 01 complete, 02 next
+Status: In Progress
+Last activity: 2026-03-08 — 29-01 complete: diagnostic test harness created
 
-Progress: [##########] 1/1 plans completed (Phase 28 Plan 01)
+Progress: [░░░░░░░░░░] 0% (0/7 v1.6 phases complete)
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 9
+**Velocity (v1.5 baseline):**
+- Total plans completed: 11
 - Average duration: 5min
-- Total execution time: 0.88 hours
+- Total execution time: ~1 hour
 
-**By Phase:**
+**By Phase (v1.5):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -44,54 +47,36 @@ Progress: [##########] 1/1 plans completed (Phase 28 Plan 01)
 | 25 | 4/4 | 17min | 4min |
 | 26 | 2/2 | 14min | 7min |
 | 27 | 1/1 | 8min | 8min |
+| 28 | 1/1 | — | — |
+| Phase 29-diagnosis P01 | 1 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
 ### Decisions Summary
 
-- v1.5 is a comprehensive audit milestone: find all issues, fix critical, catalog the rest.
-- Correctness before architecture: phases 24-25 establish baseline and fix breaks before phases 26-27 touch structure.
-- OBV leakage (LEAK-01/02) scoped as assess-then-fix: empirical comparison first, fold-aware fix conditional on results.
-- Style-only fixes explicitly out of scope to avoid audit noise.
-- v1.5 phases start at 24 (continuing from v1.4 phases 20-23).
-- Module-level pytestmark used for all test files (behavioral/integration/structural taxonomy).
-- 16 *_complete.py files retained (exercise real production code); 1 deleted (pure source-reader).
-- All 14 v1.5 requirements confirmed as coverage gaps (expected: requirements target known issues).
-- Vulture: zero genuine dead code at 80% confidence; all 17 findings are pytest fixture false positives.
-- CLI monolith complexity (5 functions CC 15-37) mapped to DEBT-01, deferred to v1.6+.
-- LivePredictor.predict_latest (CC=28) identified as highest actionable complexity target for v1.5.
-- CORR-02 downgraded from CRITICAL to HIGH: primary key lookup works correctly, risk is naming confusion and fragile cascade.
-- CORR-01 location corrected: --tau passed to features build (not model train as research stated).
-- Smoke test used real yfinance data; model output path and autonomous.db path don't fully respect data_dir (DEBT-02/DEBT-03).
-- AUDIT-REPORT.md synthesizes 26 findings with severity triage, ready to drive phases 25-27 planning.
-- Writer key renamed from average_balanced_accuracy to mean_directional_accuracy; reader cascade kept for backward compat with old cv_summary.json files.
-- CLI contract test uses Click CliRunner --help parsing to extract valid options dynamically (self-updating guard).
-- API route defaults sourced from config via api/defaults.py helper; module-level constants computed once at import to avoid per-request YAML parsing.
-- PR-AUC guardrail threshold set at 0.7 (random labels yield ~0.5; 0.7 catches genuine leakage with margin).
-- OBV fold-boundary leakage empirically NOT material (2.33pp < 3pp threshold); fold-aware fix implemented as correct practice regardless.
-- ARCH-01/02: Backward-compat aliases (_generate_price_features = generate_price_features) kept in build.py; two load_prices variants created (glob-based for autonomous pipeline, flat-file for CLI); AST structural guard added to tests.
-- ARCH-03/04: Preset dataclass and get_ingestion_status relocated to bitbat.common layer; gui modules re-export for backward compat; reset_runtime_config() added to config/loader.py for clean test teardown; AST structural guards block future api->gui imports.
-- ARCH-05/06: C901 max-complexity=10 gate active in ruff; import-linter forbidden contract blocks api->gui imports; both enforced in CI lint job. Used forbidden (not layers) contract type to avoid over-constraining cross-cutting modules. orchestrator.py transitive gui import fixed (missed in phase 26).
-- LEAK-02 closed: fold_boundaries=[self.train_window_bars] passed to generate_price_features() in ContinuousTrainer._do_retrain(); inference paths (predictor.py, batch cli) intentionally retain fold_boundaries=None.
+- 29-01: Diagnosis-first TDD — tests assert bugs are present before fix code is written; assertions inverted after Phase 30.
+- 29-01: test_root_cause_md_exists intentionally RED (FAIL) — gates Phase 30 fix code on ROOT_CAUSE.md being committed first.
+- v1.6 diagnosis-first: Phase 29 must document root cause before Phase 30 applies any fix.
+- Phase 35 (XGBoost Fix) depends on Phase 30 (reset + retrain) to validate the corrected objective end-to-end.
+- Phases 32-34 (tech debt) depend only on Phase 28 and are independent of the accuracy recovery track (29-31).
+- DEBT-01: CLI monolith — 11 noqa:C901 suppressions on pre-existing complexity; new modules must pass without suppressions.
+- DEBT-02: Path hardcoding — smoke test confirmed model output path and autonomous.db path don't fully respect data_dir.
+- DEBT-03: DB unification — autonomous.db schema must be preserved; no data migration required.
+- DEBT-04: XGBoost objective — reg:squarederror is a regression objective; multi:softprob is the correct 3-class classification objective.
+- All v1.0-v1.5 validated contracts are non-regression constraints for every v1.6 phase.
 
 ### Pending Todos
 
 (None)
 
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 1 | fix metrics.py to use _FREQ/_HORIZON from api/defaults.py | 2026-03-07 | c03721f | [1-fix-metrics-py-to-use-freq-horizon-from-](.planning/quick/1-fix-metrics-py-to-use-freq-horizon-from-/) |
-
 ### Blockers/Concerns
 
-- Preserve all v1.0-v1.4 validated contracts as non-regression constraints.
-- Audit fixes must not break existing `make test-release` gates.
-- OBV fold-boundary fix scope may expand if WalkForwardValidator integration is needed (research flag from SUMMARY.md).
+- Phase 29 outcome (root cause) determines the scope of Phase 30 fix work — plan count TBD until diagnosis completes.
+- Accuracy recovery (phases 29-31) and tech debt (phases 32-35) can execute in parallel tracks if needed.
+- Preserve autonomous.db backward compatibility throughout DEBT-03 unification.
 
 ## Session Continuity
 
-Last session: 2026-03-08
-Stopped at: Completed 28-01-PLAN.md (wire fold_boundaries into ContinuousTrainer._do_retrain())
-Resume with: Phase 28 Plan 01 complete — LEAK-02 production activation gap closed
+Last session: 2026-03-08T11:06:01.306Z
+Stopped at: Completed 29-01-PLAN.md
+Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse

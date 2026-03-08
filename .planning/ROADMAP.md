@@ -22,6 +22,99 @@
 
 </details>
 
+### v1.6 Accuracy Recovery & Technical Debt Remediation (In Progress)
+
+**Milestone Goal:** Diagnose and fix the live prediction accuracy collapse (~1%), restore the pipeline to a working state with clean reset + retrain, add an accuracy collapse guardrail to the monitor, and eliminate the four deferred tech debt items.
+
+- [ ] **Phase 29: Diagnosis** — Identify and document the root cause of live accuracy collapse before any fix is applied
+- [ ] **Phase 30: Fix & Reset** — Fix root cause in code, provide a clean reset + retrain procedure, and verify accuracy exceeds random baseline
+- [ ] **Phase 31: Accuracy Guardrail** — Add monitor alert that fires when realized accuracy falls below a configurable threshold
+- [ ] **Phase 32: CLI Decomposition** — Split cli.py monolith (1802+ lines, 53 functions) into focused command modules
+- [ ] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution
+- [ ] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach
+- [ ] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model
+
+## Phase Details
+
+### Phase 29: Diagnosis
+**Goal**: Operators can identify which pipeline stage caused the live accuracy collapse and have a documented, reproducible trace before any fix is applied
+**Depends on**: Phase 28
+**Requirements**: DIAG-01, DIAG-02
+**Success Criteria** (what must be TRUE):
+  1. Operator can run a CLI command or test sequence that surfaces which stage (ingestion, features, labels, model, serving) produced incorrect predictions
+  2. A written root-cause document exists that identifies the specific bug, includes a reproducible repro trace, and was committed before any fix code was merged
+  3. The diagnosed stage is confirmed by comparing pipeline outputs at each boundary (raw data → feature values → label distribution → model probabilities → served predictions)
+**Plans**: 2 plans
+Plans:
+- [ ] 29-01-PLAN.md — Create diagnostic test scaffold (pipeline stage trace + ROOT_CAUSE.md structural tests)
+- [ ] 29-02-PLAN.md — Write ROOT_CAUSE.md and confirm full diagnostic suite passes
+
+### Phase 30: Fix & Reset
+**Goal**: The root cause of live accuracy ~1% is fixed in code, a clean reset procedure is available via CLI, and a retrained model achieves directional accuracy above random baseline
+**Depends on**: Phase 29
+**Requirements**: FIXR-01, FIXR-02, FIXR-03
+**Success Criteria** (what must be TRUE):
+  1. The specific code defect identified in Phase 29 is corrected and covered by a deterministic automated test that would have caught the regression
+  2. Operator can run documented CLI command(s) to delete data/, models/, and autonomous.db and reach a clean-slate state without manual file manipulation
+  3. After reset + retrain, realized directional accuracy on predictions that have passed the horizon exceeds 33% (random baseline for 3-class up/down/flat)
+  4. The fix and reset procedure are verified by automated tests that run as part of the existing test suite
+**Plans**: TBD
+
+### Phase 31: Accuracy Guardrail
+**Goal**: The monitor agent alerts operators when realized directional accuracy falls below a configurable threshold, preventing silent accuracy collapse from going undetected
+**Depends on**: Phase 30
+**Requirements**: FIXR-04
+**Success Criteria** (what must be TRUE):
+  1. Monitor agent emits a structured alert when realized accuracy on the rolling window of realized predictions drops below the configured threshold (default: 40%)
+  2. The accuracy threshold is configurable via the existing config YAML without code changes
+  3. The guardrail fires under simulated low-accuracy conditions in an automated test (not only in live operation)
+  4. Alert includes the observed accuracy value, the threshold, and the number of realized predictions used in the calculation
+**Plans**: TBD
+
+### Phase 32: CLI Decomposition
+**Goal**: cli.py is split into focused command-group modules with no behavioral change, eliminating the 1802+ line monolith and satisfying the deferred DEBT-01 obligation
+**Depends on**: Phase 28
+**Requirements**: DEBT-01
+**Success Criteria** (what must be TRUE):
+  1. cli.py is reduced to a thin entry point (registration only); all 9 command groups live in dedicated sub-modules
+  2. Every existing CLI command (`bitbat --help` surface) continues to work identically — no command names, flags, or output formats changed
+  3. The ruff C901 complexity gate passes on all new modules without noqa suppressions
+  4. Existing CLI tests pass without modification
+**Plans**: TBD
+
+### Phase 33: Path Centralization
+**Goal**: All 15+ hardcoded Path("models") and Path("metrics") occurrences are replaced with a single config-driven resolution point, so operators can relocate artifacts by changing one config value
+**Depends on**: Phase 28
+**Requirements**: DEBT-02
+**Success Criteria** (what must be TRUE):
+  1. A single canonical path-resolution helper exists (e.g., config.paths.models_dir, config.paths.metrics_dir) and all modules use it
+  2. No remaining literal Path("models") or Path("metrics") strings exist in src/ (verified by a structural grep test or linter rule)
+  3. Changing the paths in config YAML redirects all artifact reads and writes without code changes
+  4. Existing tests pass and the smoke test still produces artifacts in the expected location
+**Plans**: TBD
+
+### Phase 34: DB Unification
+**Goal**: All database access uses a single consistent approach — eliminating the split between SQLAlchemy ORM and raw sqlite3 — so the codebase has one query pattern, one connection lifecycle, and one schema migration path
+**Depends on**: Phase 28
+**Requirements**: DEBT-03
+**Success Criteria** (what must be TRUE):
+  1. A single DB access layer is chosen and all modules use it; the other approach has zero remaining call sites in src/
+  2. The autonomous.db schema is preserved — no data migration required for existing databases
+  3. All autonomous monitor tests pass; no behavioral change is observable from the CLI or API
+  4. Connection lifecycle (open, close, error handling) is consistent across all DB call sites
+**Plans**: TBD
+
+### Phase 35: XGBoost Fix
+**Goal**: The XGBoost model uses a classification objective (multi:softprob) instead of the regression objective (reg:squarederror), eliminating the mismatch between training objective and prediction use case
+**Depends on**: Phase 30
+**Requirements**: DEBT-04
+**Success Criteria** (what must be TRUE):
+  1. The XGBoost objective is set to multi:softprob (or equivalent) in training config and confirmed by inspecting the saved model artifact
+  2. Model outputs are valid class probabilities (sum to 1.0 per row, values in [0,1]) verified by an automated test
+  3. Existing model training, inference, and evaluation tests pass with the new objective
+  4. After retrain with the corrected objective, walk-forward CV PR-AUC meets the existing 0.7 guardrail threshold
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -31,3 +124,10 @@
 | 26. Architecture Targeted Fixes | v1.5 | 2/2 | Complete | 2026-03-07 |
 | 27. Verification & Guardrail Hardening | v1.5 | 1/1 | Complete | 2026-03-07 |
 | 28. Activate Fold-Aware OBV | v1.5 | 1/1 | Complete | 2026-03-08 |
+| 29. Diagnosis | 1/2 | In Progress|  | - |
+| 30. Fix & Reset | v1.6 | 0/TBD | Not started | - |
+| 31. Accuracy Guardrail | v1.6 | 0/TBD | Not started | - |
+| 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
+| 33. Path Centralization | v1.6 | 0/TBD | Not started | - |
+| 34. DB Unification | v1.6 | 0/TBD | Not started | - |
+| 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
