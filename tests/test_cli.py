@@ -2622,3 +2622,59 @@ def test_cli_monitor_status_and_snapshots_schema_error_message(
         assert "directional_accuracy" in message
         assert "--audit" in message
         assert "--upgrade" in message
+
+
+def test_system_reset_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """system reset --yes deletes data/ and models/ directories."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "dummy.txt").write_text("x")
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "xgb.json").write_text("{}")
+
+    from click.testing import CliRunner
+
+    from bitbat.cli import _cli
+
+    runner = CliRunner()
+    result = runner.invoke(_cli, ["system", "reset", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert not (tmp_path / "data").exists()
+    assert not (tmp_path / "models").exists()
+    assert "Reset complete" in result.output
+
+
+def test_system_reset_prompts_without_yes_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """system reset without --yes prompts for confirmation; 'n' aborts without deleting."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "dummy.txt").write_text("x")
+    (tmp_path / "models").mkdir()
+
+    from click.testing import CliRunner
+
+    from bitbat.cli import _cli
+
+    runner = CliRunner()
+    result = runner.invoke(_cli, ["system", "reset"], input="n\n")
+    assert (
+        result.exit_code != 0
+    ), f"Expected non-zero exit on abort, got {result.exit_code}. Output: {result.output}"
+    assert (tmp_path / "data").exists(), "data/ should NOT be deleted after 'n' response"
+    assert (tmp_path / "models").exists(), "models/ should NOT be deleted after 'n' response"
+
+
+def test_system_reset_handles_missing_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """system reset --yes on clean state outputs 'Nothing to delete'."""
+    monkeypatch.chdir(tmp_path)
+
+    from click.testing import CliRunner
+
+    from bitbat.cli import _cli
+
+    runner = CliRunner()
+    result = runner.invoke(_cli, ["system", "reset", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "Nothing to delete" in result.output
