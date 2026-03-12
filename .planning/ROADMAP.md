@@ -22,7 +22,7 @@
 
 </details>
 
-### v1.6 Accuracy Recovery & Technical Debt Remediation (Execution Complete)
+### v1.6 Accuracy Recovery & Technical Debt Remediation (Gap Closure In Progress)
 
 **Milestone Goal:** Diagnose and fix the live prediction accuracy collapse (~1%), restore the pipeline to a working state with clean reset + retrain, add an accuracy collapse guardrail to the monitor, and eliminate the four deferred tech debt items.
 
@@ -33,6 +33,8 @@
 - [x] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution (completed 2026-03-12)
 - [x] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach (completed 2026-03-12)
 - [x] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model (completed 2026-03-12)
+- [ ] **Phase 36: Live Recovery Evidence Closure** — Capture formal post-reset/post-retrain evidence that the recovered pipeline exceeds the realized-accuracy baseline and closes FIXR-03
+- [ ] **Phase 37: CLI Decomposition Re-Verification** — Reconcile the stale Phase 32 verification artifact and close DEBT-01 with a passed verification record
 
 ## Phase Details
 
@@ -135,6 +137,30 @@ Plans:
 - [x] 35-01-PLAN.md — Make walk-forward and optimizer classification-aware for label targets while preserving regression fallback
 - [x] 35-02-PLAN.md — Wire CLI CV/optimization to labels and surface PR-AUC-aware summaries
 
+### Phase 36: Live Recovery Evidence Closure
+**Goal**: The operator reset + retrain path is verified end-to-end on fresh runtime data, and the recovered system records realized directional accuracy above the random baseline with formal saved verification evidence
+**Depends on**: Phase 35
+**Requirements**: FIXR-03
+**Gap Closure**: Closes the Phase 30 verification deferral, the 30→31 integration gap, and the broken operator recovery flow identified in the v1.6 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. A documented reset + retrain procedure is executed against fresh runtime state, not stale pre-fix `autonomous.db` data
+  2. Saved verification evidence shows realized directional accuracy above 33% on fresh post-reset predictions
+  3. Phase 30 or the new closure phase has a passed verification artifact that formally closes the deferred FIXR-03 checkpoint
+  4. The operator recovery flow (`system reset` → retrain → realized outcomes → diagnosis accuracy check) is reproducible from the repo documentation
+**Plans**: TBD
+
+### Phase 37: CLI Decomposition Re-Verification
+**Goal**: The CLI decomposition is formally re-verified so the saved verification evidence matches the now-green code/test surface and DEBT-01 is audit-clean
+**Depends on**: Phase 36
+**Requirements**: DEBT-01
+**Gap Closure**: Closes the stale Phase 32 verification gap and the broken milestone archive flow identified in the v1.6 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. The original Phase 32 monkeypatch-target failure is rechecked against the current codebase and fixed if still present
+  2. CLI regression evidence is rerun and saved in a passed verification artifact
+  3. DEBT-01 is supported by matching SUMMARY, VERIFICATION, and REQUIREMENTS traceability records
+  4. Milestone archive evidence no longer depends on inference from later phases to claim CLI decomposition is complete
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -151,3 +177,5 @@ Plans:
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
 | 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
 | 35. XGBoost Fix | v1.6 | 2/2 | Complete | 2026-03-12 |
+| 36. Live Recovery Evidence Closure | v1.6 | 0/TBD | Not started | - |
+| 37. CLI Decomposition Re-Verification | v1.6 | 0/TBD | Not started | - |

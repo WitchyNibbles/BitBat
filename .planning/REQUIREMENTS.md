@@ -14,12 +14,12 @@
 
 - [x] **FIXR-01**: Root cause of live accuracy ~1% is fixed in code
 - [x] **FIXR-02**: A clean reset procedure (data/ + models/ + autonomous.db) is executable via CLI command(s) and documented
-- [x] **FIXR-03**: After reset + retrain, live directional accuracy on realized predictions exceeds random baseline (>33%)
+- [ ] **FIXR-03**: After reset + retrain, live directional accuracy on realized predictions exceeds random baseline (>33%)
 - [x] **FIXR-04**: Monitor agent alerts when realized accuracy falls below a configurable threshold (default: 40%)
 
 ### Tech Debt
 
-- [x] **DEBT-01**: cli.py monolith decomposed — 53 functions and 1802+ lines split into focused modules with no behavioral change
+- [ ] **DEBT-01**: cli.py monolith decomposed — 53 functions and 1802+ lines split into focused modules with no behavioral change
 - [x] **DEBT-02**: Hardcoded `Path("models")` / `Path("metrics")` centralized — all 15+ occurrences replaced with config-driven path resolution
 - [x] **DEBT-03**: Dual DB access unified — SQLAlchemy ORM + raw sqlite3 consolidated into a single consistent approach
 - [x] **DEBT-04**: XGBoost objective mismatch fixed — `reg:squarederror` replaced with `multi:softprob` (or equivalent classification objective), model retrained
@@ -48,9 +48,9 @@
 | DIAG-02 | Phase 29 | Complete |
 | FIXR-01 | Phase 30 | Complete |
 | FIXR-02 | Phase 30 | Complete |
-| FIXR-03 | Phase 30 | Complete |
+| FIXR-03 | Phase 36 | Pending |
 | FIXR-04 | Phase 31 | Complete |
-| DEBT-01 | Phase 32 | Complete |
+| DEBT-01 | Phase 37 | Pending |
 | DEBT-02 | Phase 33 | Complete |
 | DEBT-03 | Phase 34 | Complete |
 | DEBT-04 | Phase 35 | Complete |
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-03-08*
-*Last updated: 2026-03-12 — DEBT-02/03/04 completed through Phases 33-35*
+*Last updated: 2026-03-12 — FIXR-03 and DEBT-01 reset to pending for gap-closure Phases 36-37*

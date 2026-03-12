@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T16:47:26Z"
+last_updated: "2026-03-12T17:05:00Z"
 progress:
-  total_phases: 25
+  total_phases: 27
   completed_phases: 25
   total_plans: 68
   completed_plans: 68
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 closeout after Phase 35 completion
+**Current focus:** Milestone v1.6 gap closure — Phase 36 planning
 
 ## Current Position
 
-Phase: 35 of 35 (XGBoost Fix — COMPLETE)
-Plan: 35-02 complete; Phase 35 done
-Status: Phase 35 Complete — XGBoost evaluation/selection now uses classification objectives for label targets, CLI model selection is label-driven, and DEBT-04 is satisfied
-Last activity: 2026-03-12 — Phase 35 complete: walk-forward, optimizer, and CLI CV/optimization paths aligned with the saved classification objective; targeted verification passed
+Phase: 36 of 37 (Live Recovery Evidence Closure — PENDING)
+Plan: not started
+Status: Milestone reopened for audit gap closure — FIXR-03 and DEBT-01 now route through Phases 36 and 37
+Last activity: 2026-03-12 — milestone audit found two blockers; gap-closure phases 36 and 37 added to roadmap
 
-Progress: [██████████] 100% (68/68 plans complete)
+Progress: [█████████░] 68 completed plans, 2 new gap-closure phases pending planning
 
 ## Performance Metrics
 
@@ -100,6 +100,7 @@ Progress: [██████████] 100% (68/68 plans complete)
 - 34-03: Deployed retraining success and failure paths finalize through `finalize_retraining_success()` / `finalize_retraining_failure()` atomic DB helpers.
 - 35-01: Walk-forward and optimizer paths infer classification mode from label targets, emit PR-AUC/log-loss evidence, and preserve regression fallback for numeric fixtures.
 - 35-02: CLI `model cv` / `model optimize` now use `label` for the XGBoost path, report PR-AUC-aware summaries, and keep compatibility fields like RMSE/best_score.
+- 36/37 planning: audit blockers are addressed with focused closure phases rather than reopening the completed implementation phases directly.
 
 ### Pending Todos
 
@@ -113,11 +114,11 @@ Progress: [██████████] 100% (68/68 plans complete)
 - After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed"). DONE in 30-02.
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
 - Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
-- All planned v1.6 phases are now executed; milestone closeout/audit is the next workflow step.
-- Phase 35 verification locks the walk-forward PR-AUC guardrail on deterministic labeled data, but the operator reset/retrain flow from Phases 30-31 remains the live-runtime validation path.
+- FIXR-03 remains blocked on formal post-reset runtime evidence from fresh predictions.
+- DEBT-01 remains blocked on a passed verification artifact that reconciles Phase 32 with the later green CLI surface.
 
 ## Session Continuity
 
-Last session: 2026-03-12T16:47:26Z
-Stopped at: Phase 35 complete
-Resume with: Run milestone closeout/audit (`$gsd-complete-milestone` or `$gsd-audit-milestone`)
+Last session: 2026-03-12T17:05:00Z
+Stopped at: Gap-closure phases 36 and 37 added
+Resume with: `$gsd-plan-phase 36`
