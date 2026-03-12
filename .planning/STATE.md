@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T16:20:00Z"
+last_updated: "2026-03-12T15:56:19Z"
 progress:
-  total_phases: 24
+  total_phases: 25
   completed_phases: 24
-  total_plans: 63
+  total_plans: 66
   completed_plans: 63
 ---
 
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 33 of 35 (Path Centralization — COMPLETE)
-Plan: 33-02 complete; Phase 33 done
-Status: Phase 33 Complete — all artifact path consumers now resolve models/metrics directories through config helpers; DEBT-02 satisfied
-Last activity: 2026-03-12 — 33-02 complete: all hardcoded Path(\"models\") / Path(\"metrics\") literals removed from src/; structural tests green; phase verification passed
+Phase: 34 of 35 (DB Unification — PLANNED)
+Plan: Planning complete; 34-01 ready to execute
+Status: Phase 34 Planned — 3-wave DB unification plan is ready, with research completed and execution sequenced from DB-layer foundation to API migration to GUI/transaction cleanup
+Last activity: 2026-03-12 — Phase 34 planned: research completed and plans 34-01 through 34-03 written
 
-Progress: [██████████] 100% (63/63 plans complete)
+Progress: [█████████░] 95% (63/66 plans complete)
 
 ## Performance Metrics
 
@@ -94,6 +94,10 @@ Progress: [██████████] 100% (63/63 plans complete)
 - 33-01: Structural grep tests for Path("models") and Path("metrics") are intentionally introduced before the sweep and stay red until Plan 33-02 removes all remaining literals.
 - 33-02: All src/ artifact path consumers now use resolve_models_dir() / resolve_metrics_dir(); no Path("models") or Path("metrics") literals remain in src/.
 - 33-02: Functions with artifact directory defaults must resolve lazily at runtime rather than baking hardcoded Path defaults at definition time.
+- 34-01 planning: Standardize on the existing SQLAlchemy-backed AutonomousDB layer as the single runtime DB access path; remaining raw sqlite3 runtime call sites are confined to system API routes and Streamlit helpers.
+- 34-01 planning: Existing autonomous.db files and schema must keep working unchanged; no migration is part of Phase 34.
+- 34-02 planning: System API routes fail fast on DB errors with a short standardized message plus one hint line; no degraded read payloads.
+- 34-03 planning: Transient lock handling gets brief retry with explicit circuit-breaker-open messaging, and retraining/model activation bookkeeping moves into smaller atomic DB transactions with no best-effort partial persistence.
 
 ### Pending Todos
 
@@ -107,11 +111,11 @@ Progress: [██████████] 100% (63/63 plans complete)
 - After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed"). DONE in 30-02.
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
 - Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
-- Phase 33 is complete. Phase 34 (DB Unification) is the next planned milestone step.
-- Phase 34 context is gathered: fail-fast DB behavior, short standardized diagnostics, removal of raw sqlite fallbacks, and smaller atomic transactions are locked for planning.
+- Phase 34 is planned in 3 waves; raw sqlite3 runtime call sites still remain in `src/bitbat/api/routes/system.py`, `src/bitbat/gui/widgets.py`, and `src/bitbat/gui/timeline.py` until execution.
+- Phase 34 execution must preserve autonomous.db backward compatibility while removing runtime raw sqlite3 usage and consolidating DB state transitions.
 
 ## Session Continuity
 
-Last session: 2026-03-12T16:20:00Z
-Stopped at: Phase 34 context gathered
-Resume with: Plan Phase 34 using .planning/phases/34-db-unification/34-CONTEXT.md
+Last session: 2026-03-12T15:56:19Z
+Stopped at: Phase 34 planned
+Resume with: Execute Phase 34 starting from .planning/phases/34-db-unification/34-01-PLAN.md

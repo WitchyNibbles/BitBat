@@ -115,7 +115,11 @@ Plans:
   2. The autonomous.db schema is preserved — no data migration required for existing databases
   3. All autonomous monitor tests pass; no behavioral change is observable from the CLI or API
   4. Connection lifecycle (open, close, error handling) is consistent across all DB call sites
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 34-01-PLAN.md — Establish AutonomousDB read facade, transient-lock retry/circuit-breaker, and atomic write helpers
+- [ ] 34-02-PLAN.md — Migrate `/system` API routes to AutonomousDB and add fail-fast API coverage
+- [ ] 34-03-PLAN.md — Migrate Streamlit DB helpers, unify retraining transactions, and add a structural no-sqlite3 gate
 
 ### Phase 35: XGBoost Fix
 **Goal**: The XGBoost model uses a classification objective (multi:softprob) instead of the regression objective (reg:squarederror), eliminating the mismatch between training objective and prediction use case
@@ -142,5 +146,5 @@ Plans:
 | 31. Accuracy Guardrail | 1/1 | Complete    | 2026-03-08 | - |
 | 32. CLI Decomposition | 3/3 | Complete    | 2026-03-12 | - |
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
-| 34. DB Unification | v1.6 | 0/TBD | Not started | - |
+| 34. DB Unification | v1.6 | 0/3 | Planned | - |
 | 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
