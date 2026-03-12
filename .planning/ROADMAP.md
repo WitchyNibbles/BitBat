@@ -162,7 +162,9 @@ Plans:
   2. CLI regression evidence is rerun and saved in a passed verification artifact
   3. DEBT-01 is supported by matching SUMMARY, VERIFICATION, and REQUIREMENTS traceability records
   4. Milestone archive evidence no longer depends on inference from later phases to claim CLI decomposition is complete
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 37-01-PLAN.md — Re-run CLI regression evidence, rewrite the stale Phase 32 verification artifact, and close DEBT-01 traceability
 
 ## Progress
 
@@ -181,4 +183,4 @@ Plans:
 | 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
 | 35. XGBoost Fix | v1.6 | 2/2 | Complete | 2026-03-12 |
 | 36. Live Recovery Evidence Closure | v1.6 | 2/2 | Complete | 2026-03-12 |
-| 37. CLI Decomposition Re-Verification | v1.6 | 0/TBD | Not started | - |
+| 37. CLI Decomposition Re-Verification | v1.6 | 0/1 | Planned | - |

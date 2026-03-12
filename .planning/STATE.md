@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T19:15:00Z"
+last_updated: "2026-03-12T19:35:00Z"
 progress:
   total_phases: 27
   completed_phases: 26
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 gap closure — Phase 37 planning
+**Current focus:** Milestone v1.6 gap closure — Phase 37 execution
 
 ## Current Position
 
-Phase: 37 of 37 (CLI Decomposition Re-Verification — PENDING)
-Plan: not started
+Phase: 37 of 37 (CLI Decomposition Re-Verification — PLANNED)
+Plan: 37-01 in progress
 Status: Milestone reopened for audit gap closure — FIXR-03 and DEBT-01 now route through Phases 36 and 37
-Last activity: 2026-03-12 — Phase 36 completed with fresh sandbox recovery evidence (`239/300`, 79.67%)
+Last activity: 2026-03-12 — Phase 37 planned to replace the stale Phase 32 verification artifact with current passing evidence
 
-Progress: [█████████░] 70 completed plans, Phase 37 remains to close DEBT-01
+Progress: [█████████░] 70 completed plans, 1 remaining gap-closure plan active
 
 ## Performance Metrics
 
@@ -105,6 +105,7 @@ Progress: [█████████░] 70 completed plans, Phase 37 remains 
 - 36-01 planning: `model train` must honor configured `models_dir` for the reset + retrain flow to be reproducible under sandbox configs.
 - 36-01: diagnosis tests auto-provision sandbox recovery evidence unless BITBAT_CONFIG is set explicitly.
 - 36-02: fresh recovery evidence recorded on sandbox config `/tmp/bitbat-phase36-93srjn/recovery.yaml`: `239/300` correct (`0.7967`), `flat=283`, `down=15`, `up=2`, `zero_return_count=1`.
+- 37-01 planning: current code already has the corrected `bitbat.cli.commands.features.build_xy` monkeypatch targets; the remaining blocker is stale saved verification evidence.
 
 ### Pending Todos
 
@@ -124,5 +125,5 @@ Progress: [█████████░] 70 completed plans, Phase 37 remains 
 ## Session Continuity
 
 Last session: 2026-03-12T19:15:00Z
-Stopped at: Phase 36 complete
-Resume with: `$gsd-plan-phase 37`
+Stopped at: Phase 37 planned
+Resume with: `$gsd-execute-phase 37`
