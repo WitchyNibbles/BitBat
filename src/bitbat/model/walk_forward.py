@@ -15,7 +15,15 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat.dataset.splits import Fold
-from bitbat.model.evaluate import build_candidate_report, window_diagnostics
+from bitbat.model.evaluate import (
+    build_candidate_report,
+    classification_probability_metrics,
+    window_diagnostics,
+)
+from bitbat.model.train import DIRECTION_CLASSES
+
+INT_TO_DIRECTION = {value: key for key, value in DIRECTION_CLASSES.items()}
+CLASS_TO_SIGNAL = {"up": 1.0, "down": -1.0, "flat": 0.0}
 
 
 @dataclass
@@ -38,6 +46,9 @@ class FoldResult:
     gross_return: float = 0.0
     window_metadata: dict[str, Any] = field(default_factory=dict)
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    pr_auc: float | None = None
+    logloss: float | None = None
+    objective_mode: str = "regression"
 
 
 @dataclass
@@ -88,6 +99,13 @@ class WalkForwardResult:
             "fold_windows": [f.window_metadata for f in self.fold_results],
             "fold_diagnostics": [f.diagnostics for f in self.fold_results],
         }
+        if any(f.pr_auc is not None for f in self.fold_results):
+            pr_aucs = [float(f.pr_auc) for f in self.fold_results if f.pr_auc is not None]
+            loglosses = [float(f.logloss) for f in self.fold_results if f.logloss is not None]
+            result["mean_pr_auc"] = round(float(np.mean(pr_aucs)), 6) if pr_aucs else 0.0
+            result["fold_pr_aucs"] = [round(float(value), 6) for value in pr_aucs]
+            result["mean_logloss"] = round(float(np.mean(loglosses)), 6) if loglosses else 0.0
+            result["objective_mode"] = "classification"
         if any(f.net_sharpe != 0.0 or f.total_costs != 0.0 for f in self.fold_results):
             result["mean_net_sharpe"] = round(
                 float(np.mean([f.net_sharpe for f in self.fold_results])), 4
@@ -168,7 +186,7 @@ class WalkForwardValidator:
         slippage_bps: float | None = None,
     ) -> None:
         self.X = X.astype(float)
-        self.y = y.astype("float64")
+        self.y = y.copy()
         self.folds = folds
         self.xgb_params = xgb_params or {}
         self.num_boost_round = num_boost_round
@@ -176,6 +194,12 @@ class WalkForwardValidator:
         self.cost_bps = cost_bps
         self.fee_bps = fee_bps
         self.slippage_bps = slippage_bps
+
+    @staticmethod
+    def _is_classification_target(y: pd.Series) -> bool:
+        allowed = set(DIRECTION_CLASSES)
+        values = {str(value) for value in y.dropna().unique()}
+        return bool(values) and values.issubset(allowed)
 
     def _cost_metrics(
         self, test_index: pd.Index, predicted_returns: np.ndarray
@@ -243,40 +267,84 @@ class WalkForwardValidator:
                 continue
 
             X_tr = self.X.loc[train_mask]
-            y_tr = self.y[train_mask].to_numpy()
+            y_tr = self.y[train_mask]
             X_te = self.X.loc[test_mask]
-            y_te = self.y[test_mask].to_numpy()
+            y_te = self.y[test_mask]
+            classification_mode = self._is_classification_target(y_tr)
 
-            dtrain = xgb.DMatrix(X_tr, label=y_tr, feature_names=list(self.X.columns))
-            dtest = xgb.DMatrix(X_te, label=y_te, feature_names=list(self.X.columns))
-
-            params = {
-                "objective": "reg:squarederror",
-                "eval_metric": "rmse",
-                **self.xgb_params,
-            }
+            if classification_mode:
+                y_tr_labels = y_tr.astype(str)
+                y_te_labels = y_te.astype(str)
+                y_tr_values = y_tr_labels.map(DIRECTION_CLASSES).astype(int).to_numpy()
+                y_te_values = y_te_labels.map(DIRECTION_CLASSES).astype(int).to_numpy()
+                dtrain = xgb.DMatrix(X_tr, label=y_tr_values, feature_names=list(self.X.columns))
+                dtest = xgb.DMatrix(X_te, label=y_te_values, feature_names=list(self.X.columns))
+                params = {
+                    "objective": "multi:softprob",
+                    "num_class": len(DIRECTION_CLASSES),
+                    "eval_metric": "mlogloss",
+                    **self.xgb_params,
+                }
+            else:
+                y_tr_values = y_tr.astype("float64").to_numpy()
+                y_te_values = y_te.astype("float64").to_numpy()
+                dtrain = xgb.DMatrix(X_tr, label=y_tr_values, feature_names=list(self.X.columns))
+                dtest = xgb.DMatrix(X_te, label=y_te_values, feature_names=list(self.X.columns))
+                params = {
+                    "objective": "reg:squarederror",
+                    "eval_metric": "rmse",
+                    **self.xgb_params,
+                }
 
             booster = xgb.train(
                 params, dtrain, num_boost_round=self.num_boost_round, verbose_eval=False
             )
-            predicted = booster.predict(dtest)
-
-            # RMSE
-            residuals = y_te - predicted
-            rmse = float(np.sqrt(np.mean(residuals**2)))
-
-            # MAE
-            mae = float(np.mean(np.abs(residuals)))
-
-            # Directional accuracy
-            sign_match = np.sign(y_te) == np.sign(predicted)
-            directional_accuracy = float(np.mean(sign_match))
-
-            # Build predictions DataFrame
-            preds_df = pd.DataFrame({
-                "predicted": predicted,
-                "actual": y_te,
-            })
+            pr_auc: float | None = None
+            logloss: float | None = None
+            if classification_mode:
+                probabilities = np.asarray(booster.predict(dtest), dtype="float64")
+                predicted_idx = np.argmax(probabilities, axis=1)
+                predicted_directions = np.asarray(
+                    [INT_TO_DIRECTION[int(idx)] for idx in predicted_idx],
+                    dtype=object,
+                )
+                actual_directions = y_te_labels.to_numpy(dtype=object)
+                predicted = (
+                    probabilities[:, DIRECTION_CLASSES["up"]]
+                    - probabilities[:, DIRECTION_CLASSES["down"]]
+                )
+                actual = np.asarray(
+                    [CLASS_TO_SIGNAL[str(label)] for label in actual_directions],
+                    dtype="float64",
+                )
+                residuals = actual - predicted
+                rmse = float(np.sqrt(np.mean(residuals**2)))
+                mae = float(np.mean(np.abs(residuals)))
+                cls_metrics = classification_probability_metrics(actual_directions, probabilities)
+                directional_accuracy = float(cls_metrics["directional_accuracy"])
+                pr_auc = float(cls_metrics["pr_auc"])
+                logloss = float(cls_metrics["mlogloss"])
+                preds_df = pd.DataFrame({
+                    "predicted": predicted,
+                    "actual": actual,
+                    "p_up": probabilities[:, DIRECTION_CLASSES["up"]],
+                    "p_down": probabilities[:, DIRECTION_CLASSES["down"]],
+                    "p_flat": probabilities[:, DIRECTION_CLASSES["flat"]],
+                    "predicted_direction": predicted_directions,
+                    "actual_direction": actual_directions,
+                })
+            else:
+                predicted = np.asarray(booster.predict(dtest), dtype="float64")
+                actual = y_te_values
+                residuals = actual - predicted
+                rmse = float(np.sqrt(np.mean(residuals**2)))
+                mae = float(np.mean(np.abs(residuals)))
+                sign_match = np.sign(actual) == np.sign(predicted)
+                directional_accuracy = float(np.mean(sign_match))
+                preds_df = pd.DataFrame({
+                    "predicted": predicted,
+                    "actual": actual,
+                })
 
             # Cost-adjusted metrics
             (
@@ -297,7 +365,7 @@ class WalkForwardValidator:
                 "purge_bars": int(getattr(fold, "purge_bars", 0)),
             }
             diagnostics = window_diagnostics(
-                y_te,
+                actual,
                 predicted,
                 window_id=f"fold-{i + 1}",
                 family=str(self.xgb_params.get("family", "xgb")),
@@ -321,6 +389,9 @@ class WalkForwardValidator:
                     gross_return=gross_return,
                     window_metadata=window_metadata,
                     diagnostics=diagnostics,
+                    pr_auc=pr_auc,
+                    logloss=logloss,
+                    objective_mode="classification" if classification_mode else "regression",
                 )
             )
 

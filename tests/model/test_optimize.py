@@ -239,3 +239,55 @@ class TestEdgeCases:
         res = opt.optimize(n_trials=3, timeout=30)
         assert res.best_score > 0
         assert res.n_trials == 3
+
+
+def test_optimizer_uses_softprob_for_label_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    import xgboost as xgb
+
+    rng = np.random.default_rng(2025)
+    idx = pd.date_range("2024-01-01", periods=120, freq="1h")
+    X = pd.DataFrame(
+        {"feat_a": rng.normal(size=len(idx)), "feat_b": rng.normal(size=len(idx))},
+        index=idx,
+    )
+    y = pd.Series(
+        np.where(X["feat_a"] > 0.5, "up", np.where(X["feat_a"] < -0.5, "down", "flat")),
+        index=idx,
+    )
+    folds = [Fold(train=idx[:80], test=idx[80:120])]
+
+    seen: list[dict[str, object]] = []
+    real_train = xgb.train
+
+    def _capture(params, *args, **kwargs):
+        seen.append(dict(params))
+        return real_train(params, *args, **kwargs)
+
+    monkeypatch.setattr("bitbat.model.optimize.xgb.train", _capture)
+
+    optimizer = HyperparamOptimizer(X, y, folds, seed=42)
+    optimizer.optimize(n_trials=1, timeout=30)
+
+    assert seen
+    assert seen[0]["objective"] == "multi:softprob"
+    assert seen[0]["num_class"] == 3
+
+
+def test_optimizer_summary_includes_pr_auc_for_label_targets() -> None:
+    rng = np.random.default_rng(909)
+    idx = pd.date_range("2024-01-01", periods=120, freq="1h")
+    X = pd.DataFrame(
+        {"feat_a": rng.normal(size=len(idx)), "feat_b": rng.normal(size=len(idx))},
+        index=idx,
+    )
+    y = pd.Series(
+        np.where(X["feat_a"] > 0.3, "up", np.where(X["feat_a"] < -0.3, "down", "flat")),
+        index=idx,
+    )
+    folds = [Fold(train=idx[:80], test=idx[80:120])]
+
+    summary = HyperparamOptimizer(X, y, folds, seed=11).optimize(n_trials=2, timeout=30).summary()
+
+    assert summary.get("objective_mode") == "classification"
+    assert "best_pr_auc" in summary
+    assert 0.0 <= float(summary["best_pr_auc"]) <= 1.0

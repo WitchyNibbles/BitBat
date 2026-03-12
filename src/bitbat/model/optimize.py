@@ -11,7 +11,11 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat.dataset.splits import Fold
-from bitbat.model.evaluate import compute_multiple_testing_safeguards
+from bitbat.model.evaluate import (
+    classification_probability_metrics,
+    compute_multiple_testing_safeguards,
+)
+from bitbat.model.train import DIRECTION_CLASSES
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +44,15 @@ class HyperparamOptimizer:
         seed: int = 42,
     ) -> None:
         self.X = X.astype(float)
-        self.y = y.astype("float64").to_numpy()
+        self.y = y.copy()
         self.folds = folds
         self.seed = seed
+
+    @staticmethod
+    def _is_classification_target(y: pd.Series) -> bool:
+        allowed = set(DIRECTION_CLASSES)
+        values = {str(value) for value in y.dropna().unique()}
+        return bool(values) and values.issubset(allowed)
 
     @staticmethod
     def _json_safe(value: Any) -> Any:
@@ -71,8 +81,8 @@ class HyperparamOptimizer:
             "num_boost_round": trial.suggest_int("num_boost_round", 20, 200),
         }
 
-    def _fold_rmse(self, params: dict[str, Any], fold: Fold, *, seed: int) -> float | None:
-        """Evaluate one fold and return RMSE, or None if fold has no train/test data."""
+    def _fold_score(self, params: dict[str, Any], fold: Fold, *, seed: int) -> float | None:
+        """Evaluate one fold and return a minimized score, or None if the fold is empty."""
         train_mask = self.X.index.isin(fold.train)
         test_mask = self.X.index.isin(fold.test)
 
@@ -83,19 +93,39 @@ class HyperparamOptimizer:
         y_tr = self.y[train_mask]
         X_te = self.X.loc[test_mask]
         y_te = self.y[test_mask]
+        classification_mode = self._is_classification_target(y_tr)
 
-        dtrain = xgb.DMatrix(X_tr, label=y_tr, feature_names=list(self.X.columns))
-        dtest = xgb.DMatrix(X_te, label=y_te, feature_names=list(self.X.columns))
+        if classification_mode:
+            y_tr_labels = y_tr.astype(str)
+            y_te_labels = y_te.astype(str)
+            y_tr_values = y_tr_labels.map(DIRECTION_CLASSES).astype(int).to_numpy()
+            y_te_values = y_te_labels.map(DIRECTION_CLASSES).astype(int).to_numpy()
+        else:
+            y_tr_values = y_tr.astype("float64").to_numpy()
+            y_te_values = y_te.astype("float64").to_numpy()
+
+        dtrain = xgb.DMatrix(X_tr, label=y_tr_values, feature_names=list(self.X.columns))
+        dtest = xgb.DMatrix(X_te, label=y_te_values, feature_names=list(self.X.columns))
 
         xgb_params = dict(params)
         num_rounds = int(xgb_params.pop("num_boost_round", 100))
-        full_params = {
-            "objective": "reg:squarederror",
-            "eval_metric": "rmse",
-            "seed": seed,
-            "nthread": 1,
-            **xgb_params,
-        }
+        if classification_mode:
+            full_params = {
+                "objective": "multi:softprob",
+                "num_class": len(DIRECTION_CLASSES),
+                "eval_metric": "mlogloss",
+                "seed": seed,
+                "nthread": 1,
+                **xgb_params,
+            }
+        else:
+            full_params = {
+                "objective": "reg:squarederror",
+                "eval_metric": "rmse",
+                "seed": seed,
+                "nthread": 1,
+                **xgb_params,
+            }
         booster = xgb.train(
             full_params,
             dtrain,
@@ -105,7 +135,10 @@ class HyperparamOptimizer:
         )
 
         preds = booster.predict(dtest)
-        return float(np.sqrt(np.mean((y_te - preds) ** 2)))
+        if classification_mode:
+            metrics = classification_probability_metrics(y_te_labels.to_numpy(dtype=object), preds)
+            return float(1.0 - metrics["pr_auc"])
+        return float(np.sqrt(np.mean((y_te_values - preds) ** 2)))
 
     def _cv_score(
         self,
@@ -114,14 +147,14 @@ class HyperparamOptimizer:
         folds: list[Fold] | None = None,
         seed: int | None = None,
     ) -> float:
-        """Run walk-forward CV with *params* and return mean RMSE."""
+        """Run walk-forward CV with *params* and return mean minimized score."""
         selected_folds = folds if folds is not None else self.folds
         resolved_seed = self.seed if seed is None else seed
         fold_scores: list[float] = []
         for fold in selected_folds:
-            rmse = self._fold_rmse(params, fold, seed=resolved_seed)
-            if rmse is not None:
-                fold_scores.append(rmse)
+            score = self._fold_score(params, fold, seed=resolved_seed)
+            if score is not None:
+                fold_scores.append(score)
         return float(np.mean(fold_scores)) if fold_scores else 999.0
 
     @staticmethod
@@ -180,6 +213,7 @@ class HyperparamOptimizer:
         best_study: optuna.Study | None = None
         best_outer_score = float("inf")
         outer_scores: list[float] = []
+        classification_mode = self._is_classification_target(self.y)
 
         for outer_idx, outer_fold in enumerate(self.folds):
             inner_folds = self.folds[:outer_idx]
@@ -216,6 +250,9 @@ class HyperparamOptimizer:
                 "selected_params": self._json_safe(selected_params),
                 "inner_best_score": round(float(study.best_trial.value), 6),
                 "outer_score": round(float(outer_score), 6),
+                "outer_pr_auc": round(float(1.0 - outer_score), 6)
+                if classification_mode
+                else None,
             })
             all_trial_history.append({
                 "outer_fold": outer_idx + 1,
@@ -241,11 +278,18 @@ class HyperparamOptimizer:
             )
 
         aggregate_score = float(np.mean(outer_scores)) if outer_scores else 999.0
-        logger.info(
-            "Nested optimization finished: aggregate outer RMSE=%.6f across %d folds",
-            aggregate_score,
-            len(outer_folds),
-        )
+        if classification_mode:
+            logger.info(
+                "Nested optimization finished: aggregate outer PR-AUC=%.6f across %d folds",
+                1.0 - aggregate_score,
+                len(outer_folds),
+            )
+        else:
+            logger.info(
+                "Nested optimization finished: aggregate outer RMSE=%.6f across %d folds",
+                aggregate_score,
+                len(outer_folds),
+            )
 
         search_space = {
             "eta": {"type": "float", "low": 0.01, "high": 0.3, "log": True},
@@ -269,6 +313,11 @@ class HyperparamOptimizer:
             "trial_history": all_trial_history,
             "best_trial_lineage": best_trial_lineage,
             "aggregate_outer_score": round(aggregate_score, 6),
+            "aggregate_outer_pr_auc": round(float(1.0 - aggregate_score), 6)
+            if classification_mode
+            else None,
+            "objective_mode": "classification" if classification_mode else "regression",
+            "score_metric": "1-pr_auc" if classification_mode else "rmse",
             # Keep deterministic outputs stable by not persisting runtime clock values.
             "wall_clock": {
                 "clock_captured": False,
@@ -292,6 +341,7 @@ class HyperparamOptimizer:
             outer_folds=outer_folds,
             provenance=provenance,
             safeguards=safeguards,
+            objective_mode="classification" if classification_mode else "regression",
         )
 
 
@@ -309,6 +359,7 @@ class OptimizationResult:
         outer_folds: list[dict[str, Any]] | None = None,
         provenance: dict[str, Any] | None = None,
         safeguards: dict[str, Any] | None = None,
+        objective_mode: str = "regression",
     ) -> None:
         self.best_params = best_params
         self.best_score = best_score
@@ -318,6 +369,7 @@ class OptimizationResult:
         self.outer_folds = list(outer_folds or [])
         self.provenance = dict(provenance or {})
         self.safeguards = dict(safeguards or {})
+        self.objective_mode = objective_mode
 
     def to_xgb_params(self) -> tuple[dict[str, Any], int]:
         """Return XGBoost-compatible params dict and num_boost_round separately.
@@ -336,6 +388,10 @@ class OptimizationResult:
             "best_score": round(self.best_score, 6),
             "n_trials": self.n_trials,
             "mode": self.mode,
+            "objective_mode": self.objective_mode,
+            "best_pr_auc": round(float(1.0 - self.best_score), 6)
+            if self.objective_mode == "classification"
+            else None,
             "outer_folds": self.outer_folds,
             "provenance": self.provenance,
             "safeguards": self.safeguards,

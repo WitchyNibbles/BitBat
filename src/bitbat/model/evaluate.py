@@ -9,6 +9,8 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import average_precision_score, log_loss
+from sklearn.preprocessing import label_binarize
 
 from bitbat.config.loader import resolve_metrics_dir
 
@@ -124,6 +126,45 @@ def regression_metrics(
         "r2": float(r2),
         "directional_accuracy": directional_accuracy,
         "correlation": correlation,
+        "n_samples": int(len(y_t)),
+    }
+
+
+def classification_probability_metrics(
+    y_true: pd.Series | np.ndarray,
+    probabilities: pd.DataFrame | np.ndarray,
+    *,
+    class_labels: tuple[str, ...] = ("up", "down", "flat"),
+) -> dict[str, Any]:
+    """Compute multiclass probability metrics for directional classification."""
+    y_t = np.asarray(y_true, dtype=object).astype(str)
+    probs = np.asarray(probabilities, dtype="float64")
+
+    if probs.ndim != 2 or probs.shape[1] != len(class_labels):
+        raise ValueError("probabilities must have shape (n_samples, n_classes)")
+    if len(y_t) != len(probs):
+        raise ValueError("y_true and probabilities must have the same sample count.")
+
+    label_to_index = {label: idx for idx, label in enumerate(class_labels)}
+    y_encoded = np.asarray([label_to_index[label] for label in y_t], dtype=int)
+    row_sums = probs.sum(axis=1, keepdims=True)
+    if np.any(row_sums <= 0.0):
+        raise ValueError("probabilities rows must have positive sums.")
+    normalized_probs = probs / row_sums
+    predicted_idx = np.argmax(probs, axis=1)
+    predicted_labels = np.asarray([class_labels[idx] for idx in predicted_idx], dtype=object)
+    y_true_bin = label_binarize(y_encoded, classes=list(range(len(class_labels))))
+
+    pr_auc = float(average_precision_score(y_true_bin, normalized_probs, average="macro"))
+    mlogloss = float(
+        log_loss(y_encoded, normalized_probs, labels=list(range(len(class_labels))))
+    )
+    directional_accuracy = float(np.mean(predicted_labels == y_t)) if y_t.size else 0.0
+
+    return {
+        "pr_auc": pr_auc,
+        "mlogloss": mlogloss,
+        "directional_accuracy": directional_accuracy,
         "n_samples": int(len(y_t)),
     }
 

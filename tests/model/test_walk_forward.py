@@ -195,3 +195,89 @@ def test_walk_forward_summary_includes_cost_fee_and_slippage_totals() -> None:
     assert "total_fee_costs" in result
     assert "total_slippage_costs" in result
     assert "mean_gross_return" in result
+
+
+def test_walk_forward_classification_mode_uses_softprob_objective(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import xgboost as xgb
+
+    rng = np.random.default_rng(123)
+    idx = pd.date_range("2024-01-01", periods=120, freq="1h")
+    X = pd.DataFrame(
+        {"feat_a": rng.normal(size=len(idx)), "feat_b": rng.normal(size=len(idx))},
+        index=idx,
+    )
+    y = pd.Series(
+        np.where(X["feat_a"] > 0.5, "up", np.where(X["feat_a"] < -0.5, "down", "flat")),
+        index=idx,
+    )
+    folds = [Fold(train=idx[:80], test=idx[80:120])]
+
+    seen: list[dict[str, object]] = []
+    real_train = xgb.train
+
+    def _capture(params, *args, **kwargs):
+        seen.append(dict(params))
+        return real_train(params, *args, **kwargs)
+
+    monkeypatch.setattr("bitbat.model.walk_forward.xgb.train", _capture)
+
+    result = WalkForwardValidator(X, y, folds, num_boost_round=5).run()
+
+    assert seen
+    assert seen[0]["objective"] == "multi:softprob"
+    assert seen[0]["num_class"] == 3
+    assert "mean_pr_auc" in result.summary()
+
+
+def test_walk_forward_classification_mode_emits_probability_predictions() -> None:
+    rng = np.random.default_rng(456)
+    idx = pd.date_range("2024-01-01", periods=120, freq="1h")
+    X = pd.DataFrame(
+        {"feat_a": rng.normal(size=len(idx)), "feat_b": rng.normal(size=len(idx))},
+        index=idx,
+    )
+    y = pd.Series(
+        np.where(X["feat_a"] > 0.4, "up", np.where(X["feat_a"] < -0.4, "down", "flat")),
+        index=idx,
+    )
+    folds = [Fold(train=idx[:80], test=idx[80:120])]
+
+    result = WalkForwardValidator(X, y, folds, num_boost_round=5).run()
+    predictions = result.all_predictions
+
+    assert {"p_up", "p_down", "p_flat", "predicted_direction", "actual_direction"}.issubset(
+        predictions.columns
+    )
+    assert np.allclose(
+        predictions.loc[:, ["p_up", "p_down", "p_flat"]].sum(axis=1).to_numpy(),
+        1.0,
+        atol=1e-5,
+    )
+    assert 0.0 <= float(result.summary()["mean_pr_auc"]) <= 1.0
+
+
+def test_walk_forward_classification_mode_meets_pr_auc_guardrail() -> None:
+    idx = pd.date_range("2024-01-01", periods=180, freq="1h")
+    signal = np.sin(np.linspace(0.0, 12.0 * np.pi, len(idx)))
+    X = pd.DataFrame(
+        {
+            "feat_signal": signal,
+            "feat_signal_sq": signal**2,
+        },
+        index=idx,
+    )
+    y = pd.Series(
+        np.where(signal > 0.35, "up", np.where(signal < -0.35, "down", "flat")),
+        index=idx,
+    )
+    folds = [
+        Fold(train=idx[:90], test=idx[90:135]),
+        Fold(train=idx[:135], test=idx[135:180]),
+    ]
+
+    summary = WalkForwardValidator(X, y, folds, num_boost_round=15).run().summary()
+
+    assert summary["objective_mode"] == "classification"
+    assert float(summary["mean_pr_auc"]) >= 0.7
