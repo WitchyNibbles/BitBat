@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: completed
-stopped_at: Completed 32-02-PLAN.md
-last_updated: "2026-03-12T09:25:16.592Z"
-last_activity: "2026-03-12 — 32-01 complete: cli.py → cli/ package skeleton; _helpers.py with 21 private helpers; 41 tests pass; lint-imports 1/0"
+stopped_at: Completed 32-03-PLAN.md
+last_updated: "2026-03-12T09:48:49.351Z"
+last_activity: "2026-03-12 — 32-02 complete: 8 command group modules in commands/; __init__.py reduced to model+monitor+wiring; bitbat --help all 10 groups present"
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 97
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 32 of 35 (CLI Decomposition — Plan 02 COMPLETE)
-Plan: 32-02 complete; 32-03 next
-Status: Phase 32 Plan 02 Complete — 8 simple command groups extracted to commands/ submodules; __init__.py -662 lines; all groups wired via add_command()
-Last activity: 2026-03-12 — 32-02 complete: 8 command group modules in commands/; __init__.py reduced to model+monitor+wiring; bitbat --help all 10 groups present
+Phase: 32 of 35 (CLI Decomposition — COMPLETE)
+Plan: 32-03 complete; Phase 32 done
+Status: Phase 32 Complete — all 10 command groups in dedicated files; cli/__init__.py is 83-line thin registration layer; zero noqa:C901 suppressions; DEBT-01 satisfied
+Last activity: 2026-03-12 — 32-03 complete: commands/model.py + commands/monitor.py; model_cv C901 refactored; all monkeypatch targets updated; full suite green
 
 Progress: [██████████] 97% (59/61 plans complete)
 
@@ -56,6 +56,7 @@ Progress: [██████████] 97% (59/61 plans complete)
 | Phase 31-accuracy-guardrail P01 | 3 | 2 tasks | 3 files |
 | Phase 32-cli-decomposition P01 | 20min | 3 tasks | 4 files |
 | Phase 32-cli-decomposition P02 | 16 | 3 tasks | 9 files |
+| Phase 32-cli-decomposition P03 | 25 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Progress: [██████████] 97% (59/61 plans complete)
 - 32-02: run_strategy, summarize_backtest kept as bitbat.cli re-exports from original module-level imports; monkeypatch targets updated in Plan 03.
 - 32-02: features_build monkeypatch failures (bitbat.cli.build_xy) follow same pattern as batch — deferred to Plan 03.
 - 32-02: 4 test failures are all monkeypatch targeting (tests patch bitbat.cli.* but commands hold direct refs in command modules); expected per plan.
+- 32-03: model_cv C901 refactored into 5 private helpers (_resolve_cv_embargo_purge, _resolve_cv_window_spec, _run_cv_folds, _build_family_metrics, _run_champion_selection) — zero noqa suppressions.
+- 32-03: CLI decomposition complete — all 10 command groups in dedicated commands/* modules; cli/__init__.py is 83-line thin registration layer; DEBT-01 satisfied.
+- 32-03: All monkeypatch targets in tests/test_cli.py updated to bitbat.cli.commands.* paths; inspect.getsource updated to commands.model.
 
 ### Pending Todos
 
@@ -105,6 +109,6 @@ Progress: [██████████] 97% (59/61 plans complete)
 
 ## Session Continuity
 
-Last session: 2026-03-12T09:25:16.589Z
-Stopped at: Completed 32-02-PLAN.md
+Last session: 2026-03-12T09:48:49.348Z
+Stopped at: Completed 32-03-PLAN.md
 Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse
