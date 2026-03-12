@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import desc
+from sqlalchemy import desc, inspect, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import (
@@ -178,6 +180,9 @@ class AutonomousDB:
             expire_on_commit=False,
             future=True,
         )
+        self._read_retry_attempts = 3
+        self._read_circuit_breaker_seconds = 5
+        self._circuit_open_until: datetime | None = None
 
     @contextmanager
     def session(self) -> Any:
@@ -191,6 +196,321 @@ class AutonomousDB:
             raise
         finally:
             session.close()
+
+    def _table_columns(self, table_name: str) -> set[str]:
+        with self.engine.connect() as connection:
+            inspector = inspect(connection)
+            if table_name not in set(inspector.get_table_names()):
+                return set()
+            return {str(column["name"]) for column in inspector.get_columns(table_name)}
+
+    def _first_available(self, columns: set[str], candidates: tuple[str, ...]) -> str | None:
+        for candidate in candidates:
+            if candidate in columns:
+                return candidate
+        return None
+
+    def _is_transient_lock_error(self, exc: Exception) -> bool:
+        return "database is locked" in str(exc).lower()
+
+    def _raise_circuit_open(self, step: str) -> MonitorDatabaseError:
+        raise MonitorDatabaseError(
+            step=step,
+            detail="Database temporarily unavailable. Circuit open after repeated lock retries.",
+            remediation=(
+                "Retry shortly. If the circuit stays open, check database availability and "
+                "current lock holders."
+            ),
+            error_class="CircuitOpen",
+            database_url=self.database_url,
+        )
+
+    def _run_retryable_read(
+        self,
+        *,
+        step: str,
+        operation: Callable[[], Any],
+    ) -> Any:
+        now = _utcnow()
+        if self._circuit_open_until is not None and now < self._circuit_open_until:
+            self._raise_circuit_open(step)
+
+        last_error: Exception | None = None
+        for _ in range(self._read_retry_attempts):
+            try:
+                result = operation()
+            except OperationalError as exc:
+                if not self._is_transient_lock_error(exc):
+                    raise
+                last_error = exc
+                continue
+            else:
+                self._circuit_open_until = None
+                return result
+
+        self._circuit_open_until = _utcnow() + timedelta(seconds=self._read_circuit_breaker_seconds)
+        detail = "Database temporarily unavailable. Circuit open after repeated lock retries."
+        if last_error is not None and not self._is_transient_lock_error(last_error):
+            detail = "Database temporarily unavailable."
+        raise MonitorDatabaseError(
+            step=step,
+            detail=detail,
+            remediation=(
+                "Retry shortly. If the circuit stays open, check database availability and "
+                "current lock holders."
+            ),
+            error_class=type(last_error).__name__ if last_error is not None else "RuntimeError",
+            database_url=self.database_url,
+        )
+
+    def _run_read(self, *, step: str, operation: Callable[[], Any]) -> Any:
+        try:
+            return self._run_retryable_read(step=step, operation=operation)
+        except MonitorDatabaseError:
+            raise
+        except Exception as exc:
+            if self._is_transient_lock_error(exc):
+                self._circuit_open_until = _utcnow() + timedelta(
+                    seconds=self._read_circuit_breaker_seconds
+                )
+                self._raise_circuit_open(step)
+            raise classify_monitor_db_error(
+                exc,
+                step=step,
+                database_url=self.database_url,
+                engine=self.engine,
+            ) from exc
+
+    def list_system_logs(self, *, limit: int, level: str | None = None) -> dict[str, Any]:
+        def _read() -> dict[str, Any]:
+            columns = self._table_columns("system_logs")
+            ts_col = self._first_available(columns, ("timestamp", "created_at"))
+            if ts_col is None:
+                return {"logs": [], "total": 0}
+
+            service_expr = "service" if "service" in columns else "NULL AS service"
+            count_sql = "SELECT COUNT(*) FROM system_logs"
+            count_params: dict[str, Any] = {}
+            if level is not None:
+                count_sql += " WHERE level = :level"
+                count_params["level"] = level.upper()
+
+            select_sql = (
+                f"SELECT {ts_col} AS timestamp, level, message, {service_expr} "  # noqa: S608
+                "FROM system_logs"
+            )
+            select_params: dict[str, Any] = {"limit": limit}
+            if level is not None:
+                select_sql += " WHERE level = :level"
+                select_params["level"] = level.upper()
+            select_sql += f" ORDER BY {ts_col} DESC LIMIT :limit"
+
+            with self.engine.connect() as connection:
+                total = int(connection.execute(text(count_sql), count_params).scalar_one())
+                rows = [
+                    dict(row)
+                    for row in connection.execute(text(select_sql), select_params).mappings().all()
+                ]
+            return {"logs": rows, "total": total}
+
+        return self._run_read(step="system.logs", operation=_read)
+
+    def list_retraining_events(self, *, limit: int) -> dict[str, Any]:
+        def _read() -> dict[str, Any]:
+            columns = self._table_columns("retraining_events")
+            if not columns:
+                return {"events": [], "total": 0}
+
+            def _col_or_null(name: str) -> str:
+                return name if name in columns else f"NULL AS {name}"
+
+            select_cols = [
+                "id" if "id" in columns else "rowid AS id",
+                _col_or_null("started_at"),
+                _col_or_null("trigger_reason"),
+                _col_or_null("status"),
+                _col_or_null("old_model_version"),
+                _col_or_null("new_model_version"),
+                _col_or_null("cv_improvement"),
+                _col_or_null("training_duration_seconds"),
+            ]
+            order_col = self._first_available(columns, ("started_at", "id"))
+            sql = (
+                f"SELECT {', '.join(select_cols)} FROM retraining_events"  # noqa: S608
+            )
+            if order_col is not None:
+                sql += f" ORDER BY {order_col} DESC"
+            sql += " LIMIT :limit"
+
+            with self.engine.connect() as connection:
+                total = int(
+                    connection.execute(text("SELECT COUNT(*) FROM retraining_events")).scalar_one()
+                )
+                rows = [
+                    dict(row)
+                    for row in connection.execute(text(sql), {"limit": limit}).mappings().all()
+                ]
+            return {"events": rows, "total": total}
+
+        return self._run_read(step="system.retraining_events", operation=_read)
+
+    def list_performance_snapshots(self, *, limit: int) -> dict[str, Any]:
+        def _read() -> dict[str, Any]:
+            columns = self._table_columns("performance_snapshots")
+            if not columns:
+                return {"snapshots": []}
+
+            def _col_or_null(name: str) -> str:
+                return name if name in columns else f"NULL AS {name}"
+
+            select_cols = [
+                _col_or_null("snapshot_time"),
+                _col_or_null("model_version"),
+                _col_or_null("hit_rate"),
+                _col_or_null("total_predictions"),
+                _col_or_null("sharpe_ratio"),
+                _col_or_null("max_drawdown"),
+            ]
+            order_col = self._first_available(columns, ("snapshot_time", "id"))
+            sql = (
+                f"SELECT {', '.join(select_cols)} FROM performance_snapshots"  # noqa: S608
+            )
+            if order_col is not None:
+                sql += f" ORDER BY {order_col} DESC"
+            sql += " LIMIT :limit"
+
+            with self.engine.connect() as connection:
+                rows = [
+                    dict(row)
+                    for row in connection.execute(text(sql), {"limit": limit}).mappings().all()
+                ]
+            return {"snapshots": rows}
+
+        return self._run_read(step="system.performance_snapshots", operation=_read)
+
+    def get_latest_prediction_payload(self) -> dict[str, Any] | None:
+        def _read() -> dict[str, Any] | None:
+            columns = self._table_columns("prediction_outcomes")
+            if not columns:
+                return None
+
+            field_candidates: dict[str, tuple[str, ...]] = {
+                "timestamp_utc": ("timestamp_utc", "prediction_timestamp"),
+                "predicted_direction": ("predicted_direction",),
+                "predicted_return": ("predicted_return",),
+                "predicted_price": ("predicted_price",),
+                "model_version": ("model_version",),
+                "created_at": ("created_at", "prediction_timestamp", "timestamp_utc"),
+                "p_up": ("p_up",),
+                "p_down": ("p_down",),
+                "confidence_raw": ("confidence",),
+            }
+
+            expressions: list[str] = []
+            for alias, candidates in field_candidates.items():
+                selected = self._first_available(columns, candidates)
+                if selected is None:
+                    expressions.append(f"NULL AS {alias}")
+                else:
+                    expressions.append(f"{selected} AS {alias}")
+
+            order_column = self._first_available(
+                columns,
+                ("created_at", "timestamp_utc", "prediction_timestamp", "id"),
+            )
+            sql = (
+                f"SELECT {', '.join(expressions)} FROM prediction_outcomes"  # noqa: S608
+            )
+            if order_column is not None:
+                sql += f" ORDER BY {order_column} DESC"
+            sql += " LIMIT 1"
+
+            with self.engine.connect() as connection:
+                row = connection.execute(text(sql)).mappings().first()
+            if row is None:
+                return None
+
+            p_up = row["p_up"]
+            p_down = row["p_down"]
+            confidence = row["confidence_raw"]
+            if confidence is None:
+                candidates = [value for value in (p_up, p_down) if value is not None]
+                confidence = max(candidates) if candidates else None
+
+            return {
+                "timestamp_utc": row["timestamp_utc"],
+                "direction": row["predicted_direction"] or "flat",
+                "predicted_return": (
+                    row["predicted_return"] if row["predicted_return"] is not None else 0.0
+                ),
+                "predicted_price": row["predicted_price"],
+                "model_version": row["model_version"],
+                "created_at": row["created_at"] or row["timestamp_utc"],
+                "p_up": p_up,
+                "p_down": p_down,
+                "confidence": confidence,
+            }
+
+        return self._run_read(step="gui.latest_prediction", operation=_read)
+
+    def get_timeline_prediction_rows(
+        self,
+        *,
+        freq: str,
+        horizon: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        def _read() -> list[dict[str, Any]]:
+            columns = self._table_columns("prediction_outcomes")
+            if not columns:
+                return []
+
+            if "timestamp_utc" in columns:
+                timestamp_expr = "timestamp_utc AS timestamp_utc"
+            elif "prediction_timestamp" in columns:
+                timestamp_expr = "prediction_timestamp AS timestamp_utc"
+            else:
+                return []
+
+            if "freq" not in columns or "horizon" not in columns:
+                return []
+
+            select_exprs = [
+                timestamp_expr,
+                (
+                    "predicted_direction"
+                    if "predicted_direction" in columns
+                    else "'flat' AS predicted_direction"
+                ),
+                "p_up" if "p_up" in columns else "NULL AS p_up",
+                "p_down" if "p_down" in columns else "NULL AS p_down",
+                "predicted_return" if "predicted_return" in columns else "NULL AS predicted_return",
+                "predicted_price" if "predicted_price" in columns else "NULL AS predicted_price",
+                "actual_return" if "actual_return" in columns else "NULL AS actual_return",
+                "actual_direction" if "actual_direction" in columns else "NULL AS actual_direction",
+                "correct" if "correct" in columns else "NULL AS correct",
+            ]
+
+            order_clause = "ORDER BY timestamp_utc DESC"
+            if "created_at" in columns:
+                order_clause = "ORDER BY timestamp_utc DESC, created_at DESC"
+            elif "id" in columns:
+                order_clause = "ORDER BY timestamp_utc DESC, id DESC"
+
+            sql = (
+                f"SELECT {', '.join(select_exprs)} FROM prediction_outcomes "  # noqa: S608
+                f"WHERE freq = :freq AND horizon = :horizon {order_clause} LIMIT :limit"
+            )
+            with self.engine.connect() as connection:
+                return [
+                    dict(row)
+                    for row in connection.execute(
+                        text(sql),
+                        {"freq": freq, "horizon": horizon, "limit": limit},
+                    ).mappings().all()
+                ]
+
+        return self._run_read(step="gui.timeline", operation=_read)
 
     def store_prediction(
         self,
@@ -416,6 +736,52 @@ class AutonomousDB:
         event.completed_at = _utcnow()
         session.flush()
         return event
+
+    def finalize_retraining_success(
+        self,
+        *,
+        event_id: int,
+        new_model_version: str,
+        freq: str,
+        horizon: str,
+        cv_improvement: float,
+        training_duration_seconds: float,
+    ) -> None:
+        with self.session() as session:
+            self.deactivate_old_models(session, freq, horizon)
+            candidate = (
+                session.query(ModelVersion)
+                .filter(
+                    ModelVersion.version == new_model_version,
+                    ModelVersion.freq == freq,
+                    ModelVersion.horizon == horizon,
+                )
+                .first()
+            )
+            if candidate is None:
+                raise ValueError(f"Model version not found for deployment: {new_model_version}")
+            candidate.is_active = True
+            candidate.deployed_at = _utcnow()
+            self.complete_retraining_event(
+                session=session,
+                event_id=event_id,
+                new_model_version=new_model_version,
+                cv_improvement=cv_improvement,
+                training_duration_seconds=training_duration_seconds,
+            )
+
+    def finalize_retraining_failure(
+        self,
+        *,
+        event_id: int,
+        error_message: str,
+    ) -> None:
+        with self.session() as session:
+            self.fail_retraining_event(
+                session=session,
+                event_id=event_id,
+                error_message=error_message,
+            )
 
     def store_performance_snapshot(
         self,
