@@ -31,7 +31,7 @@
 - [x] **Phase 31: Accuracy Guardrail** — Add monitor alert that fires when realized accuracy falls below a configurable threshold (completed 2026-03-08)
 - [x] **Phase 32: CLI Decomposition** — Split cli.py monolith (1802+ lines, 53 functions) into focused command modules (completed 2026-03-12)
 - [x] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution (completed 2026-03-12)
-- [ ] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach
+- [x] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach (completed 2026-03-12)
 - [ ] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model
 
 ## Phase Details
@@ -117,9 +117,9 @@ Plans:
   4. Connection lifecycle (open, close, error handling) is consistent across all DB call sites
 **Plans**: 3 plans
 Plans:
-- [ ] 34-01-PLAN.md — Establish AutonomousDB read facade, transient-lock retry/circuit-breaker, and atomic write helpers
-- [ ] 34-02-PLAN.md — Migrate `/system` API routes to AutonomousDB and add fail-fast API coverage
-- [ ] 34-03-PLAN.md — Migrate Streamlit DB helpers, unify retraining transactions, and add a structural no-sqlite3 gate
+- [x] 34-01-PLAN.md — Establish AutonomousDB read facade, transient-lock retry/circuit-breaker, and atomic write helpers
+- [x] 34-02-PLAN.md — Migrate `/system` API routes to AutonomousDB and add fail-fast API coverage
+- [x] 34-03-PLAN.md — Migrate Streamlit DB helpers, unify retraining transactions, and add a structural no-sqlite3 gate
 
 ### Phase 35: XGBoost Fix
 **Goal**: The XGBoost model uses a classification objective (multi:softprob) instead of the regression objective (reg:squarederror), eliminating the mismatch between training objective and prediction use case
@@ -146,5 +146,5 @@ Plans:
 | 31. Accuracy Guardrail | 1/1 | Complete    | 2026-03-08 | - |
 | 32. CLI Decomposition | 3/3 | Complete    | 2026-03-12 | - |
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
-| 34. DB Unification | 1/3 | In Progress|  | - |
+| 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
 | 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
