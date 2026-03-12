@@ -15,7 +15,7 @@ import pandas as pd
 from bitbat import __version__
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.autonomous.models import ModelVersion
-from bitbat.config.loader import get_runtime_config, load_config
+from bitbat.config.loader import get_runtime_config, load_config, resolve_metrics_dir
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class AutoRetrainer:
         )
 
     def _cv_summary_path(self) -> Path:
-        return Path("metrics") / "cv_summary.json"
+        return resolve_metrics_dir() / "cv_summary.json"
 
     def _read_cv_score(self) -> float:
         path = self._cv_summary_path()

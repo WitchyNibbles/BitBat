@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from bitbat.config.loader import resolve_metrics_dir
 
 
 def _sharpe(returns: pd.Series, annualization: float = 252.0) -> float:
@@ -102,7 +103,7 @@ def summary(  # noqa: C901
             corr = aligned["pred"].corr(aligned["actual"])
             metrics["prediction_correlation"] = float(corr) if pd.notna(corr) else 0.0
 
-    metrics_dir = Path("metrics")
+    metrics_dir = resolve_metrics_dir()
     metrics_dir.mkdir(parents=True, exist_ok=True)
     (metrics_dir / "backtest_metrics.json").write_text(
         json.dumps(metrics, indent=2),

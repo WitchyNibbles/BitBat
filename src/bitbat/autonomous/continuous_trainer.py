@@ -11,6 +11,7 @@ from typing import Any
 import pandas as pd
 
 from bitbat.autonomous.db import AutonomousDB
+from bitbat.config.loader import resolve_metrics_dir, resolve_models_dir
 
 logger = logging.getLogger(__name__)
 
@@ -232,11 +233,13 @@ class ContinuousTrainer:
         )
         diagnostics_path = write_window_diagnostics(
             new_diagnostics,
-            output_path=Path("metrics") / f"continuous_diagnostics_{self.freq}_{self.horizon}.json",
+            output_path=(
+                resolve_metrics_dir() / f"continuous_diagnostics_{self.freq}_{self.horizon}.json"
+            ),
         )
 
         # Compare to current model
-        model_path = Path("models") / f"{self.freq}_{self.horizon}" / "xgb.json"
+        model_path = resolve_models_dir() / f"{self.freq}_{self.horizon}" / "xgb.json"
         deployed = False
         rmse_improvement = 0.0
 

@@ -16,7 +16,7 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat.autonomous.db import AutonomousDB, classify_monitor_db_error
-from bitbat.config.loader import get_runtime_config, load_config
+from bitbat.config.loader import get_runtime_config, load_config, resolve_models_dir
 from bitbat.dataset.build import generate_price_features
 from bitbat.model.infer import predict_bar
 from bitbat.model.persist import load as load_model
@@ -56,7 +56,7 @@ class LivePredictor:
 
         config = get_runtime_config() or load_config()
         self.data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
-        self.model_dir = Path("models")
+        self.model_dir = resolve_models_dir(config)
 
     def _model_path(self) -> Path:
         return self.model_dir / f"{self.freq}_{self.horizon}" / "xgb.json"

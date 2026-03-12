@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from bitbat.config.loader import resolve_metrics_dir
+
 
 def window_diagnostics(
     y_true: pd.Series | np.ndarray,
@@ -68,9 +70,11 @@ def window_diagnostics(
 def write_window_diagnostics(
     diagnostics: dict[str, Any] | list[dict[str, Any]],
     *,
-    output_path: str | Path = Path("metrics") / "window_diagnostics.json",
+    output_path: str | Path | None = None,
 ) -> Path:
     """Persist diagnostics payload for downstream retraining analysis."""
+    if output_path is None:
+        output_path = resolve_metrics_dir() / "window_diagnostics.json"
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(diagnostics, indent=2), encoding="utf-8")
@@ -128,7 +132,7 @@ def write_regression_metrics(
     metrics: dict[str, Any],
     y_true: pd.Series | np.ndarray,
     y_pred: pd.Series | np.ndarray,
-    output_dir: str | Path = Path("metrics"),
+    output_dir: str | Path | None = None,
 ) -> Path:
     """Persist regression metrics and scatter plot to disk.
 
@@ -144,7 +148,7 @@ def write_regression_metrics(
     y_t = np.asarray(y_true, dtype="float64")
     y_p = np.asarray(y_pred, dtype="float64")
 
-    metrics_dir = Path(output_dir)
+    metrics_dir = resolve_metrics_dir() if output_dir is None else Path(output_dir)
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
     # Write JSON

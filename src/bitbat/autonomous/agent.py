@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-from pathlib import Path
 from typing import Any
 
 from bitbat.autonomous.alerting import send_alert
@@ -19,7 +18,7 @@ from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.autonomous.predictor import LivePredictor
 from bitbat.autonomous.schema_compat import ensure_schema_compatibility
 from bitbat.autonomous.validator import PredictionValidator
-from bitbat.config.loader import get_runtime_config, load_config
+from bitbat.config.loader import get_runtime_config, load_config, resolve_models_dir
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,7 @@ class MonitoringAgent:
 
     def _validate_model_preflight(self) -> None:
         """Fail fast when the runtime pair has no model artifact."""
-        model_path = Path("models") / f"{self.freq}_{self.horizon}" / "xgb.json"
+        model_path = resolve_models_dir() / f"{self.freq}_{self.horizon}" / "xgb.json"
         if model_path.exists():
             return
         raise FileNotFoundError(

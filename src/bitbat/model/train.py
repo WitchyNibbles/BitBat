@@ -10,6 +10,8 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
 
+from bitbat.config.loader import resolve_models_dir
+
 BaselineFamily = Literal["xgb", "random_forest"]
 TreeBaselineModel = xgb.Booster | RandomForestRegressor
 
@@ -27,7 +29,7 @@ def _extract_freq_horizon(X_train: pd.DataFrame) -> tuple[str, str]:
 
 def _default_model_path(family: BaselineFamily, freq: str, horizon: str) -> Path:
     filename = "xgb.json" if family == "xgb" else "random_forest.pkl"
-    model_dir = Path("models") / f"{freq}_{horizon}"
+    model_dir = resolve_models_dir() / f"{freq}_{horizon}"
     model_dir.mkdir(parents=True, exist_ok=True)
     return model_dir / filename
 
