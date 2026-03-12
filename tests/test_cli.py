@@ -862,6 +862,121 @@ def test_cli_model_cv_family_both(
     assert "average_rmse" in summary
 
 
+def test_cli_model_cv_xgb_uses_labels_and_persists_pr_auc(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "xgb_cv_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=48, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "feat_f2": np.linspace(1.0, 2.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 16)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(-0.01, 0.01, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, Any] = {}
+
+    class FakeModel:
+        pass
+
+    def fake_fit_xgb(
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        **kwargs: Any,
+    ) -> tuple[FakeModel, dict[str, float]]:
+        del X_train, kwargs
+        captured["y_train_values"] = list(y_train.astype(str))
+        return FakeModel(), {}
+
+    def fake_predict_baseline(
+        family: str,
+        model: Any,
+        features: pd.DataFrame,
+        *,
+        return_probabilities: bool = False,
+    ) -> np.ndarray:
+        del family, model
+        if return_probabilities:
+            return np.tile(np.array([[0.15, 0.20, 0.65]], dtype="float64"), (len(features), 1))
+        return np.full(len(features), 0.45, dtype="float64")
+
+    def fake_classification_metrics(y_true: Any, probabilities: Any) -> dict[str, float]:
+        del y_true, probabilities
+        return {
+            "pr_auc": 0.73,
+            "mlogloss": 0.41,
+            "directional_accuracy": 0.67,
+            "n_samples": 24,
+        }
+
+    def fake_regression_metrics(y_true: Any, y_pred: Any) -> dict[str, float]:
+        del y_true, y_pred
+        return {
+            "rmse": 0.012,
+            "mae": 0.008,
+            "r2": 0.1,
+            "directional_accuracy": 0.66,
+            "correlation": 0.3,
+            "n_samples": 24,
+        }
+
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli._helpers._predict_baseline", fake_predict_baseline)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.classification_probability_metrics",
+        fake_classification_metrics,
+    )
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_regression_metrics)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "cv",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "xgb",
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-03 00:00:00",
+        "--windows",
+        "2024-01-01 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-02 00:00:00",
+        "2024-01-03 00:00:00",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "pr_auc=0.7300" in out
+    assert set(captured["y_train_values"]) == {"down", "flat", "up"}
+
+    summary = json.loads((Path("metrics") / "cv_summary.json").read_text(encoding="utf-8"))
+    assert summary["primary_family"] == "xgb"
+    assert summary["objective_mode"] == "classification"
+    assert summary["average_pr_auc"] == 0.73
+    assert summary["family_metrics"]["xgb"]["average_pr_auc"] == 0.73
+
+
 def test_cli_model_cv_persists_candidate_reports_and_champion(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1099,6 +1214,106 @@ def test_cli_model_optimize_persists_nested_summary(
     assert payload["mode"] == "nested_walk_forward"
     assert payload["best_score"] == 0.0042
     assert payload["config"]["n_trials"] == 7
+
+
+def test_cli_model_optimize_uses_labels_and_reports_pr_auc(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "optimize_labels_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    idx = pd.date_range("2024-01-01 00:00:00", periods=96, freq="1h")
+    dataset = pd.DataFrame({
+        "timestamp_utc": idx,
+        "feat_f1": np.linspace(0.0, 1.0, len(idx)),
+        "feat_f2": np.linspace(1.0, 2.0, len(idx)),
+        "label": pd.Series((["down", "flat", "up"] * 32)[: len(idx)], dtype="string"),
+        "r_forward": np.linspace(-0.02, 0.02, len(idx)),
+    })
+    dataset.to_parquet(feature_dir / "dataset.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, Any] = {}
+
+    class FakeResult:
+        def summary(self) -> dict[str, Any]:
+            return {
+                "mode": "nested_walk_forward",
+                "objective_mode": "classification",
+                "best_params": {"max_depth": 4, "eta": 0.1, "num_boost_round": 60},
+                "best_score": 0.27,
+                "best_pr_auc": 0.73,
+                "n_trials": 4,
+                "outer_folds": [
+                    {
+                        "outer_fold": 1,
+                        "inner_fold_count": 1,
+                        "selected_params": {"max_depth": 4},
+                        "outer_score": 0.27,
+                        "outer_pr_auc": 0.73,
+                    }
+                ],
+                "provenance": {"seed": 42, "score_metric": "1-pr_auc"},
+            }
+
+    class FakeOptimizer:
+        def __init__(
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            folds: list[Fold],
+            *,
+            seed: int = 42,
+        ) -> None:
+            del X, folds
+            captured["y_unique"] = sorted(set(y.astype(str)))
+            captured["seed"] = seed
+
+        def optimize(self, n_trials: int = 50, timeout: int | None = None) -> FakeResult:
+            captured["n_trials"] = n_trials
+            captured["timeout"] = timeout
+            return FakeResult()
+
+    monkeypatch.setattr("bitbat.cli.commands.model.HyperparamOptimizer", FakeOptimizer)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "optimize",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--start",
+        "2024-01-01 00:00:00",
+        "--end",
+        "2024-01-05 00:00:00",
+        "--trials",
+        "4",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    out = capsys.readouterr().out
+    assert "best_pr_auc=0.730000" in out
+    assert captured["y_unique"] == ["down", "flat", "up"]
+
+    payload = json.loads(
+        (Path("metrics") / "optimization_summary.json").read_text(encoding="utf-8")
+    )
+    assert payload["objective_mode"] == "classification"
+    assert payload["best_pr_auc"] == 0.73
+    assert payload["provenance"]["score_metric"] == "1-pr_auc"
 
 
 def test_cli_model_cv_persists_safeguard_payloads_and_block_reason(

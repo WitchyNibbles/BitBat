@@ -94,6 +94,42 @@ class TestPhase5Integration:
         preds = result.all_predictions
         assert "predicted" in preds.columns
 
+    def test_classification_mode_keeps_summary_compatibility(self) -> None:
+        rng = np.random.default_rng(404)
+        idx = pd.date_range("2024-02-01", periods=120, freq="1h")
+        X = pd.DataFrame(
+            {
+                "feat_ret_1": rng.normal(0, 0.01, len(idx)),
+                "feat_vol_24": rng.uniform(0.01, 0.05, len(idx)),
+            },
+            index=idx,
+        )
+        y = pd.Series(
+            np.where(
+                X["feat_ret_1"] > 0.003,
+                "up",
+                np.where(X["feat_ret_1"] < -0.003, "down", "flat"),
+            ),
+            index=idx,
+        )
+        folds = [
+            Fold(train=idx[:80], test=idx[80:100]),
+            Fold(train=idx[:100], test=idx[100:120]),
+        ]
+
+        optimization_summary = HyperparamOptimizer(X, y, folds, seed=21).optimize(
+            n_trials=2,
+            timeout=30,
+        ).summary()
+        walk_forward_summary = WalkForwardValidator(X, y, folds, num_boost_round=5).run().summary()
+
+        assert optimization_summary["objective_mode"] == "classification"
+        assert "best_score" in optimization_summary
+        assert 0.0 <= float(optimization_summary["best_pr_auc"]) <= 1.0
+        assert walk_forward_summary["objective_mode"] == "classification"
+        assert "mean_rmse" in walk_forward_summary
+        assert 0.0 <= float(walk_forward_summary["mean_pr_auc"]) <= 1.0
+
     def test_ensemble_combines_horizons(self, model_dir: Path, dataset: tuple) -> None:
         X, _, _ = dataset
         ens = MultiHorizonEnsemble(model_dir, freq="1h", horizons=["1h", "4h", "24h"])

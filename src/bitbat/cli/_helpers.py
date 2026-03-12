@@ -146,10 +146,21 @@ def _predict_baseline(
     family: str,
     model: Any,
     features: pd.DataFrame,
+    *,
+    return_probabilities: bool = False,
 ) -> np.ndarray:
     if family == "xgb":
         dtest = xgb.DMatrix(features, feature_names=list(features.columns))
-        return np.asarray(model.predict(dtest), dtype="float64")
+        predictions = np.asarray(model.predict(dtest), dtype="float64")
+        if predictions.ndim == 2:
+            if return_probabilities:
+                return predictions
+            from bitbat.model.train import DIRECTION_CLASSES
+
+            up_idx = int(DIRECTION_CLASSES["up"])
+            down_idx = int(DIRECTION_CLASSES["down"])
+            return np.asarray(predictions[:, up_idx] - predictions[:, down_idx], dtype="float64")
+        return predictions
     return np.asarray(model.predict(features.astype(float)), dtype="float64")
 
 

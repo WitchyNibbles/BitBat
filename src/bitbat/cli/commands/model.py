@@ -25,6 +25,7 @@ from bitbat.dataset.build import build_xy, generate_price_features  # noqa: F401
 from bitbat.dataset.splits import generate_rolling_windows, walk_forward  # noqa: F401
 from bitbat.model.evaluate import (
     build_candidate_report,
+    classification_probability_metrics,
     compute_multiple_testing_safeguards,  # noqa: F401
     regression_metrics,  # noqa: F401
     select_champion_report,
@@ -109,7 +110,6 @@ def _run_cv_folds(
     folds: list,
     selected_families: list,
     ds: pd.DataFrame,
-    target: str,
     freq: str,
     horizon: str,
     embargo_bars: int,
@@ -122,7 +122,8 @@ def _run_cv_folds(
 
     feature_cols = [col for col in ds.columns if col.startswith("feat_")]
     X = ds[feature_cols]
-    y = ds[target]
+    return_target = ds["r_forward"]
+    label_target = ds["label"].astype(str) if "label" in ds.columns else None
 
     cv_cost_bps = float(_config().get("cost_bps", 4.0))
     cv_fee_bps = float(_config().get("fee_bps", cv_cost_bps))
@@ -139,29 +140,52 @@ def _run_cv_folds(
 
         X_train = X.loc[fold.train].copy()
         X_test = X.loc[fold.test]
-        y_train = y.loc[fold.train]
-        y_test = y.loc[fold.test]
+        y_return_train = return_target.loc[fold.train]
+        y_return_test = return_target.loc[fold.test]
+        y_label_train = label_target.loc[fold.train] if label_target is not None else None
+        y_label_test = label_target.loc[fold.test] if label_target is not None else None
 
         X_train.attrs["freq"] = freq
         X_train.attrs["horizon"] = horizon
 
         for model_family in selected_families:
+            class_metrics: dict[str, float] | None = None
             if model_family == "xgb":
+                if y_label_train is None or y_label_test is None:
+                    raise click.ClickException(
+                        "XGBoost CV requires label targets in the feature dataset."
+                    )
                 trained_model, _ = fit_xgb(
-                    X_train, y_train, seed=int(_config()["seed"]), persist=False
-                )
-            else:
-                trained_model, _ = fit_random_forest(
                     X_train,
-                    y_train,
+                    y_label_train,
                     seed=int(_config()["seed"]),
                     persist=False,
                 )
-
-            predicted = _predict_baseline(model_family, trained_model, X_test)
-            regression = regression_metrics(y_test, predicted)
+                raw_predictions = _predict_baseline(
+                    model_family,
+                    trained_model,
+                    X_test,
+                    return_probabilities=True,
+                )
+                if raw_predictions.ndim == 2:
+                    class_metrics = classification_probability_metrics(
+                        y_label_test,
+                        raw_predictions,
+                    )
+                    predicted = _predict_baseline(model_family, trained_model, X_test)
+                else:
+                    predicted = np.asarray(raw_predictions, dtype="float64")
+            else:
+                trained_model, _ = fit_random_forest(
+                    X_train,
+                    y_return_train,
+                    seed=int(_config()["seed"]),
+                    persist=False,
+                )
+                predicted = _predict_baseline(model_family, trained_model, X_test)
+            regression = regression_metrics(y_return_test, predicted)
             predicted_series = pd.Series(predicted, index=X_test.index, dtype="float64")
-            realized_returns = y_test.astype("float64")
+            realized_returns = y_return_test.astype("float64")
             synthetic_close = pd.Series(
                 100.0 * np.cumprod(1.0 + realized_returns.to_numpy()),
                 index=realized_returns.index,
@@ -187,13 +211,26 @@ def _run_cv_folds(
                 "total_costs": float(risk.get("total_costs", 0.0)),
                 "total_fee_costs": float(risk.get("total_fee_costs", 0.0)),
                 "total_slippage_costs": float(risk.get("total_slippage_costs", 0.0)),
+                "objective_mode": "regression",
             }
+            if class_metrics is not None:
+                metrics["pr_auc"] = float(class_metrics["pr_auc"])
+                metrics["logloss"] = float(class_metrics["mlogloss"])
+                metrics["directional_accuracy"] = float(class_metrics["directional_accuracy"])
+                metrics["objective_mode"] = "classification"
             summary_by_family[model_family].append(metrics)
-            click.echo(
-                "Fold "
-                f"{idx + 1} [{model_family}]: rmse={metrics['rmse']:.6f}, "
-                f"mae={metrics['mae']:.6f}"
-            )
+            if metrics["objective_mode"] == "classification":
+                click.echo(
+                    "Fold "
+                    f"{idx + 1} [{model_family}]: pr_auc={metrics['pr_auc']:.4f}, "
+                    f"logloss={metrics['logloss']:.6f}, rmse={metrics['rmse']:.6f}"
+                )
+            else:
+                click.echo(
+                    "Fold "
+                    f"{idx + 1} [{model_family}]: rmse={metrics['rmse']:.6f}, "
+                    f"mae={metrics['mae']:.6f}"
+                )
 
     return summary_by_family
 
@@ -206,12 +243,28 @@ def _build_family_metrics(summary_by_family: dict) -> dict[str, dict[str, Any]]:
             continue
         avg_rmse = float(np.mean([metric["rmse"] for metric in folds_summary]))
         avg_mae = float(np.mean([metric["mae"] for metric in folds_summary]))
+        pr_aucs = [float(metric["pr_auc"]) for metric in folds_summary if "pr_auc" in metric]
+        loglosses = [float(metric["logloss"]) for metric in folds_summary if "logloss" in metric]
+        objective_mode = (
+            "classification"
+            if any(metric.get("objective_mode") == "classification" for metric in folds_summary)
+            else "regression"
+        )
         family_metrics[model_family] = {
             "folds": folds_summary,
             "average_rmse": avg_rmse,
             "average_mae": avg_mae,
+            "average_pr_auc": float(np.mean(pr_aucs)) if pr_aucs else None,
+            "average_logloss": float(np.mean(loglosses)) if loglosses else None,
+            "objective_mode": objective_mode,
         }
-        click.echo(f"Aggregate [{model_family}]: rmse={avg_rmse:.6f}, mae={avg_mae:.6f}")
+        if objective_mode == "classification" and pr_aucs and loglosses:
+            click.echo(
+                f"Aggregate [{model_family}]: pr_auc={float(np.mean(pr_aucs)):.4f}, "
+                f"logloss={float(np.mean(loglosses)):.6f}, rmse={avg_rmse:.6f}"
+            )
+        else:
+            click.echo(f"Aggregate [{model_family}]: rmse={avg_rmse:.6f}, mae={avg_mae:.6f}")
     return family_metrics
 
 
@@ -286,6 +339,9 @@ def _run_champion_selection(
         "folds": primary_metrics["folds"],
         "average_rmse": primary_metrics["average_rmse"],
         "average_mae": primary_metrics["average_mae"],
+        "average_pr_auc": primary_metrics.get("average_pr_auc"),
+        "average_logloss": primary_metrics.get("average_logloss"),
+        "objective_mode": primary_metrics.get("objective_mode", "regression"),
         "mean_directional_accuracy": float(
             primary_directional.get("mean_directional_accuracy", 0.0)
         ),
@@ -389,7 +445,7 @@ def model_cv(
     dataset = _load_feature_dataset(
         freq_val,
         horizon_val,
-        require_label=False,
+        require_label="xgb" in selected_families,
         require_forward_return=True,
     )
 
@@ -430,7 +486,6 @@ def model_cv(
         folds,
         selected_families,
         dataset,
-        "r_forward",
         freq_val,
         horizon_val,
         resolved_embargo_bars,
@@ -529,7 +584,7 @@ def model_optimize(
     dataset = _load_feature_dataset(
         freq_val,
         horizon_val,
-        require_label=False,
+        require_label=True,
         require_forward_return=True,
     )
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
@@ -538,7 +593,7 @@ def model_optimize(
             "No feature columns found in dataset (expected columns prefixed with 'feat_')."
         )
     X = dataset[feature_cols]
-    y = dataset["r_forward"]
+    y = dataset["label"].astype(str)
 
     model_cfg = _config().get("model", {})
     optimization_cfg = model_cfg.get("optimization", {}) if isinstance(model_cfg, dict) else {}
@@ -629,12 +684,22 @@ def model_optimize(
     output_path = metrics_dir / "optimization_summary.json"
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    click.echo(
-        "Optimization complete: "
-        f"best_rmse={float(summary.get('best_score', 0.0)):.6f}, "
-        f"trials={resolved_trials}, outer_folds={len(summary.get('outer_folds', []))}. "
-        f"Saved {output_path}"
-    )
+    objective_mode = str(summary.get("objective_mode", "regression"))
+    if objective_mode == "classification":
+        click.echo(
+            "Optimization complete: "
+            f"best_pr_auc={float(summary.get('best_pr_auc', 0.0)):.6f}, "
+            f"score={float(summary.get('best_score', 0.0)):.6f}, "
+            f"trials={resolved_trials}, outer_folds={len(summary.get('outer_folds', []))}. "
+            f"Saved {output_path}"
+        )
+    else:
+        click.echo(
+            "Optimization complete: "
+            f"best_rmse={float(summary.get('best_score', 0.0)):.6f}, "
+            f"trials={resolved_trials}, outer_folds={len(summary.get('outer_folds', []))}. "
+            f"Saved {output_path}"
+        )
 
 
 @model.command("train")
