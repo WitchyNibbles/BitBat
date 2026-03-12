@@ -147,7 +147,10 @@ Plans:
   2. Saved verification evidence shows realized directional accuracy above 33% on fresh post-reset predictions
   3. Phase 30 or the new closure phase has a passed verification artifact that formally closes the deferred FIXR-03 checkpoint
   4. The operator recovery flow (`system reset` → retrain → realized outcomes → diagnosis accuracy check) is reproducible from the repo documentation
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 36-01-PLAN.md — Add a recovery-evidence harness, config-aware diagnosis resolution, and docs/contracts for the reset + retrain flow
+- [ ] 36-02-PLAN.md — Run the sandbox reset + retrain evidence flow, update Phase 30 verification, and record passed FIXR-03 evidence
 
 ### Phase 37: CLI Decomposition Re-Verification
 **Goal**: The CLI decomposition is formally re-verified so the saved verification evidence matches the now-green code/test surface and DEBT-01 is audit-clean
@@ -177,5 +180,5 @@ Plans:
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
 | 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
 | 35. XGBoost Fix | v1.6 | 2/2 | Complete | 2026-03-12 |
-| 36. Live Recovery Evidence Closure | v1.6 | 0/TBD | Not started | - |
+| 36. Live Recovery Evidence Closure | v1.6 | 0/2 | Planned | - |
 | 37. CLI Decomposition Re-Verification | v1.6 | 0/TBD | Not started | - |

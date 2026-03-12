@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T17:05:00Z"
+last_updated: "2026-03-12T18:05:00Z"
 progress:
   total_phases: 27
   completed_phases: 25
-  total_plans: 68
+  total_plans: 70
   completed_plans: 68
 ---
 
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 gap closure — Phase 36 planning
+**Current focus:** Milestone v1.6 gap closure — Phase 36 execution
 
 ## Current Position
 
-Phase: 36 of 37 (Live Recovery Evidence Closure — PENDING)
-Plan: not started
+Phase: 36 of 37 (Live Recovery Evidence Closure — PLANNED)
+Plan: 36-01 in progress
 Status: Milestone reopened for audit gap closure — FIXR-03 and DEBT-01 now route through Phases 36 and 37
-Last activity: 2026-03-12 — milestone audit found two blockers; gap-closure phases 36 and 37 added to roadmap
+Last activity: 2026-03-12 — Phase 36 research and plans added for fresh recovery evidence closure
 
-Progress: [█████████░] 68 completed plans, 2 new gap-closure phases pending planning
+Progress: [█████████░] 68 completed plans, 2 new gap-closure phases planned for execution
 
 ## Performance Metrics
 
@@ -101,6 +101,8 @@ Progress: [█████████░] 68 completed plans, 2 new gap-closure
 - 35-01: Walk-forward and optimizer paths infer classification mode from label targets, emit PR-AUC/log-loss evidence, and preserve regression fallback for numeric fixtures.
 - 35-02: CLI `model cv` / `model optimize` now use `label` for the XGBoost path, report PR-AUC-aware summaries, and keep compatibility fields like RMSE/best_score.
 - 36/37 planning: audit blockers are addressed with focused closure phases rather than reopening the completed implementation phases directly.
+- 36-01 planning: recovery evidence will run in a sandbox config against the `1h_1h` pair so the repo's existing `data/` tree is not mutated during verification.
+- 36-01 planning: `model train` must honor configured `models_dir` for the reset + retrain flow to be reproducible under sandbox configs.
 
 ### Pending Todos
 
@@ -116,9 +118,10 @@ Progress: [█████████░] 68 completed plans, 2 new gap-closure
 - Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
 - FIXR-03 remains blocked on formal post-reset runtime evidence from fresh predictions.
 - DEBT-01 remains blocked on a passed verification artifact that reconciles Phase 32 with the later green CLI surface.
+- Phase 36 plans are now written; execution starts with the recovery-evidence harness and sandboxed diagnosis pass.
 
 ## Session Continuity
 
 Last session: 2026-03-12T17:05:00Z
-Stopped at: Gap-closure phases 36 and 37 added
-Resume with: `$gsd-plan-phase 36`
+Stopped at: Phase 36 planned
+Resume with: `$gsd-execute-phase 36`
