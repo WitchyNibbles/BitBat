@@ -1,5 +1,30 @@
 # Milestones
 
+## v1.6 Accuracy Recovery & Technical Debt Remediation (Shipped: 2026-03-12)
+
+**Delivered:** Diagnosed and fixed the live accuracy collapse, proved fresh reset + retrain recovery, and closed all deferred v1.5 tech debt.
+
+**Phases completed:** 29-37 (9 phases, 19 plans, 41 tasks)
+
+**Key accomplishments:**
+- Traced the live failure path with committed root-cause evidence before applying fixes.
+- Fixed the classifier objective/inference/validator chain and added the reset + accuracy-guardrail operator path.
+- Split the CLI monolith into focused command modules and re-verified the decomposed surface cleanly.
+- Centralized artifact paths and unified runtime DB access behind `AutonomousDB`.
+- Closed the live recovery evidence gap with `239/300` correct realized predictions (`79.67%`).
+
+**Stats:**
+- 110 files changed
+- 34,276 lines of Python in the active codebase
+- 9 phases, 19 plans, 41 tasks
+- 4 days from milestone start to ship
+
+**Git range:** `b58aec7^..f1d9285`
+
+**What's next:** Define the next milestone with `$gsd-new-milestone`.
+
+---
+
 ## v1.0 Reliability and Timeline Evolution (Shipped: 2026-02-25)
 
 **Phases completed:** 9 phases, 24 plans, 72 tasks  
@@ -104,4 +129,3 @@
 - (none recorded)
 
 ---
-
