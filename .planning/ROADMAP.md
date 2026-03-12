@@ -137,7 +137,7 @@ Plans:
 | 29. Diagnosis | v1.6 | 2/2 | Complete | 2026-03-08 |
 | 30. Fix & Reset | 3/3 | Complete   | 2026-03-08 | - |
 | 31. Accuracy Guardrail | 1/1 | Complete    | 2026-03-08 | - |
-| 32. CLI Decomposition | v1.6 | 0/TBD | Not started | - |
+| 32. CLI Decomposition | 1/3 | In Progress|  | - |
 | 33. Path Centralization | v1.6 | 0/TBD | Not started | - |
 | 34. DB Unification | v1.6 | 0/TBD | Not started | - |
 | 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
