@@ -210,6 +210,22 @@ class TestGetSystemStatus:
         info = get_system_status(db)
         assert info["status"] == "active"
 
+    def test_uses_autonomous_db_activity_summary(self, tmp_path: Path, monkeypatch) -> None:
+        db = tmp_path / "autonomous.db"
+        sqlite3.connect(str(db)).close()
+        monkeypatch.setattr(
+            "bitbat.autonomous.db.AutonomousDB.get_system_activity_summary",
+            lambda self: {
+                "latest_snapshot": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                "latest_monitor_log": None,
+                "latest_retraining": None,
+            },
+        )
+
+        info = get_system_status(db)
+
+        assert info["status"] == "active"
+
 
 # ---------------------------------------------------------------------------
 # get_latest_prediction
@@ -257,6 +273,32 @@ class TestGetLatestPrediction:
         assert "confidence" in pred
         assert "created_at" in pred
         assert pred["created_at"] == pred["timestamp_utc"]
+
+    def test_uses_autonomous_db_latest_prediction_payload(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        db = tmp_path / "autonomous.db"
+        sqlite3.connect(str(db)).close()
+        monkeypatch.setattr(
+            "bitbat.autonomous.db.AutonomousDB.get_latest_prediction_payload",
+            lambda self: {
+                "timestamp_utc": "2026-03-12T12:00:00",
+                "direction": "up",
+                "predicted_return": 0.01,
+                "predicted_price": 100000.0,
+                "model_version": "v2",
+                "created_at": "2026-03-12T12:00:01",
+                "p_up": 0.8,
+                "p_down": 0.1,
+                "confidence": 0.8,
+            },
+        )
+
+        pred = get_latest_prediction(db)
+
+        assert pred is not None
+        assert pred["model_version"] == "v2"
+        assert pred["confidence"] == pytest.approx(0.8)
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +363,25 @@ class TestGetRecentEvents:
         events = get_recent_events(db, limit=5)
         assert len(events) == 1
         assert events[0]["message"] == "event with timestamp"
+
+    def test_uses_autonomous_db_recent_event_payload(self, tmp_path: Path, monkeypatch) -> None:
+        db = tmp_path / "autonomous.db"
+        sqlite3.connect(str(db)).close()
+        monkeypatch.setattr(
+            "bitbat.autonomous.db.AutonomousDB.list_recent_system_events",
+            lambda self, *, limit: [
+                {
+                    "time": "2026-03-12T12:00:00",
+                    "level": "INFO",
+                    "message": "Monitor cycle complete",
+                }
+            ],
+        )
+
+        events = get_recent_events(db, limit=5)
+
+        assert len(events) == 1
+        assert events[0]["message"] == "Monitor cycle complete"
 
 
 # ---------------------------------------------------------------------------

@@ -147,3 +147,96 @@ def test_retrainer_cv_command_uses_configured_windows(tmp_path: Path, monkeypatc
     assert cv_command.count("--windows") == 2
     first_window = cv_command[cv_command.index("--windows") + 1 : cv_command.index("--windows") + 5]
     assert len(first_window) == 4
+
+
+def test_retrainer_uses_atomic_finalize_success_helper(tmp_path: Path, monkeypatch) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with db.session() as session:
+        db.store_model_version(
+            session=session,
+            version="v1",
+            freq="1h",
+            horizon="4h",
+            training_start=now - timedelta(days=30),
+            training_end=now,
+            training_samples=500,
+            cv_score=0.60,
+            features=[],
+            hyperparameters={},
+            training_metadata={},
+            is_active=True,
+        )
+
+    retrainer = AutoRetrainer(db, "1h", "4h")
+    monkeypatch.setattr(
+        retrainer,
+        "_run_command",
+        lambda command: subprocess.CompletedProcess(command, 0, "", ""),
+    )
+    monkeypatch.setattr(retrainer, "_read_cv_score", lambda: 0.7)
+    monkeypatch.setattr(retrainer, "_training_sample_count", lambda: 200)
+    monkeypatch.setattr(retrainer, "_next_model_version", lambda: "v2")
+
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        db,
+        "finalize_retraining_success",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    result = retrainer.retrain()
+
+    assert result["status"] == "completed"
+    assert calls
+    assert calls[0]["new_model_version"] == "v2"
+    assert calls[0]["freq"] == "1h"
+    assert calls[0]["horizon"] == "4h"
+
+
+def test_retrainer_uses_atomic_finalize_failure_helper(tmp_path: Path, monkeypatch) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with db.session() as session:
+        db.store_model_version(
+            session=session,
+            version="v1",
+            freq="1h",
+            horizon="4h",
+            training_start=now - timedelta(days=30),
+            training_end=now,
+            training_samples=500,
+            cv_score=0.60,
+            features=[],
+            hyperparameters={},
+            training_metadata={},
+            is_active=True,
+        )
+
+    retrainer = AutoRetrainer(db, "1h", "4h")
+    monkeypatch.setattr(
+        retrainer,
+        "_run_command",
+        lambda command: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(returncode=1, cmd=command)
+        ),
+    )
+
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        db,
+        "finalize_retraining_failure",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    result = retrainer.retrain()
+
+    assert result["status"] == "failed"
+    assert calls
+    assert "error_message" in calls[0]

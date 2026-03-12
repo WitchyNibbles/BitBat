@@ -263,6 +263,34 @@ def test_get_timeline_data_falls_back_to_prediction_timestamp(tmp_path: Path) ->
     assert df.loc[0, "timestamp_utc"] == pd.Timestamp("2024-01-01 05:00:00")
 
 
+def test_get_timeline_data_uses_autonomous_db_rows(tmp_path: Path, monkeypatch) -> None:
+    import sqlite3
+
+    db_path = tmp_path / "autonomous.db"
+    sqlite3.connect(str(db_path)).close()
+    monkeypatch.setattr(
+        "bitbat.autonomous.db.AutonomousDB.get_timeline_prediction_rows",
+        lambda self, *, freq, horizon, limit: [
+            {
+                "timestamp_utc": "2024-01-01 05:00:00",
+                "predicted_direction": "down",
+                "p_up": 0.2,
+                "p_down": 0.7,
+                "predicted_return": -0.01,
+                "predicted_price": 42000.0,
+                "actual_return": None,
+                "actual_direction": None,
+                "correct": None,
+            }
+        ],
+    )
+
+    df = get_timeline_data(db_path, "1h", "4h")
+
+    assert len(df) == 1
+    assert df.loc[0, "predicted_direction"] == "down"
+
+
 def test_get_timeline_data_empty(tmp_path: Path) -> None:
     db_path = tmp_path / "nonexistent.db"
     df = get_timeline_data(db_path, "1h", "4h")
@@ -317,6 +345,25 @@ def test_list_timeline_filter_options_uses_db_pairs(tmp_path: Path) -> None:
 
     assert freqs == ["1h", "4h"]
     assert horizons == ["4h", "24h"]
+
+
+def test_list_timeline_filter_options_uses_autonomous_db_pairs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import sqlite3
+
+    db_path = tmp_path / "autonomous.db"
+    sqlite3.connect(str(db_path)).close()
+    monkeypatch.setattr(
+        "bitbat.autonomous.db.AutonomousDB.list_prediction_pairs",
+        lambda self, *, default_freq, default_horizon: (["15m", "1h"], ["1h", "4h"]),
+    )
+
+    freqs, horizons = list_timeline_filter_options(db_path, "1h", "4h")
+
+    assert freqs == ["15m", "1h"]
+    assert horizons == ["1h", "4h"]
 
 
 def test_apply_timeline_filters_default_last_7_days() -> None:

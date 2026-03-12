@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import text
 
 from bitbat.autonomous.agent import MonitoringAgent
+from bitbat.autonomous.continuous_trainer import ContinuousTrainer
 from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.autonomous.models import PerformanceSnapshot, init_database
 from bitbat.autonomous.predictor import LivePredictor
@@ -486,3 +487,75 @@ def test_monitoring_agent_surfaces_runtime_db_failure(
 
     assert exc_info.value.step == "predict.store_prediction"
     assert "upgrade" in exc_info.value.remediation.lower()
+
+
+def test_continuous_trainer_uses_atomic_finalize_success_helper(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    trainer = ContinuousTrainer(
+        db=db,
+        freq="1h",
+        horizon="4h",
+        config={"data_dir": str(tmp_path / "data")},
+    )
+
+    monkeypatch.setattr(
+        trainer,
+        "_do_retrain",
+        lambda old_version: {
+            "deployed": True,
+            "new_version": "v2",
+            "rmse_improvement": 0.2,
+        },
+    )
+
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        db,
+        "finalize_retraining_success",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    result = trainer.retrain()
+
+    assert result["status"] == "completed"
+    assert calls
+    assert calls[0]["new_model_version"] == "v2"
+
+
+def test_continuous_trainer_uses_atomic_finalize_failure_helper(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    trainer = ContinuousTrainer(
+        db=db,
+        freq="1h",
+        horizon="4h",
+        config={"data_dir": str(tmp_path / "data")},
+    )
+
+    monkeypatch.setattr(
+        trainer,
+        "_do_retrain",
+        lambda old_version: (_ for _ in ()).throw(ValueError("boom")),
+    )
+
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        db,
+        "finalize_retraining_failure",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    result = trainer.retrain()
+
+    assert result["status"] == "failed"
+    assert calls
+    assert calls[0]["error_message"] == "boom"
