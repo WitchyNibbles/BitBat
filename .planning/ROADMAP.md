@@ -34,7 +34,7 @@
 - [x] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach (completed 2026-03-12)
 - [x] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model (completed 2026-03-12)
 - [x] **Phase 36: Live Recovery Evidence Closure** — Capture formal post-reset/post-retrain evidence that the recovered pipeline exceeds the realized-accuracy baseline and closes FIXR-03 (completed 2026-03-12)
-- [ ] **Phase 37: CLI Decomposition Re-Verification** — Reconcile the stale Phase 32 verification artifact and close DEBT-01 with a passed verification record
+- [x] **Phase 37: CLI Decomposition Re-Verification** — Reconcile the stale Phase 32 verification artifact and close DEBT-01 with a passed verification record (completed 2026-03-12)
 
 ## Phase Details
 
@@ -164,7 +164,7 @@ Plans:
   4. Milestone archive evidence no longer depends on inference from later phases to claim CLI decomposition is complete
 **Plans**: 1 plan
 Plans:
-- [ ] 37-01-PLAN.md — Re-run CLI regression evidence, rewrite the stale Phase 32 verification artifact, and close DEBT-01 traceability
+- [x] 37-01-PLAN.md — Re-run CLI regression evidence, rewrite the stale Phase 32 verification artifact, and close DEBT-01 traceability
 
 ## Progress
 
@@ -183,4 +183,4 @@ Plans:
 | 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
 | 35. XGBoost Fix | v1.6 | 2/2 | Complete | 2026-03-12 |
 | 36. Live Recovery Evidence Closure | v1.6 | 2/2 | Complete | 2026-03-12 |
-| 37. CLI Decomposition Re-Verification | v1.6 | 0/1 | Planned | - |
+| 37. CLI Decomposition Re-Verification | v1.6 | 1/1 | Complete | 2026-03-12 |

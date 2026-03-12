@@ -19,7 +19,7 @@
 
 ### Tech Debt
 
-- [ ] **DEBT-01**: cli.py monolith decomposed — 53 functions and 1802+ lines split into focused modules with no behavioral change
+- [x] **DEBT-01**: cli.py monolith decomposed — 53 functions and 1802+ lines split into focused modules with no behavioral change
 - [x] **DEBT-02**: Hardcoded `Path("models")` / `Path("metrics")` centralized — all 15+ occurrences replaced with config-driven path resolution
 - [x] **DEBT-03**: Dual DB access unified — SQLAlchemy ORM + raw sqlite3 consolidated into a single consistent approach
 - [x] **DEBT-04**: XGBoost objective mismatch fixed — `reg:squarederror` replaced with `multi:softprob` (or equivalent classification objective), model retrained
@@ -50,7 +50,7 @@
 | FIXR-02 | Phase 30 | Complete |
 | FIXR-03 | Phase 36 | Complete |
 | FIXR-04 | Phase 31 | Complete |
-| DEBT-01 | Phase 37 | Pending |
+| DEBT-01 | Phase 37 | Complete |
 | DEBT-02 | Phase 33 | Complete |
 | DEBT-03 | Phase 34 | Complete |
 | DEBT-04 | Phase 35 | Complete |
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-03-08*
-*Last updated: 2026-03-12 — FIXR-03 closed by Phase 36 fresh recovery evidence; DEBT-01 still pending in Phase 37*
+*Last updated: 2026-03-12 — FIXR-03 closed by Phase 36 fresh recovery evidence; DEBT-01 closed by Phase 37 re-verification*
