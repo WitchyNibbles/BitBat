@@ -101,7 +101,10 @@ Plans:
   2. No remaining literal Path("models") or Path("metrics") strings exist in src/ (verified by a structural grep test or linter rule)
   3. Changing the paths in config YAML redirects all artifact reads and writes without code changes
   4. Existing tests pass and the smoke test still produces artifacts in the expected location
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 33-01-PLAN.md — Add resolve_models_dir / resolve_metrics_dir helpers to config loader + TDD test scaffold
+- [ ] 33-02-PLAN.md — Sweep all 16 hardcoded path literals across 10 src files; turn structural grep tests GREEN
 
 ### Phase 34: DB Unification
 **Goal**: All database access uses a single consistent approach — eliminating the split between SQLAlchemy ORM and raw sqlite3 — so the codebase has one query pattern, one connection lifecycle, and one schema migration path
@@ -138,6 +141,6 @@ Plans:
 | 30. Fix & Reset | 3/3 | Complete   | 2026-03-08 | - |
 | 31. Accuracy Guardrail | 1/1 | Complete    | 2026-03-08 | - |
 | 32. CLI Decomposition | 3/3 | Complete    | 2026-03-12 | - |
-| 33. Path Centralization | v1.6 | 0/TBD | Not started | - |
+| 33. Path Centralization | v1.6 | 0/2 | Not started | - |
 | 34. DB Unification | v1.6 | 0/TBD | Not started | - |
 | 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
