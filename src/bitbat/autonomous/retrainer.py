@@ -14,7 +14,6 @@ import pandas as pd
 
 from bitbat import __version__
 from bitbat.autonomous.db import AutonomousDB
-from bitbat.autonomous.models import ModelVersion
 from bitbat.config.loader import get_runtime_config, load_config, resolve_metrics_dir
 
 logger = logging.getLogger(__name__)
@@ -145,18 +144,6 @@ class AutoRetrainer:
         improvement = new_cv - old_cv
         return improvement >= self.cv_improvement_threshold and holdout_hit_rate >= 0.55
 
-    def deploy_model(self, model_version: str) -> None:
-        """Mark new model active and deactivate older models for same freq/horizon."""
-        with self.db.session() as session:
-            self.db.deactivate_old_models(session, self.freq, self.horizon)
-            candidate = (
-                session.query(ModelVersion).filter(ModelVersion.version == model_version).first()
-            )
-            if candidate is None:
-                raise ValueError(f"Model version not found for deployment: {model_version}")
-            candidate.is_active = True
-            candidate.deployed_at = _utcnow()
-
     def retrain(
         self,
         trigger_reason: str = "drift_detected",
@@ -285,20 +272,29 @@ class AutoRetrainer:
                 old_model={"cv_score": old_cv_score} if old_version else None,
             )
             if deploy:
-                self.deploy_model(new_version)
-
-            duration = time.monotonic() - start_monotonic
-            if retraining_event_id is None:
-                raise ValueError("Retraining event missing.")
-
-            with self.db.session() as session:
-                self.db.complete_retraining_event(
-                    session=session,
+                if retraining_event_id is None:
+                    raise ValueError("Retraining event missing.")
+                duration = time.monotonic() - start_monotonic
+                self.db.finalize_retraining_success(
                     event_id=retraining_event_id,
                     new_model_version=new_version,
+                    freq=self.freq,
+                    horizon=self.horizon,
                     cv_improvement=new_cv_score - old_cv_score,
                     training_duration_seconds=duration,
                 )
+            else:
+                duration = time.monotonic() - start_monotonic
+                if retraining_event_id is None:
+                    raise ValueError("Retraining event missing.")
+                with self.db.session() as session:
+                    self.db.complete_retraining_event(
+                        session=session,
+                        event_id=retraining_event_id,
+                        new_model_version=new_version,
+                        cv_improvement=new_cv_score - old_cv_score,
+                        training_duration_seconds=duration,
+                    )
 
             return {
                 "status": "completed",
@@ -315,12 +311,10 @@ class AutoRetrainer:
         except Exception as exc:
             duration = time.monotonic() - start_monotonic
             if retraining_event_id is not None:
-                with self.db.session() as session:
-                    self.db.fail_retraining_event(
-                        session=session,
-                        event_id=retraining_event_id,
-                        error_message=str(exc),
-                    )
+                self.db.finalize_retraining_failure(
+                    event_id=retraining_event_id,
+                    error_message=str(exc),
+                )
             logger.exception("Auto-retraining failed")
             return {
                 "status": "failed",

@@ -104,14 +104,14 @@ class ContinuousTrainer:
             duration = time.monotonic() - t0
 
             if result["deployed"]:
-                with self.db.session() as session:
-                    self.db.complete_retraining_event(
-                        session=session,
-                        event_id=event_id,
-                        new_model_version=result["new_version"],
-                        cv_improvement=result.get("rmse_improvement", 0.0),
-                        training_duration_seconds=duration,
-                    )
+                self.db.finalize_retraining_success(
+                    event_id=event_id,
+                    new_model_version=result["new_version"],
+                    freq=self.freq,
+                    horizon=self.horizon,
+                    cv_improvement=result.get("rmse_improvement", 0.0),
+                    training_duration_seconds=duration,
+                )
             else:
                 with self.db.session() as session:
                     self.db.complete_retraining_event(
@@ -140,12 +140,10 @@ class ContinuousTrainer:
         except Exception as exc:
             duration = time.monotonic() - t0
             logger.error("Retraining failed: %s", exc, exc_info=True)
-            with self.db.session() as session:
-                self.db.fail_retraining_event(
-                    session=session,
-                    event_id=event_id,
-                    error_message=str(exc),
-                )
+            self.db.finalize_retraining_failure(
+                event_id=event_id,
+                error_message=str(exc),
+            )
             return {"status": "failed", "error": str(exc), "duration_seconds": round(duration, 1)}
 
     def _do_retrain(self, old_version: str) -> dict[str, Any]:
@@ -273,7 +271,6 @@ class ContinuousTrainer:
             new_booster.save_model(str(model_path))
 
             with self.db.session() as session:
-                self.db.deactivate_old_models(session, self.freq, self.horizon)
                 self.db.store_model_version(
                     session=session,
                     version=new_version,
@@ -292,7 +289,7 @@ class ContinuousTrainer:
                         "window_diagnostics": new_diagnostics,
                         "window_diagnostics_path": str(diagnostics_path),
                     },
-                    is_active=True,
+                    is_active=False,
                 )
 
         return {
