@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: completed
-stopped_at: Completed 32-01-PLAN.md
-last_updated: "2026-03-12T09:04:47.176Z"
-last_activity: "2026-03-08 — 31-01 complete: realized-accuracy WARNING guardrail added to MonitoringAgent, 5 behavioral tests pass, FIXR-04 marked complete"
+stopped_at: Completed 32-02-PLAN.md
+last_updated: "2026-03-12T09:25:16.592Z"
+last_activity: "2026-03-12 — 32-01 complete: cli.py → cli/ package skeleton; _helpers.py with 21 private helpers; 41 tests pass; lint-imports 1/0"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 9
-  completed_plans: 7
-  percent: 100
+  completed_plans: 8
+  percent: 97
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 32 of 35 (CLI Decomposition — Plan 01 COMPLETE)
-Plan: 32-01 complete; 32-02 and 32-03 next
-Status: Phase 32 Plan 01 Complete — cli.py converted to cli/ package; 21 helpers extracted; all import paths preserved; DEBT-01 progress started
-Last activity: 2026-03-12 — 32-01 complete: cli.py → cli/ package skeleton; _helpers.py with 21 private helpers; 41 tests pass; lint-imports 1/0
+Phase: 32 of 35 (CLI Decomposition — Plan 02 COMPLETE)
+Plan: 32-02 complete; 32-03 next
+Status: Phase 32 Plan 02 Complete — 8 simple command groups extracted to commands/ submodules; __init__.py -662 lines; all groups wired via add_command()
+Last activity: 2026-03-12 — 32-02 complete: 8 command group modules in commands/; __init__.py reduced to model+monitor+wiring; bitbat --help all 10 groups present
 
 Progress: [██████████] 97% (59/61 plans complete)
 
@@ -55,6 +55,7 @@ Progress: [██████████] 97% (59/61 plans complete)
 | Phase 30-fix-and-reset P03 | 6min | 2 tasks | 0 files |
 | Phase 31-accuracy-guardrail P01 | 3 | 2 tasks | 3 files |
 | Phase 32-cli-decomposition P01 | 20min | 3 tasks | 4 files |
+| Phase 32-cli-decomposition P02 | 16 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Progress: [██████████] 97% (59/61 plans complete)
 - 31-01: Default threshold 0.40, min_predictions_required=10 prevents warmup false positives after operator system reset.
 - 32-01: noqa: F401 on re-exported domain symbols in bitbat.cli.__init__ — required for monkeypatch compatibility (tests patch bitbat.cli.xgb, bitbat.cli.walk_forward, etc.).
 - 32-01: cli.py deleted only after cli/__init__.py fully written — Python cannot coexist both cli.py and cli/ at same import path.
+- 32-02: run_strategy, summarize_backtest kept as bitbat.cli re-exports from original module-level imports; monkeypatch targets updated in Plan 03.
+- 32-02: features_build monkeypatch failures (bitbat.cli.build_xy) follow same pattern as batch — deferred to Plan 03.
+- 32-02: 4 test failures are all monkeypatch targeting (tests patch bitbat.cli.* but commands hold direct refs in command modules); expected per plan.
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ Progress: [██████████] 97% (59/61 plans complete)
 
 ## Session Continuity
 
-Last session: 2026-03-12T09:04:47.174Z
-Stopped at: Completed 32-01-PLAN.md
+Last session: 2026-03-12T09:25:16.589Z
+Stopped at: Completed 32-02-PLAN.md
 Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse
