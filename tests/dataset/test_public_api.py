@@ -79,7 +79,7 @@ def test_no_private_imports_in_callers() -> None:
     """
     src_root = Path(__file__).parents[2] / "src"
     caller_paths = [
-        src_root / "bitbat" / "cli.py",
+        src_root / "bitbat" / "cli" / "__init__.py",
         src_root / "bitbat" / "autonomous" / "predictor.py",
         src_root / "bitbat" / "autonomous" / "continuous_trainer.py",
     ]

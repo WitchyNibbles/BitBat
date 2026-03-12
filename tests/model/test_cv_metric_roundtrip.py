@@ -75,7 +75,7 @@ def test_cv_summary_roundtrip_consistency(tmp_path: Path) -> None:
 
 def test_cv_summary_key_names_match_between_writer_and_reader() -> None:
     """The writer (cli.py) and reader (retrainer.py) must use the same metric key name."""
-    import bitbat.cli as cli_module
+    import bitbat.cli.commands.model as cli_module
 
     cli_source = inspect.getsource(cli_module)
     retrainer_source = inspect.getsource(AutoRetrainer._read_cv_score)

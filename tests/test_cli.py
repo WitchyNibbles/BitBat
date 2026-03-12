@@ -343,7 +343,7 @@ def test_cli_features_build_label_mode_default_compatibility(
         return pd.DataFrame({"feat_demo": [1.0]}, index=idx), pd.Series([0.01], index=idx), {}
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("bitbat.cli.build_xy", fake_build_xy)
+    monkeypatch.setattr("bitbat.cli.commands.model.build_xy", fake_build_xy)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -396,7 +396,7 @@ def test_cli_features_build_triple_barrier_label_mode(
         return pd.DataFrame({"feat_demo": [1.0]}, index=idx), pd.Series([0.01], index=idx), {}
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("bitbat.cli.build_xy", fake_build_xy)
+    monkeypatch.setattr("bitbat.cli.commands.model.build_xy", fake_build_xy)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -495,9 +495,9 @@ def test_cli_model_cv(
         (metrics_dir / "prediction_scatter.png").write_bytes(b"")
         return metrics
 
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
 
     argv = [
         "bitbat",
@@ -598,10 +598,10 @@ def test_cli_model_cv_with_rolling_window_options(
             "n_samples": 24,
         }
 
-    monkeypatch.setattr("bitbat.cli.walk_forward", fake_walk_forward)
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.commands.model.walk_forward", fake_walk_forward)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
 
     argv = [
         "bitbat",
@@ -716,10 +716,10 @@ def test_cli_model_cv_purge_embargo_controls_from_config_and_cli(
             "n_samples": 24,
         }
 
-    monkeypatch.setattr("bitbat.cli.walk_forward", fake_walk_forward)
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.commands.model.walk_forward", fake_walk_forward)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
 
     argv = [
         "bitbat",
@@ -820,10 +820,10 @@ def test_cli_model_cv_family_both(
             "n_samples": 24,
         }
 
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
 
     argv = [
         "bitbat",
@@ -927,10 +927,10 @@ def test_cli_model_cv_persists_candidate_reports_and_champion(
             "n_samples": 24,
         }
 
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
 
     argv = [
         "bitbat",
@@ -1060,8 +1060,8 @@ def test_cli_model_optimize_persists_nested_summary(
         index = pd.Index(indices)
         return [Fold(train=index[:64], test=index[64:96])]
 
-    monkeypatch.setattr("bitbat.cli.HyperparamOptimizer", FakeOptimizer)
-    monkeypatch.setattr("bitbat.cli.walk_forward", fake_walk_forward)
+    monkeypatch.setattr("bitbat.cli.commands.model.HyperparamOptimizer", FakeOptimizer)
+    monkeypatch.setattr("bitbat.cli.commands.model.walk_forward", fake_walk_forward)
 
     argv = [
         "bitbat",
@@ -1192,11 +1192,13 @@ def test_cli_model_cv_persists_safeguard_payloads_and_block_reason(
             "overfit_probability": 0.7,
         }
 
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
-    monkeypatch.setattr("bitbat.cli.compute_multiple_testing_safeguards", fake_safeguards)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.compute_multiple_testing_safeguards", fake_safeguards
+    )
 
     argv = [
         "bitbat",
@@ -1356,13 +1358,15 @@ def test_cli_model_cv_persists_promotion_gate_details(  # noqa: C901
         del outer_folds, trial_count, min_deflated_sharpe, max_overfit_probability
         return {"pass": True, "reasons": [], "deflated_sharpe": 0.5, "overfit_probability": 0.2}
 
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
-    monkeypatch.setattr("bitbat.cli.xgb.DMatrix", FakeDMatrix)
-    monkeypatch.setattr("bitbat.cli.regression_metrics", fake_metrics)
-    monkeypatch.setattr("bitbat.cli.run_strategy", fake_run_strategy)
-    monkeypatch.setattr("bitbat.cli.summarize_backtest", fake_summary)
-    monkeypatch.setattr("bitbat.cli.compute_multiple_testing_safeguards", fake_safeguards)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr("bitbat.cli.commands.model.xgb.DMatrix", FakeDMatrix)
+    monkeypatch.setattr("bitbat.cli.commands.model.regression_metrics", fake_metrics)
+    monkeypatch.setattr("bitbat.cli.commands.backtest.run_strategy", fake_run_strategy)
+    monkeypatch.setattr("bitbat.cli.commands.backtest.summarize_backtest", fake_summary)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.compute_multiple_testing_safeguards", fake_safeguards
+    )
 
     argv = [
         "bitbat",
@@ -1484,8 +1488,8 @@ def test_cli_backtest_cost_slippage_reports_net_and_gross(
             "turnover": 1.0,
         }
 
-    monkeypatch.setattr("bitbat.cli.run_strategy", fake_run_strategy)
-    monkeypatch.setattr("bitbat.cli.summarize_backtest", fake_summary)
+    monkeypatch.setattr("bitbat.cli.commands.backtest.run_strategy", fake_run_strategy)
+    monkeypatch.setattr("bitbat.cli.commands.backtest.summarize_backtest", fake_summary)
 
     argv = [
         "bitbat",
@@ -1582,9 +1586,11 @@ def test_cli_model_train_family_both(
         saved_calls.append((family, path))
         return path
 
-    monkeypatch.setattr("bitbat.cli.fit_xgb", fake_fit_xgb)
-    monkeypatch.setattr("bitbat.cli.fit_random_forest", fake_fit_random_forest)
-    monkeypatch.setattr("bitbat.cli.save_baseline_artifact", fake_save_baseline_artifact)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_xgb", fake_fit_xgb)
+    monkeypatch.setattr("bitbat.cli.commands.model.fit_random_forest", fake_fit_random_forest)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.save_baseline_artifact", fake_save_baseline_artifact
+    )
 
     argv = [
         "bitbat",
@@ -1677,10 +1683,10 @@ def test_cli_batch_run(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("bitbat.ingest.prices.fetch_yf", fake_fetch_prices)
     monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch_news)
-    monkeypatch.setattr("bitbat.cli.generate_price_features", fake_price_features)
-    monkeypatch.setattr("bitbat.cli.aggregate_sentiment", fake_sentiment)
-    monkeypatch.setattr("bitbat.cli.load_model", lambda path: FakeModel())
-    monkeypatch.setattr("bitbat.cli.predict_bar", fake_predict)
+    monkeypatch.setattr("bitbat.cli.commands.batch.generate_price_features", fake_price_features)
+    monkeypatch.setattr("bitbat.cli.commands.batch.aggregate_sentiment", fake_sentiment)
+    monkeypatch.setattr("bitbat.cli.commands.batch.load_model", lambda path: FakeModel())
+    monkeypatch.setattr("bitbat.cli.commands.batch.predict_bar", fake_predict)
 
     argv = [
         "bitbat",
