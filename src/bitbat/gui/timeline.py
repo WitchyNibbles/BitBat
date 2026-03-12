@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from bitbat.autonomous.db import AutonomousDB
 
 _DIRECTION_STYLES = {
     "up": {"color": "#10B981", "symbol": "triangle-up"},
@@ -174,59 +175,6 @@ def _normalize_timeline_rows(df: pd.DataFrame) -> pd.DataFrame:
     return normalized[_TIMELINE_COLUMNS]
 
 
-def _prediction_columns(con: sqlite3.Connection) -> set[str]:
-    table_exists = con.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='prediction_outcomes' LIMIT 1"
-    ).fetchone()
-    if table_exists is None:
-        return set()
-    rows = con.execute("PRAGMA table_info(prediction_outcomes)").fetchall()
-    return {str(row[1]) for row in rows}
-
-
-def _build_timeline_query(columns: set[str]) -> str | None:
-    if not columns:
-        return None
-
-    if "timestamp_utc" in columns:
-        timestamp_expr = "timestamp_utc"
-    elif "prediction_timestamp" in columns:
-        timestamp_expr = "prediction_timestamp AS timestamp_utc"
-    else:
-        return None
-
-    if "freq" not in columns or "horizon" not in columns:
-        return None
-
-    select_exprs = [
-        timestamp_expr,
-        "predicted_direction"
-        if "predicted_direction" in columns
-        else "'flat' AS predicted_direction",  # noqa: E501
-        "p_up" if "p_up" in columns else "NULL AS p_up",
-        "p_down" if "p_down" in columns else "NULL AS p_down",
-        "predicted_return" if "predicted_return" in columns else "NULL AS predicted_return",
-        "predicted_price" if "predicted_price" in columns else "NULL AS predicted_price",
-        "actual_return" if "actual_return" in columns else "NULL AS actual_return",
-        "actual_direction" if "actual_direction" in columns else "NULL AS actual_direction",
-        "correct" if "correct" in columns else "NULL AS correct",
-    ]
-
-    order_clause = "ORDER BY timestamp_utc DESC"
-    if "created_at" in columns:
-        order_clause = "ORDER BY timestamp_utc DESC, created_at DESC"
-    elif "id" in columns:
-        order_clause = "ORDER BY timestamp_utc DESC, id DESC"
-
-    return (
-        "SELECT "  # noqa: S608
-        + ", ".join(select_exprs)
-        + " FROM prediction_outcomes "
-        "WHERE freq = ? AND horizon = ? " + order_clause + " "
-        "LIMIT ?"
-    )
-
-
 def _format_percent(value: Any, *, signed: bool = False, decimals: int = 1) -> str:
     if pd.isna(value):
         return "n/a"
@@ -354,6 +302,18 @@ def _sanitize_limit(limit: int) -> int:
     return max(parsed, 1)
 
 
+def _get_db(db_path: Path) -> AutonomousDB | None:
+    if not db_path.exists():
+        return None
+    try:
+        return AutonomousDB(
+            f"sqlite:///{db_path}",
+            allow_incompatible_schema=True,
+        )
+    except Exception:
+        return None
+
+
 def get_timeline_data(
     db_path: Path,
     freq: str,
@@ -370,17 +330,19 @@ def get_timeline_data(
         return _empty_timeline_frame()
 
     safe_limit = _sanitize_limit(limit)
+    db = _get_db(db_path)
+    if db is None:
+        return _empty_timeline_frame()
 
     try:
-        with sqlite3.connect(str(db_path)) as con:
-            columns = _prediction_columns(con)
-            query = _build_timeline_query(columns)
-            if query is None:
-                return _empty_timeline_frame()
-            raw_df = pd.read_sql_query(query, con, params=(freq, horizon, safe_limit))
+        rows = db.get_timeline_prediction_rows(
+            freq=freq,
+            horizon=horizon,
+            limit=safe_limit,
+        )
     except Exception:
         return _empty_timeline_frame()
-    return _normalize_timeline_rows(raw_df)
+    return _normalize_timeline_rows(pd.DataFrame(rows))
 
 
 def list_timeline_filter_options(
@@ -389,30 +351,16 @@ def list_timeline_filter_options(
     default_horizon: str,
 ) -> tuple[list[str], list[str]]:
     """List available freq/horizon filter options from prediction history."""
-    freqs = {default_freq}
-    horizons = {default_horizon}
-
-    if db_path.exists():
-        try:
-            with sqlite3.connect(str(db_path)) as con:
-                columns = _prediction_columns(con)
-                if {"freq", "horizon"}.issubset(columns):
-                    rows = con.execute(
-                        """
-                        SELECT DISTINCT freq, horizon
-                        FROM prediction_outcomes
-                        WHERE freq IS NOT NULL AND horizon IS NOT NULL
-                        """
-                    ).fetchall()
-                    for freq, horizon in rows:
-                        freqs.add(str(freq))
-                        horizons.add(str(horizon))
-        except Exception:  # noqa: S110
-            pass
-
-    sorted_freqs = sorted(freqs, key=_duration_sort_key)
-    sorted_horizons = sorted(horizons, key=_duration_sort_key)
-    return sorted_freqs, sorted_horizons
+    db = _get_db(db_path)
+    if db is None:
+        return [default_freq], [default_horizon]
+    try:
+        return db.list_prediction_pairs(
+            default_freq=default_freq,
+            default_horizon=default_horizon,
+        )
+    except Exception:
+        return [default_freq], [default_horizon]
 
 
 def apply_timeline_filters(

@@ -8,11 +8,11 @@ and render consistently across pages.
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.common.ingestion_status import get_ingestion_status  # noqa: F401
 
 # ---------------------------------------------------------------------------
@@ -20,15 +20,26 @@ from bitbat.common.ingestion_status import get_ingestion_status  # noqa: F401
 # ---------------------------------------------------------------------------
 
 
+def _get_db(db_path: Path) -> AutonomousDB | None:
+    if not db_path.exists():
+        return None
+    try:
+        return AutonomousDB(
+            f"sqlite:///{db_path}",
+            allow_incompatible_schema=True,
+        )
+    except Exception:
+        return None
+
+
 def db_query(db_path: Path, sql: str, params: tuple = ()) -> list:
     """Run a SQL SELECT against the autonomous DB, returning rows or []."""
-    if not db_path.exists():
+    db = _get_db(db_path)
+    if db is None:
         return []
     try:
-        con = sqlite3.connect(str(db_path))
-        rows = con.execute(sql, params).fetchall()
-        con.close()
-        return rows
+        with db.engine.connect() as connection:
+            return list(connection.exec_driver_sql(sql, params).fetchall())
     except Exception:
         return []
 
@@ -122,19 +133,18 @@ def _latest_monitor_heartbeat(db_path: Path) -> datetime | None:
 
 def get_system_status(db_path: Path) -> dict[str, Any]:
     """Return a dict with system status derived from recent monitoring activity."""
-    latest_snapshot = _latest_timestamp(db_path, "performance_snapshots", "snapshot_time")
-    latest_monitor_log = _latest_timestamp(
-        db_path,
-        "system_logs",
-        "timestamp",
-        where_sql="service = ?",
-        params=("monitoring_agent",),
-    )
-    if latest_monitor_log is None:
-        latest_monitor_log = _latest_timestamp(db_path, "system_logs", "timestamp")
-    if latest_monitor_log is None:
-        latest_monitor_log = _latest_timestamp(db_path, "system_logs", "created_at")
-    latest_retraining = _latest_timestamp(db_path, "retraining_events", "started_at")
+    db = _get_db(db_path)
+    latest_snapshot = None
+    latest_monitor_log = None
+    latest_retraining = None
+    if db is not None:
+        try:
+            activity = db.get_system_activity_summary()
+        except MonitorDatabaseError:
+            activity = {}
+        latest_snapshot = _parse_timestamp(activity.get("latest_snapshot"))
+        latest_monitor_log = _parse_timestamp(activity.get("latest_monitor_log"))
+        latest_retraining = _parse_timestamp(activity.get("latest_retraining"))
     latest_heartbeat = _latest_monitor_heartbeat(db_path)
 
     candidates = [
@@ -163,94 +173,24 @@ def get_system_status(db_path: Path) -> dict[str, Any]:
 
 def get_latest_prediction(db_path: Path) -> dict[str, Any] | None:
     """Return the most recent prediction row, or None."""
-    columns = _table_columns(db_path, "prediction_outcomes")
-    if not columns:
+    db = _get_db(db_path)
+    if db is None:
         return None
-
-    field_candidates: dict[str, tuple[str, ...]] = {
-        "timestamp_utc": ("timestamp_utc", "prediction_timestamp"),
-        "predicted_direction": ("predicted_direction",),
-        "predicted_return": ("predicted_return",),
-        "predicted_price": ("predicted_price",),
-        "model_version": ("model_version",),
-        "created_at": ("created_at", "prediction_timestamp", "timestamp_utc"),
-        "p_up": ("p_up",),
-        "p_down": ("p_down",),
-        "confidence_raw": ("confidence",),
-    }
-
-    expressions: list[str] = []
-    for alias, candidates in field_candidates.items():
-        selected = _first_available_column(columns, candidates)
-        if selected is None:
-            expressions.append(f"NULL AS {alias}")
-        else:
-            expressions.append(f"{selected} AS {alias}")
-
-    order_column = _first_available_column(
-        columns,
-        ("created_at", "timestamp_utc", "prediction_timestamp", "id"),
-    )
-
-    sql = "SELECT " + ", ".join(expressions) + " FROM prediction_outcomes"  # noqa: S608
-    if order_column is not None:
-        sql += f" ORDER BY {order_column} DESC"
-    sql += " LIMIT 1"
-
-    rows = db_query(db_path, sql)
-    if not rows:
+    try:
+        return db.get_latest_prediction_payload()
+    except MonitorDatabaseError:
         return None
-    (
-        ts,
-        direction,
-        predicted_return,
-        predicted_price,
-        model_ver,
-        created_at,
-        p_up,
-        p_down,
-        confidence_raw,
-    ) = rows[0]
-
-    p_up_value = _to_float(p_up)
-    p_down_value = _to_float(p_down)
-    confidence = _to_float(confidence_raw)
-    if confidence is None:
-        candidates = [value for value in (p_up_value, p_down_value) if value is not None]
-        if candidates:
-            confidence = max(candidates)
-
-    predicted_return_value = _to_float(predicted_return)
-    predicted_price_value = _to_float(predicted_price)
-
-    return {
-        "timestamp_utc": ts,
-        "direction": direction or "flat",
-        "predicted_return": predicted_return_value if predicted_return_value is not None else 0.0,
-        "predicted_price": predicted_price_value,
-        "model_version": model_ver,
-        "created_at": created_at or ts,
-        "p_up": p_up_value,
-        "p_down": p_down_value,
-        "confidence": confidence,
-    }
 
 
 def get_recent_events(db_path: Path, limit: int = 10) -> list[dict[str, Any]]:
     """Return recent system events from system_logs."""
-    rows = db_query(
-        db_path,
-        "SELECT timestamp, level, message FROM system_logs ORDER BY timestamp DESC LIMIT ?",
-        (limit,),
-    )
-    if not rows:
-        # Backward-compat with earlier local/test schemas.
-        rows = db_query(
-            db_path,
-            "SELECT created_at, level, message FROM system_logs ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        )
-    return [{"time": r[0], "level": r[1], "message": r[2]} for r in rows]
+    db = _get_db(db_path)
+    if db is None:
+        return []
+    try:
+        return db.list_recent_system_events(limit=limit)
+    except MonitorDatabaseError:
+        return []
 
 
 def minutes_until_next_prediction(

@@ -57,6 +57,21 @@ def _schema_detail_from_report(report: SchemaAuditReport) -> str:
     return f"Schema incompatible: missing {missing}"
 
 
+def _duration_sort_key(value: str) -> float:
+    text_value = str(value).strip().lower()
+    units = {"m": 60.0, "h": 3600.0, "d": 86400.0}
+    if not text_value:
+        return float("inf")
+    unit = text_value[-1]
+    factor = units.get(unit)
+    if factor is None:
+        return float("inf")
+    try:
+        return float(text_value[:-1]) * factor
+    except ValueError:
+        return float("inf")
+
+
 @dataclass(slots=True)
 class MonitorDatabaseError(RuntimeError):
     """Structured monitor DB failure with actionable diagnostics."""
@@ -144,12 +159,20 @@ class AutonomousDB:
         database_url: str = "sqlite:///data/autonomous.db",
         *,
         auto_upgrade_schema: bool = True,
+        allow_incompatible_schema: bool = False,
     ) -> None:
         self.database_url = database_url
         self.engine = create_database_engine(database_url)
         init_database(database_url, engine=self.engine)
         self.schema_compatibility_status: dict[str, str | int] = {}
-        if auto_upgrade_schema:
+        if allow_incompatible_schema:
+            self.schema_compatibility_status = {
+                "upgrade_state": "legacy_readonly",
+                "operations_applied": 0,
+                "missing_columns_before": 0,
+                "missing_columns_after": 0,
+            }
+        elif auto_upgrade_schema:
             upgrade_result = upgrade_schema_compatibility(
                 database_url=database_url,
                 engine=self.engine,
@@ -281,6 +304,34 @@ class AutonomousDB:
                 engine=self.engine,
             ) from exc
 
+    def _latest_table_value(
+        self,
+        *,
+        table_name: str,
+        candidates: tuple[str, ...],
+        filters: dict[str, Any] | None = None,
+    ) -> Any | None:
+        columns = self._table_columns(table_name)
+        selected = self._first_available(columns, candidates)
+        if selected is None:
+            return None
+
+        sql = f"SELECT {selected} AS value FROM {table_name}"  # noqa: S608
+        params: dict[str, Any] = {}
+        where_parts: list[str] = []
+        for key, value in (filters or {}).items():
+            if key not in columns:
+                continue
+            param_name = f"filter_{key}"
+            where_parts.append(f"{key} = :{param_name}")
+            params[param_name] = value
+        if where_parts:
+            sql += f" WHERE {' AND '.join(where_parts)}"
+        sql += f" ORDER BY {selected} DESC LIMIT 1"
+
+        with self.engine.connect() as connection:
+            return connection.execute(text(sql), params).scalar_one_or_none()
+
     def list_system_logs(self, *, limit: int, level: str | None = None) -> dict[str, Any]:
         def _read() -> dict[str, Any]:
             columns = self._table_columns("system_logs")
@@ -387,6 +438,44 @@ class AutonomousDB:
             return {"snapshots": rows}
 
         return self._run_read(step="system.performance_snapshots", operation=_read)
+
+    def get_system_activity_summary(self) -> dict[str, Any]:
+        def _read() -> dict[str, Any]:
+            latest_monitor_log = self._latest_table_value(
+                table_name="system_logs",
+                candidates=("timestamp", "created_at"),
+                filters={"service": "monitoring_agent"},
+            )
+            if latest_monitor_log is None:
+                latest_monitor_log = self._latest_table_value(
+                    table_name="system_logs",
+                    candidates=("timestamp", "created_at"),
+                )
+
+            return {
+                "latest_snapshot": self._latest_table_value(
+                    table_name="performance_snapshots",
+                    candidates=("snapshot_time",),
+                ),
+                "latest_monitor_log": latest_monitor_log,
+                "latest_retraining": self._latest_table_value(
+                    table_name="retraining_events",
+                    candidates=("started_at",),
+                ),
+            }
+
+        return self._run_read(step="gui.system_status", operation=_read)
+
+    def list_recent_system_events(self, *, limit: int) -> list[dict[str, Any]]:
+        payload = self.list_system_logs(limit=limit)
+        return [
+            {
+                "time": row["timestamp"],
+                "level": row["level"],
+                "message": row["message"],
+            }
+            for row in payload["logs"]
+        ]
 
     def get_latest_prediction_payload(self) -> dict[str, Any] | None:
         def _read() -> dict[str, Any] | None:
@@ -511,6 +600,34 @@ class AutonomousDB:
                 ]
 
         return self._run_read(step="gui.timeline", operation=_read)
+
+    def list_prediction_pairs(
+        self,
+        *,
+        default_freq: str,
+        default_horizon: str,
+    ) -> tuple[list[str], list[str]]:
+        def _read() -> tuple[list[str], list[str]]:
+            freqs = {default_freq}
+            horizons = {default_horizon}
+            columns = self._table_columns("prediction_outcomes")
+            if {"freq", "horizon"}.issubset(columns):
+                sql = (
+                    "SELECT DISTINCT freq, horizon FROM prediction_outcomes "
+                    "WHERE freq IS NOT NULL AND horizon IS NOT NULL"
+                )
+                with self.engine.connect() as connection:
+                    rows = connection.execute(text(sql)).all()
+                for freq, horizon in rows:
+                    freqs.add(str(freq))
+                    horizons.add(str(horizon))
+
+            return (
+                sorted(freqs, key=_duration_sort_key),
+                sorted(horizons, key=_duration_sort_key),
+            )
+
+        return self._run_read(step="gui.timeline_filters", operation=_read)
 
     def store_prediction(
         self,
