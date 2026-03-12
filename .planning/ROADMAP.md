@@ -30,7 +30,7 @@
 - [x] **Phase 30: Fix & Reset** — Fix root cause in code, provide a clean reset + retrain procedure, and verify accuracy exceeds random baseline (completed 2026-03-08)
 - [x] **Phase 31: Accuracy Guardrail** — Add monitor alert that fires when realized accuracy falls below a configurable threshold (completed 2026-03-08)
 - [x] **Phase 32: CLI Decomposition** — Split cli.py monolith (1802+ lines, 53 functions) into focused command modules (completed 2026-03-12)
-- [ ] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution
+- [x] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution (completed 2026-03-12)
 - [ ] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach
 - [ ] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model
 
@@ -141,6 +141,6 @@ Plans:
 | 30. Fix & Reset | 3/3 | Complete   | 2026-03-08 | - |
 | 31. Accuracy Guardrail | 1/1 | Complete    | 2026-03-08 | - |
 | 32. CLI Decomposition | 3/3 | Complete    | 2026-03-12 | - |
-| 33. Path Centralization | 1/2 | In Progress|  | - |
+| 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
 | 34. DB Unification | v1.6 | 0/TBD | Not started | - |
 | 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T15:01:34Z"
+last_updated: "2026-03-12T15:08:31Z"
 progress:
   total_phases: 24
-  completed_phases: 23
+  completed_phases: 24
   total_plans: 63
-  completed_plans: 62
+  completed_plans: 63
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 — Phase 33: Path Centralization
+**Current focus:** Milestone v1.6 — Phase 34: DB Unification
 
 ## Current Position
 
-Phase: 33 of 35 (Path Centralization — IN PROGRESS)
-Plan: 33-01 complete; 33-02 pending
-Status: Phase 33 In Progress — config loader exposes models/metrics path helpers, default.yaml has config keys, and the structural grep gate is ready for the call-site sweep
-Last activity: 2026-03-12 — 33-01 complete: resolve_models_dir()/resolve_metrics_dir() added; four helper tests green; structural grep tests intentionally red until remaining call sites are swept
+Phase: 33 of 35 (Path Centralization — COMPLETE)
+Plan: 33-02 complete; Phase 33 done
+Status: Phase 33 Complete — all artifact path consumers now resolve models/metrics directories through config helpers; DEBT-02 satisfied
+Last activity: 2026-03-12 — 33-02 complete: all hardcoded Path(\"models\") / Path(\"metrics\") literals removed from src/; structural tests green; phase verification passed
 
-Progress: [██████████] 98% (62/63 plans complete)
+Progress: [██████████] 100% (63/63 plans complete)
 
 ## Performance Metrics
 
@@ -92,6 +92,8 @@ Progress: [██████████] 98% (62/63 plans complete)
 - 32-03: All monkeypatch targets in tests/test_cli.py updated to bitbat.cli.commands.* paths; inspect.getsource updated to commands.model.
 - 33-01: models_dir and metrics_dir default to cwd-relative config values so existing monkeypatch.chdir-based tests remain compatible.
 - 33-01: Structural grep tests for Path("models") and Path("metrics") are intentionally introduced before the sweep and stay red until Plan 33-02 removes all remaining literals.
+- 33-02: All src/ artifact path consumers now use resolve_models_dir() / resolve_metrics_dir(); no Path("models") or Path("metrics") literals remain in src/.
+- 33-02: Functions with artifact directory defaults must resolve lazily at runtime rather than baking hardcoded Path defaults at definition time.
 
 ### Pending Todos
 
@@ -105,10 +107,10 @@ Progress: [██████████] 98% (62/63 plans complete)
 - After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed"). DONE in 30-02.
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
 - Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
-- Phase 33 (Path Centralization) is active. Plan 33-02 still needs to sweep the remaining hardcoded models/metrics paths.
+- Phase 33 is complete. Phase 34 (DB Unification) is the next planned milestone step.
 
 ## Session Continuity
 
-Last session: 2026-03-12T15:01:34Z
-Stopped at: Completed 33-01-PLAN.md
-Resume with: Execute 33-02-PLAN.md — replace remaining hardcoded Path("models") / Path("metrics") call sites
+Last session: 2026-03-12T15:08:31Z
+Stopped at: Completed 33-VERIFICATION.md
+Resume with: Discuss or plan Phase 34 — DB Unification
