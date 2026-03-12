@@ -37,16 +37,11 @@ def _write_recovery_config(path: Path, root: Path) -> Path:
     return path
 
 
-@pytest.fixture(scope="session", autouse=True)
-def diagnosis_runtime_environment(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+@pytest.fixture(scope="session")
+def diagnosis_runtime_config(tmp_path_factory: pytest.TempPathFactory) -> Path:
     existing_config = os.environ.get("BITBAT_CONFIG")
     if existing_config:
-        set_runtime_config(existing_config)
-        try:
-            yield Path(existing_config)
-        finally:
-            reset_runtime_config()
-        return
+        return Path(existing_config)
 
     source_dataset = Path("data/features/1h_1h/dataset.parquet")
     if not source_dataset.exists():
@@ -54,7 +49,6 @@ def diagnosis_runtime_environment(tmp_path_factory: pytest.TempPathFactory) -> I
 
     sandbox_root = tmp_path_factory.mktemp("diagnosis-runtime")
     config_path = _write_recovery_config(sandbox_root / "recovery.yaml", sandbox_root)
-    os.environ["BITBAT_CONFIG"] = str(config_path)
     set_runtime_config(config_path)
     try:
         staged = stage_recovery_dataset(source_dataset=source_dataset, evaluation_rows=300)
@@ -77,7 +71,21 @@ def diagnosis_runtime_environment(tmp_path_factory: pytest.TempPathFactory) -> I
             metadata={"source": "tests.diagnosis.conftest"},
         )
         build_recovery_evidence(staged.evaluation_dataset_path)
-        yield config_path
     finally:
         reset_runtime_config()
-        os.environ.pop("BITBAT_CONFIG", None)
+    return config_path
+
+
+@pytest.fixture(autouse=True)
+def diagnosis_runtime_environment(diagnosis_runtime_config: Path) -> Iterator[None]:
+    previous = os.environ.get("BITBAT_CONFIG")
+    os.environ["BITBAT_CONFIG"] = str(diagnosis_runtime_config)
+    set_runtime_config(diagnosis_runtime_config)
+    try:
+        yield
+    finally:
+        reset_runtime_config()
+        if previous is None:
+            os.environ.pop("BITBAT_CONFIG", None)
+        else:
+            os.environ["BITBAT_CONFIG"] = previous
