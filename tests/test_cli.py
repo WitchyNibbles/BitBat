@@ -343,7 +343,7 @@ def test_cli_features_build_label_mode_default_compatibility(
         return pd.DataFrame({"feat_demo": [1.0]}, index=idx), pd.Series([0.01], index=idx), {}
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("bitbat.cli.commands.model.build_xy", fake_build_xy)
+    monkeypatch.setattr("bitbat.cli.commands.features.build_xy", fake_build_xy)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -396,7 +396,7 @@ def test_cli_features_build_triple_barrier_label_mode(
         return pd.DataFrame({"feat_demo": [1.0]}, index=idx), pd.Series([0.01], index=idx), {}
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("bitbat.cli.commands.model.build_xy", fake_build_xy)
+    monkeypatch.setattr("bitbat.cli.commands.features.build_xy", fake_build_xy)
     monkeypatch.setattr(
         sys,
         "argv",
