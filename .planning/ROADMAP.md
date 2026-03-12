@@ -146,5 +146,5 @@ Plans:
 | 31. Accuracy Guardrail | 1/1 | Complete    | 2026-03-08 | - |
 | 32. CLI Decomposition | 3/3 | Complete    | 2026-03-12 | - |
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
-| 34. DB Unification | v1.6 | 0/3 | Planned | - |
+| 34. DB Unification | 1/3 | In Progress|  | - |
 | 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
