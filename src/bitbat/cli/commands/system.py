@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from bitbat.cli._helpers import _config
+from bitbat.config.loader import resolve_models_dir
 
 
 @click.group(help="System lifecycle commands.")
@@ -31,7 +32,7 @@ def system_reset(yes: bool) -> None:
 
     cfg = _config()
     data_dir = Path(str(cfg.get("data_dir", "data"))).expanduser()
-    models_dir = Path("models")
+    models_dir = resolve_models_dir()
     db_url = str(cfg.get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db"))
     db_path = Path(db_url.replace("sqlite:///", ""))
 

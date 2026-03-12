@@ -14,6 +14,7 @@ from bitbat.api.schemas import (
     SystemStatusResponse,
 )
 from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_missing_columns
+from bitbat.config.loader import resolve_models_dir
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -70,7 +71,7 @@ async def feature_importance(
     """Return model feature importance (gain-based) from the trained booster."""
     import xgboost as xgb
 
-    model_path = Path("models") / f"{freq}_{horizon}" / "xgb.json"
+    model_path = resolve_models_dir() / f"{freq}_{horizon}" / "xgb.json"
     if not model_path.exists():
         raise HTTPException(status_code=404, detail=f"No model at {model_path}")
 
@@ -95,7 +96,7 @@ async def system_status(
 ) -> SystemStatusResponse:
     """Return a summary of system readiness (DB, model, dataset, predictions)."""
     db_path = Path("data/autonomous.db")
-    model_path = Path("models") / f"{freq}_{horizon}" / "xgb.json"
+    model_path = resolve_models_dir() / f"{freq}_{horizon}" / "xgb.json"
     dataset_path = Path("data/features") / f"{freq}_{horizon}" / "dataset.parquet"
 
     database_present = db_path.exists()

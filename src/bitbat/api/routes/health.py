@@ -15,6 +15,7 @@ from bitbat.api.schemas import (
     ServiceStatus,
 )
 from bitbat.autonomous.schema_compat import audit_schema_compatibility, format_missing_columns
+from bitbat.config.loader import resolve_models_dir
 
 router = APIRouter(tags=["health"])
 
@@ -92,7 +93,7 @@ def _check_schema_readiness() -> tuple[ServiceStatus, SchemaReadinessDetails]:
 
 def _check_model(freq: str = _FREQ, horizon: str = _HORIZON) -> ServiceStatus:
     """Check whether a trained XGBoost model exists."""
-    model_path = Path("models") / f"{freq}_{horizon}" / "xgb.json"
+    model_path = resolve_models_dir() / f"{freq}_{horizon}" / "xgb.json"
     if model_path.exists():
         return ServiceStatus(name="model", status="ok")
     return ServiceStatus(

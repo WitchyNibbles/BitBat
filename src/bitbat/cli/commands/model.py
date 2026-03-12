@@ -20,6 +20,7 @@ from bitbat.cli._helpers import (
     _resolve_model_families,
     _resolve_setting,
 )
+from bitbat.config.loader import resolve_metrics_dir
 from bitbat.dataset.build import build_xy, generate_price_features  # noqa: F401
 from bitbat.dataset.splits import generate_rolling_windows, walk_forward  # noqa: F401
 from bitbat.model.evaluate import (
@@ -291,7 +292,7 @@ def _run_champion_selection(
         "candidate_reports": candidate_reports,
         "champion_decision": champion_decision,
     }
-    metrics_dir = Path("metrics")
+    metrics_dir = resolve_metrics_dir()
     metrics_dir.mkdir(parents=True, exist_ok=True)
     (metrics_dir / "cv_summary.json").write_text(
         json.dumps(aggregate, indent=2),
@@ -623,7 +624,7 @@ def model_optimize(
         },
     }
 
-    metrics_dir = Path("metrics")
+    metrics_dir = resolve_metrics_dir()
     metrics_dir.mkdir(parents=True, exist_ok=True)
     output_path = metrics_dir / "optimization_summary.json"
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

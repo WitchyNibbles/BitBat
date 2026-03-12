@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 import click
 import pandas as pd
@@ -19,6 +18,7 @@ from bitbat.cli._helpers import (
     _raise_monitor_schema_error,
     _resolve_setting,
 )
+from bitbat.config.loader import resolve_metrics_dir
 
 
 @click.group(help="Monitoring commands.")
@@ -71,7 +71,7 @@ def monitor_refresh(
         "updated_at": datetime.now(UTC).isoformat(),
     }
 
-    metrics_dir = Path("metrics")
+    metrics_dir = resolve_metrics_dir()
     metrics_dir.mkdir(parents=True, exist_ok=True)
     output_path = metrics_dir / f"live_{freq_val}_{horizon_val}.json"
     output_path.write_text(json.dumps(live_metrics, indent=2), encoding="utf-8")
