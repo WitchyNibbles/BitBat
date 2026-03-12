@@ -35,9 +35,7 @@ def test_resolve_metrics_dir_default(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resolve_metrics_dir() == Path("metrics")
 
 
-def test_config_redirect_models_dir(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_config_redirect_models_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """models_dir config redirects model artifacts."""
     custom_models_dir = tmp_path / "custom_models"
     monkeypatch.setattr(loader, "_ACTIVE_CONFIG", {"models_dir": str(custom_models_dir)})
@@ -47,9 +45,7 @@ def test_config_redirect_models_dir(
     loader.reset_runtime_config()
 
 
-def test_config_redirect_metrics_dir(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_config_redirect_metrics_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """metrics_dir config redirects metrics artifacts."""
     custom_metrics_dir = tmp_path / "custom_metrics"
     monkeypatch.setattr(loader, "_ACTIVE_CONFIG", {"metrics_dir": str(custom_metrics_dir)})

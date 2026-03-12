@@ -102,3 +102,17 @@ def reset_runtime_config() -> None:
     _ACTIVE_CONFIG = None
     _ACTIVE_PATH = None
     _ACTIVE_SOURCE = None
+
+
+def resolve_models_dir(config: dict[str, Any] | None = None) -> Path:
+    """Return the canonical models directory."""
+    cfg = config if config is not None else get_runtime_config()
+    raw = str(cfg.get("models_dir", "models"))
+    return Path(raw).expanduser()
+
+
+def resolve_metrics_dir(config: dict[str, Any] | None = None) -> Path:
+    """Return the canonical metrics directory."""
+    cfg = config if config is not None else get_runtime_config()
+    raw = str(cfg.get("metrics_dir", "metrics"))
+    return Path(raw).expanduser()

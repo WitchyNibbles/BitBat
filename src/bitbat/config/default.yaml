@@ -1,4 +1,6 @@
 data_dir: "data"
+models_dir: "models"
+metrics_dir: "metrics"
 freq: "5m"
 horizon: "30m"
 tau: 0.01
