@@ -32,6 +32,19 @@ Release regression command:
 - `make test-release`: Executes canonical monitor/UI release gate suites, including the phase 19
   monitor-alignment gate contract.
 
+## Recovery Evidence
+
+Phase 36 closes the deferred FIXR-03 checkpoint with a sandboxed recovery-evidence flow:
+
+1. `BITBAT_CONFIG=/tmp/bitbat-recovery.yaml poetry run bitbat system reset --yes`
+2. `poetry run python scripts/build_recovery_evidence.py stage --config "$BITBAT_CONFIG" --source-dataset data/features/1h_1h/dataset.parquet --evaluation-rows 300`
+3. `poetry run bitbat --config "$BITBAT_CONFIG" model train --freq 1h --horizon 1h`
+4. `poetry run python scripts/build_recovery_evidence.py realize --config "$BITBAT_CONFIG"`
+5. `BITBAT_CONFIG="$BITBAT_CONFIG" poetry run pytest tests/diagnosis/test_pipeline_stage_trace.py -v`
+
+This path keeps the repo's existing runtime artifacts untouched while still producing fresh
+`prediction_outcomes` evidence and a saved `metrics/recovery_evidence.json` summary.
+
 ## Guardrails
 
 - **Contracts**: `ensure_prices_contract` and `ensure_news_contract` run in ingestion before persistence; `ensure_feature_contract` runs in dataset build and feature-consuming CLI flows; `ensure_predictions_contract` runs across prediction-producing/consuming CLI flows.

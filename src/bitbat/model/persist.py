@@ -10,6 +10,8 @@ from typing import Any, Literal
 import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
 
+from bitbat.config.loader import resolve_models_dir
+
 BaselineFamily = Literal["xgb", "random_forest"]
 TreeBaselineModel = xgb.Booster | RandomForestRegressor
 
@@ -43,10 +45,11 @@ def default_model_artifact_path(
     horizon: str,
     *,
     family: BaselineFamily,
-    root: str | Path = "models",
+    root: str | Path | None = None,
 ) -> Path:
     """Return the canonical artifact path for a baseline family."""
-    return Path(root) / f"{freq}_{horizon}" / _family_filename(family)
+    resolved_root = Path(root) if root is not None else resolve_models_dir()
+    return resolved_root / f"{freq}_{horizon}" / _family_filename(family)
 
 
 def save(
@@ -108,7 +111,7 @@ def save_baseline_artifact(
     family: BaselineFamily,
     freq: str,
     horizon: str,
-    root: str | Path = "models",
+    root: str | Path | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Path:
     """Persist a baseline artifact using stable family-aware paths."""
@@ -129,7 +132,7 @@ def load_baseline_artifact(
     horizon: str,
     *,
     family: BaselineFamily,
-    root: str | Path = "models",
+    root: str | Path | None = None,
 ) -> TreeBaselineModel:
     """Load a baseline artifact using stable family-aware paths."""
     target = default_model_artifact_path(freq, horizon, family=family, root=root)

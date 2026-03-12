@@ -167,4 +167,25 @@ make test-release
 - Type check: `poetry run mypy src tests`
 - Tests: `poetry run pytest`
 
+## Recovery Evidence Workflow
+
+To reproduce the Phase 36 post-reset recovery proof without mutating the repo's current `data/`
+tree, use a sandbox config through `BITBAT_CONFIG`:
+
+```bash
+export BITBAT_CONFIG=/tmp/bitbat-recovery.yaml
+poetry run bitbat --config "$BITBAT_CONFIG" system reset --yes
+poetry run python scripts/build_recovery_evidence.py stage \
+  --config "$BITBAT_CONFIG" \
+  --source-dataset data/features/1h_1h/dataset.parquet \
+  --evaluation-rows 300
+poetry run bitbat --config "$BITBAT_CONFIG" model train --freq 1h --horizon 1h
+poetry run python scripts/build_recovery_evidence.py realize --config "$BITBAT_CONFIG"
+BITBAT_CONFIG="$BITBAT_CONFIG" poetry run pytest tests/diagnosis/test_pipeline_stage_trace.py -v
+```
+
+This uses the `1h_1h` dataset to stage a train/eval split, retrains into the configured
+`models_dir`, realizes held-out predictions into the configured autonomous DB, and then reruns the
+Phase 30 diagnosis assertions against fresh runtime evidence.
+
 Refer to [Testing & Quality](./testing-quality.md) for more guardrail details.

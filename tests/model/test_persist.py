@@ -8,6 +8,7 @@ import pytest
 import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
 
+from bitbat.config.loader import reset_runtime_config, set_runtime_config
 from bitbat.model.persist import (
     default_model_artifact_path,
     load,
@@ -86,3 +87,20 @@ def test_baseline_artifact_helpers_use_stable_paths(tmp_path: Path) -> None:
     )
     assert isinstance(loaded, RandomForestRegressor)
     assert np.allclose(model.predict(X), loaded.predict(X))
+
+
+def test_default_model_artifact_path_uses_configured_models_dir(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    models_dir = tmp_path / "custom-models"
+    config_path.write_text(
+        f'models_dir: "{models_dir}"\n',
+        encoding="utf-8",
+    )
+
+    set_runtime_config(config_path)
+    try:
+        artifact_path = default_model_artifact_path("1h", "1h", family="xgb")
+    finally:
+        reset_runtime_config()
+
+    assert artifact_path == models_dir / "1h_1h" / "xgb.json"

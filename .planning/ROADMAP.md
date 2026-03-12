@@ -33,7 +33,7 @@
 - [x] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution (completed 2026-03-12)
 - [x] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach (completed 2026-03-12)
 - [x] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model (completed 2026-03-12)
-- [ ] **Phase 36: Live Recovery Evidence Closure** — Capture formal post-reset/post-retrain evidence that the recovered pipeline exceeds the realized-accuracy baseline and closes FIXR-03
+- [x] **Phase 36: Live Recovery Evidence Closure** — Capture formal post-reset/post-retrain evidence that the recovered pipeline exceeds the realized-accuracy baseline and closes FIXR-03 (completed 2026-03-12)
 - [ ] **Phase 37: CLI Decomposition Re-Verification** — Reconcile the stale Phase 32 verification artifact and close DEBT-01 with a passed verification record
 
 ## Phase Details
@@ -149,8 +149,8 @@ Plans:
   4. The operator recovery flow (`system reset` → retrain → realized outcomes → diagnosis accuracy check) is reproducible from the repo documentation
 **Plans**: 2 plans
 Plans:
-- [ ] 36-01-PLAN.md — Add a recovery-evidence harness, config-aware diagnosis resolution, and docs/contracts for the reset + retrain flow
-- [ ] 36-02-PLAN.md — Run the sandbox reset + retrain evidence flow, update Phase 30 verification, and record passed FIXR-03 evidence
+- [x] 36-01-PLAN.md — Add a recovery-evidence harness, config-aware diagnosis resolution, and docs/contracts for the reset + retrain flow
+- [x] 36-02-PLAN.md — Run the sandbox reset + retrain evidence flow, update Phase 30 verification, and record passed FIXR-03 evidence
 
 ### Phase 37: CLI Decomposition Re-Verification
 **Goal**: The CLI decomposition is formally re-verified so the saved verification evidence matches the now-green code/test surface and DEBT-01 is audit-clean
@@ -180,5 +180,5 @@ Plans:
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
 | 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
 | 35. XGBoost Fix | v1.6 | 2/2 | Complete | 2026-03-12 |
-| 36. Live Recovery Evidence Closure | v1.6 | 0/2 | Planned | - |
+| 36. Live Recovery Evidence Closure | v1.6 | 2/2 | Complete | 2026-03-12 |
 | 37. CLI Decomposition Re-Verification | v1.6 | 0/TBD | Not started | - |

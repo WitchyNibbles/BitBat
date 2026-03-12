@@ -163,6 +163,7 @@ def batch_run(
                 predicted_price=prediction.get("predicted_price"),
                 p_up=float(prediction.get("p_up", 0.0)),
                 p_down=float(prediction.get("p_down", 0.0)),
+                p_flat=float(prediction.get("p_flat", 0.0)),
             )
         click.echo(f"Also stored in autonomous DB ({db_url})")
     except Exception as exc:

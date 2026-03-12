@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T18:05:00Z"
+last_updated: "2026-03-12T19:15:00Z"
 progress:
   total_phases: 27
-  completed_phases: 25
+  completed_phases: 26
   total_plans: 70
-  completed_plans: 68
+  completed_plans: 70
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 gap closure — Phase 36 execution
+**Current focus:** Milestone v1.6 gap closure — Phase 37 planning
 
 ## Current Position
 
-Phase: 36 of 37 (Live Recovery Evidence Closure — PLANNED)
-Plan: 36-01 in progress
+Phase: 37 of 37 (CLI Decomposition Re-Verification — PENDING)
+Plan: not started
 Status: Milestone reopened for audit gap closure — FIXR-03 and DEBT-01 now route through Phases 36 and 37
-Last activity: 2026-03-12 — Phase 36 research and plans added for fresh recovery evidence closure
+Last activity: 2026-03-12 — Phase 36 completed with fresh sandbox recovery evidence (`239/300`, 79.67%)
 
-Progress: [█████████░] 68 completed plans, 2 new gap-closure phases planned for execution
+Progress: [█████████░] 70 completed plans, Phase 37 remains to close DEBT-01
 
 ## Performance Metrics
 
@@ -103,6 +103,8 @@ Progress: [█████████░] 68 completed plans, 2 new gap-closure
 - 36/37 planning: audit blockers are addressed with focused closure phases rather than reopening the completed implementation phases directly.
 - 36-01 planning: recovery evidence will run in a sandbox config against the `1h_1h` pair so the repo's existing `data/` tree is not mutated during verification.
 - 36-01 planning: `model train` must honor configured `models_dir` for the reset + retrain flow to be reproducible under sandbox configs.
+- 36-01: diagnosis tests auto-provision sandbox recovery evidence unless BITBAT_CONFIG is set explicitly.
+- 36-02: fresh recovery evidence recorded on sandbox config `/tmp/bitbat-phase36-93srjn/recovery.yaml`: `239/300` correct (`0.7967`), `flat=283`, `down=15`, `up=2`, `zero_return_count=1`.
 
 ### Pending Todos
 
@@ -116,12 +118,11 @@ Progress: [█████████░] 68 completed plans, 2 new gap-closure
 - After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed"). DONE in 30-02.
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
 - Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
-- FIXR-03 remains blocked on formal post-reset runtime evidence from fresh predictions.
 - DEBT-01 remains blocked on a passed verification artifact that reconciles Phase 32 with the later green CLI surface.
-- Phase 36 plans are now written; execution starts with the recovery-evidence harness and sandboxed diagnosis pass.
+- FIXR-03 is closed by Phase 36's passed sandbox verification artifact.
 
 ## Session Continuity
 
-Last session: 2026-03-12T17:05:00Z
-Stopped at: Phase 36 planned
-Resume with: `$gsd-execute-phase 36`
+Last session: 2026-03-12T19:15:00Z
+Stopped at: Phase 36 complete
+Resume with: `$gsd-plan-phase 37`

@@ -641,6 +641,7 @@ class AutonomousDB:
         predicted_price: float | None = None,
         p_up: float = 0.0,
         p_down: float = 0.0,
+        p_flat: float = 0.0,
         features_used: dict[str, Any] | None = None,
     ) -> PredictionOutcome:
         """Insert a new prediction row."""
@@ -650,7 +651,7 @@ class AutonomousDB:
             predicted_direction=predicted_direction,
             p_up=p_up,
             p_down=p_down,
-            p_flat=0.0,
+            p_flat=p_flat,
             predicted_return=predicted_return,
             predicted_price=predicted_price,
             model_version=model_version,

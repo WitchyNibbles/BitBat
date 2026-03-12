@@ -60,7 +60,7 @@ active prediction flows for the configured runtime pair.
 - [ ] DIAG-02: Root cause documented with reproducible trace before fix
 - [ ] FIXR-01: Root cause of live accuracy ~1% fixed in code
 - [ ] FIXR-02: Clean reset procedure (data/ + models/ + autonomous.db) executable and documented
-- [ ] FIXR-03: After reset + retrain, live directional accuracy exceeds 33%
+- [x] FIXR-03: After reset + retrain, live directional accuracy exceeds 33%
 - [ ] FIXR-04: Monitor alerts when realized accuracy falls below configurable threshold
 - [ ] DEBT-01: CLI monolith decomposed (cli.py 1802+ lines, 53 functions → focused modules)
 - [ ] DEBT-02: Hardcoded Path("models")/Path("metrics") centralized (15+ sites)
