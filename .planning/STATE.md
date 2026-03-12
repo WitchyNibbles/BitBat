@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
-status: unknown
-last_updated: "2026-03-12T10:01:09.865Z"
+status: in_progress
+last_updated: "2026-03-12T15:01:34Z"
 progress:
-  total_phases: 23
+  total_phases: 24
   completed_phases: 23
-  total_plans: 61
-  completed_plans: 61
+  total_plans: 63
+  completed_plans: 62
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** A reliable prediction system where operators can trust that monitoring outputs correspond to real, active prediction flows for the configured runtime pair.
-**Current focus:** Milestone v1.6 — Phase 30: Fix and Reset
+**Current focus:** Milestone v1.6 — Phase 33: Path Centralization
 
 ## Current Position
 
-Phase: 32 of 35 (CLI Decomposition — COMPLETE)
-Plan: 32-03 complete; Phase 32 done
-Status: Phase 32 Complete — all 10 command groups in dedicated files; cli/__init__.py is 83-line thin registration layer; zero noqa:C901 suppressions; DEBT-01 satisfied
-Last activity: 2026-03-12 — 32-03 complete: commands/model.py + commands/monitor.py; model_cv C901 refactored; all monkeypatch targets updated; full suite green
+Phase: 33 of 35 (Path Centralization — IN PROGRESS)
+Plan: 33-01 complete; 33-02 pending
+Status: Phase 33 In Progress — config loader exposes models/metrics path helpers, default.yaml has config keys, and the structural grep gate is ready for the call-site sweep
+Last activity: 2026-03-12 — 33-01 complete: resolve_models_dir()/resolve_metrics_dir() added; four helper tests green; structural grep tests intentionally red until remaining call sites are swept
 
-Progress: [██████████] 97% (59/61 plans complete)
+Progress: [██████████] 98% (62/63 plans complete)
 
 ## Performance Metrics
 
@@ -90,6 +90,8 @@ Progress: [██████████] 97% (59/61 plans complete)
 - 32-03: model_cv C901 refactored into 5 private helpers (_resolve_cv_embargo_purge, _resolve_cv_window_spec, _run_cv_folds, _build_family_metrics, _run_champion_selection) — zero noqa suppressions.
 - 32-03: CLI decomposition complete — all 10 command groups in dedicated commands/* modules; cli/__init__.py is 83-line thin registration layer; DEBT-01 satisfied.
 - 32-03: All monkeypatch targets in tests/test_cli.py updated to bitbat.cli.commands.* paths; inspect.getsource updated to commands.model.
+- 33-01: models_dir and metrics_dir default to cwd-relative config values so existing monkeypatch.chdir-based tests remain compatible.
+- 33-01: Structural grep tests for Path("models") and Path("metrics") are intentionally introduced before the sweep and stay red until Plan 33-02 removes all remaining literals.
 
 ### Pending Todos
 
@@ -102,10 +104,11 @@ Progress: [██████████] 97% (59/61 plans complete)
 - Preserve autonomous.db backward compatibility throughout DEBT-03 unification.
 - After Phase 30 fixes, tests/diagnosis/ assertions must be inverted (from "bug exists" to "bug fixed"). DONE in 30-02.
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
-- Phase 31 complete. Phase 32 (Tech Debt) is next. Operator still needs `bitbat system reset --yes` + retrain to clear pre-fix autonomous.db and activate the live accuracy guardrail.
+- Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
+- Phase 33 (Path Centralization) is active. Plan 33-02 still needs to sweep the remaining hardcoded models/metrics paths.
 
 ## Session Continuity
 
-Last session: 2026-03-12T09:48:49.348Z
-Stopped at: Completed 32-03-PLAN.md
-Resume with: Plan Phase 29 (Diagnosis) — investigate live accuracy collapse
+Last session: 2026-03-12T15:01:34Z
+Stopped at: Completed 33-01-PLAN.md
+Resume with: Execute 33-02-PLAN.md — replace remaining hardcoded Path("models") / Path("metrics") call sites
