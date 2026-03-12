@@ -19,32 +19,44 @@ from bitbat.backtest.engine import run as run_strategy  # noqa: F401
 from bitbat.backtest.metrics import summary as summarize_backtest  # noqa: F401
 from bitbat.cli._helpers import (
     _config,
-    _data_path,
     _emit_monitor_startup_context,
-    _ensure_path_exists,
     _load_feature_dataset,
-    _load_news,
-    _load_prices_indexed,
-    _model_path,
-    _news_backend,
-    _parse_datetime,
     _predict_baseline,
     _predictions_path,
     _raise_monitor_model_preflight_error,
     _raise_monitor_runtime_db_error,
     _raise_monitor_schema_error,
     _resolve_model_families,
-    _resolve_news_source,
     _resolve_setting,
-    _sentiment_enabled,
+)
+from bitbat.cli.commands import (
+    backtest as _backtest_mod,
+)
+from bitbat.cli.commands import (
+    batch as _batch_mod,
+)
+from bitbat.cli.commands import (
+    features as _features_mod,
+)
+from bitbat.cli.commands import (
+    ingest as _ingest_mod,
+)
+from bitbat.cli.commands import (
+    news as _news_mod,
+)
+from bitbat.cli.commands import (
+    prices as _prices_mod,
+)
+from bitbat.cli.commands import (
+    system as _system_mod,
+)
+from bitbat.cli.commands import (
+    validate as _validate_mod,
 )
 from bitbat.config.loader import set_runtime_config
-from bitbat.contracts import ensure_feature_contract, ensure_predictions_contract
 from bitbat.dataset.build import build_xy, generate_price_features  # noqa: F401
 from bitbat.dataset.splits import generate_rolling_windows, walk_forward  # noqa: F401
 from bitbat.features.sentiment import aggregate as aggregate_sentiment  # noqa: F401
-from bitbat.ingest import prices as prices_module
-from bitbat.labeling.returns import forward_return
 from bitbat.model.evaluate import (
     build_candidate_report,
     compute_multiple_testing_safeguards,  # noqa: F401
@@ -77,19 +89,14 @@ def _cli(ctx: click.Context, config: Path | None, version: bool) -> None:
         ctx.exit()
 
 
-@_cli.group(help="Price data operations.")
-def prices() -> None:
-    """Price command namespace."""
-
-
-@_cli.group(help="News ingestion.")
-def news() -> None:
-    """News command namespace."""
-
-
-@_cli.group(help="Feature generation.")
-def features() -> None:
-    """Features command namespace."""
+_cli.add_command(_prices_mod.prices)
+_cli.add_command(_news_mod.news)
+_cli.add_command(_features_mod.features)
+_cli.add_command(_backtest_mod.backtest)
+_cli.add_command(_batch_mod.batch)
+_cli.add_command(_validate_mod.validate)
+_cli.add_command(_ingest_mod.ingest)
+_cli.add_command(_system_mod.system)
 
 
 @_cli.group(help="Model lifecycle commands.")
@@ -97,203 +104,9 @@ def model() -> None:
     """Model command namespace."""
 
 
-@_cli.group(help="Backtest utilities.")
-def backtest() -> None:
-    """Backtest command namespace."""
-
-
-@_cli.group(help="Batch jobs.")
-def batch() -> None:
-    """Batch command namespace."""
-
-
 @_cli.group(help="Monitoring commands.")
 def monitor() -> None:
     """Monitor command namespace."""
-
-
-@_cli.group(help="Prediction validation commands.")
-def validate() -> None:
-    """Validation command namespace."""
-
-
-@_cli.group(help="Data ingestion commands.")
-def ingest() -> None:
-    """Ingestion command namespace."""
-
-
-@prices.command("pull")
-@click.option("--symbol", required=True, help="Ticker symbol to download.")
-@click.option("--start", required=True, help="Start date (YYYY-MM-DD).")
-@click.option("--interval", default=None, help="Data interval (defaults to config freq).")
-@click.option(
-    "--output",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
-    default=None,
-    help="Output directory for prices parquet.",
-)
-def prices_pull(
-    symbol: str,
-    start: str,
-    interval: str | None,
-    output: Path | None,
-) -> None:
-    """Pull price data from Yahoo Finance."""
-    freq = interval or _resolve_setting(None, "freq")
-    start_dt = _parse_datetime(start, "--start")
-    out_root = output.expanduser() if output else _data_path("raw", "prices")
-
-    frame = prices_module.fetch_yf(symbol, freq, start_dt, output_root=out_root)
-    target_path = prices_module._target_path(symbol, freq, out_root)
-    click.echo(f"Pulled {len(frame)} rows for {symbol} {freq} into {target_path}")
-
-
-@news.command("pull")
-@click.option("--from", "from_dt", required=True, help="Start datetime (ISO8601).")
-@click.option("--to", "to_dt", required=True, help="End datetime (ISO8601).")
-@click.option(
-    "--source",
-    type=click.Choice(["cryptocompare", "gdelt"], case_sensitive=False),
-    default=None,
-    help="News source override (defaults to config news_source).",
-)
-@click.option(
-    "--output",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
-    default=None,
-    help="Output directory for news parquet.",
-)
-def news_pull(from_dt: str, to_dt: str, source: str | None, output: Path | None) -> None:
-    """Fetch historical news for feature training."""
-    start = _parse_datetime(from_dt, "--from")
-    end = _parse_datetime(to_dt, "--to")
-    source_name = _resolve_news_source(source)
-    backend = _news_backend(source_name)
-    out_root = output.expanduser() if output else _data_path("raw", "news", f"{source_name}_1h")
-
-    throttle_seconds = float(_config().get("news_throttle_seconds", 10.0))
-    retry_limit = int(_config().get("news_retry_limit", 30))
-    frame = backend.fetch(
-        start,
-        end,
-        output_root=out_root,
-        throttle_seconds=throttle_seconds,
-        retry_limit=retry_limit,
-    )
-    target_path = backend._target_path(out_root)
-    click.echo(f"Pulled {len(frame)} {source_name} news rows into {target_path}")
-
-
-@features.command("build")
-@click.option("--start", default=None, help="Start datetime for feature build.")
-@click.option("--end", default=None, help="End datetime for feature build.")
-@click.option(
-    "--label-mode",
-    type=click.Choice(["return_direction", "triple_barrier"], case_sensitive=False),
-    default=None,
-    help="Target labeling mode for dataset generation.",
-)
-@click.option(
-    "--take-profit",
-    type=float,
-    default=None,
-    help="Take-profit threshold for `--label-mode triple_barrier`.",
-)
-@click.option(
-    "--stop-loss",
-    type=float,
-    default=None,
-    help="Stop-loss threshold for `--label-mode triple_barrier`.",
-)
-def features_build(
-    start: str | None,
-    end: str | None,
-    label_mode: str | None,
-    take_profit: float | None,
-    stop_loss: float | None,
-) -> None:
-    """Build feature matrix and labels."""
-    freq = _resolve_setting(None, "freq")
-    horizon = _resolve_setting(None, "horizon")
-    enable_sentiment = _sentiment_enabled()
-    configured_mode = str(_config().get("label_mode", "return_direction"))
-    resolved_label_mode = (label_mode or configured_mode).strip().lower()
-    if resolved_label_mode not in {"return_direction", "triple_barrier"}:
-        raise click.ClickException(
-            f"Unsupported label mode '{resolved_label_mode}'. "
-            "Expected 'return_direction' or 'triple_barrier'."
-        )
-    if resolved_label_mode != "triple_barrier" and (
-        take_profit is not None or stop_loss is not None
-    ):
-        raise click.ClickException(
-            "--take-profit/--stop-loss can only be used with --label-mode triple_barrier."
-        )
-
-    prices_path = _data_path("raw", "prices", f"btcusd_yf_{freq}.parquet")
-    _ensure_path_exists(prices_path, "Prices parquet")
-    news_path = None
-    if enable_sentiment:
-        source = _resolve_news_source()
-        backend = _news_backend(source)
-        news_path = backend._target_path(_data_path("raw", "news", f"{source}_1h"))
-        _ensure_path_exists(news_path, "News parquet")
-
-    if start is None or end is None:
-        sample = pd.read_parquet(prices_path, columns=["timestamp_utc"])
-        timestamps = pd.to_datetime(sample["timestamp_utc"])
-        default_start = timestamps.min().isoformat()
-        default_end = timestamps.max().isoformat()
-    else:
-        default_start = start
-        default_end = end
-
-    enable_garch = bool(_config().get("enable_garch", False))
-    enable_macro = bool(_config().get("enable_macro", False))
-    enable_onchain = bool(_config().get("enable_onchain", False))
-
-    macro_path = None
-    if enable_macro:
-        macro_candidate = _data_path("raw", "macro", "fred.parquet")
-        if macro_candidate.exists():
-            macro_path = macro_candidate
-
-    onchain_path = None
-    if enable_onchain:
-        onchain_candidate = _data_path("raw", "onchain", "blockchain_info.parquet")
-        if onchain_candidate.exists():
-            onchain_path = onchain_candidate
-
-    tau_config = _config().get("tau")
-    tau_value = float(tau_config) if tau_config is not None else None
-    barrier_tp: float | None = None
-    barrier_sl: float | None = None
-    if resolved_label_mode == "triple_barrier":
-        default_tp = float(_config().get("triple_barrier_take_profit", tau_value or 0.01))
-        barrier_tp = float(take_profit) if take_profit is not None else default_tp
-        default_sl = float(_config().get("triple_barrier_stop_loss", barrier_tp))
-        barrier_sl = float(stop_loss) if stop_loss is not None else default_sl
-
-    X, y, _meta = build_xy(
-        prices_path,
-        news_path,
-        freq=freq,
-        horizon=horizon,
-        start=default_start,
-        end=default_end,
-        tau=tau_value,
-        enable_sentiment=enable_sentiment,
-        enable_garch=enable_garch,
-        macro_parquet=macro_path,
-        onchain_parquet=onchain_path,
-        label_mode=resolved_label_mode,
-        barrier_take_profit=barrier_tp,
-        barrier_stop_loss=barrier_sl,
-        output_root=Path(_config()["data_dir"]).expanduser(),
-        seed=int(_config().get("seed", 0)),
-        version=__version__,
-    )
-    click.echo(f"Built feature matrix with {len(X)} rows.")
 
 
 @model.command("cv")
@@ -869,6 +682,9 @@ def model_infer(
     horizon: str | None,
 ) -> None:
     """Run inference on a feature parquet."""
+    from bitbat.cli._helpers import _ensure_path_exists, _model_path, _sentiment_enabled
+    from bitbat.contracts import ensure_feature_contract, ensure_predictions_contract
+
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
     resolved_model_path = model_path if model_path else _model_path(freq_val, horizon_val)
@@ -916,288 +732,6 @@ def model_infer(
         click.echo(f"Wrote {len(predictions)} predictions to {output}")
 
 
-@backtest.command("run")
-@click.option("--freq", default=None, help="Bar frequency.")
-@click.option("--horizon", default=None, help="Prediction horizon.")
-@click.option(
-    "--allow-short",
-    "allow_short_flag",
-    is_flag=True,
-    default=False,
-    help="Enable short positions.",
-)
-@click.option(
-    "--no-allow-short",
-    "no_allow_short_flag",
-    is_flag=True,
-    default=False,
-    help="Disable short positions.",
-)
-@click.option(
-    "--cost-bps",
-    "--cost_bps",
-    type=float,
-    default=None,
-    help="Round-trip cost in basis points.",
-)
-@click.option(
-    "--fee-bps",
-    "--fee_bps",
-    type=float,
-    default=None,
-    help="Transaction fee component in basis points.",
-)
-@click.option(
-    "--slippage-bps",
-    "--slippage_bps",
-    type=float,
-    default=None,
-    help="Slippage component in basis points.",
-)
-def backtest_run(
-    freq: str | None,
-    horizon: str | None,
-    allow_short_flag: bool,
-    no_allow_short_flag: bool,
-    cost_bps: float | None,
-    fee_bps: float | None,
-    slippage_bps: float | None,
-) -> None:
-    """Run backtest using stored predictions."""
-    freq_val = _resolve_setting(freq, "freq")
-    horizon_val = _resolve_setting(horizon, "horizon")
-    cfg = _config()
-    cost = cost_bps if cost_bps is not None else float(cfg["cost_bps"])
-    resolved_fee_bps = fee_bps if fee_bps is not None else float(cfg.get("fee_bps", cost))
-    resolved_slippage_bps = (
-        slippage_bps if slippage_bps is not None else float(cfg.get("slippage_bps", 0.0))
-    )
-
-    if allow_short_flag and no_allow_short_flag:
-        raise click.BadParameter("Specify only one of --allow-short or --no-allow-short.")
-
-    predictions_path = _predictions_path(freq_val, horizon_val)
-    _ensure_path_exists(predictions_path, "Predictions parquet")
-    preds = ensure_predictions_contract(pd.read_parquet(predictions_path))
-    if preds.empty:
-        raise click.ClickException("No predictions available for backtest.")
-
-    preds["timestamp_utc"] = pd.to_datetime(
-        preds["timestamp_utc"], utc=True, errors="coerce"
-    ).dt.tz_localize(None)
-    preds = preds.dropna(subset=["timestamp_utc"]).sort_values("timestamp_utc")
-    prices = _load_prices_indexed(freq_val)
-    close = prices["close"].reindex(preds["timestamp_utc"]).ffill()
-
-    predicted_returns = preds.set_index("timestamp_utc")["predicted_return"]
-
-    if allow_short_flag:
-        allow_short_val = True
-    elif no_allow_short_flag:
-        allow_short_val = False
-    else:
-        allow_short_val = bool(_config().get("allow_short", False))
-
-    trades, equity = run_strategy(
-        close,
-        predicted_returns,
-        allow_short=allow_short_val,
-        cost_bps=cost,
-        fee_bps=resolved_fee_bps,
-        slippage_bps=resolved_slippage_bps,
-    )
-    metrics = summarize_backtest(equity, trades)
-    click.echo(
-        "Backtest complete: "
-        f"net_sharpe={metrics['net_sharpe']:.3f}, "
-        f"gross_sharpe={metrics['gross_sharpe']:.3f}, "
-        f"max_drawdown={metrics['max_drawdown']:.3f}, "
-        f"costs={metrics['total_costs']:.6f} "
-        f"(fee={metrics['total_fee_costs']:.6f}, "
-        f"slippage={metrics['total_slippage_costs']:.6f})"
-    )
-
-
-@batch.command("run")
-@click.option("--freq", default=None, help="Bar frequency.")
-@click.option("--horizon", default=None, help="Prediction horizon.")
-@click.option("--model-version", default=None, help="Override model version tag.")
-def batch_run(
-    freq: str | None,
-    horizon: str | None,
-    model_version: str | None,
-) -> None:
-    """Generate a single prediction and store it."""
-    freq_val = _resolve_setting(freq, "freq")
-    horizon_val = _resolve_setting(horizon, "horizon")
-
-    prices = _load_prices_indexed(freq_val)
-    enable_sentiment = _sentiment_enabled()
-
-    enable_garch = bool(_config().get("enable_garch", False))
-    price_features = generate_price_features(prices, enable_garch=enable_garch)
-    if enable_sentiment:
-        news = _load_news()
-        bar_df = prices.reset_index()[["timestamp_utc"]]
-        sentiment_features = aggregate_sentiment(
-            news_df=news,
-            bar_df=bar_df,
-            freq=freq_val,
-        )
-        features = price_features.join(sentiment_features, how="left")
-    else:
-        features = price_features.copy()
-    features = features.dropna()
-    rename_mapping = {
-        column: column if column.startswith("feat_") else f"feat_{column}"
-        for column in features.columns
-    }
-    features = features.rename(columns=rename_mapping)
-    if features.empty:
-        raise click.ClickException("No features available for batch inference.")
-
-    model_path = _model_path(freq_val, horizon_val)
-    _ensure_path_exists(model_path, "Model artifact")
-    booster = load_model(model_path)
-
-    features_with_ts = features.copy()
-    features_with_ts["timestamp_utc"] = features_with_ts.index
-    features_validated = ensure_feature_contract(
-        features_with_ts,
-        require_label=False,
-        require_forward_return=False,
-        require_features_full=enable_sentiment,
-    )
-
-    expected_features = list(booster.feature_names or [])
-    if not expected_features:
-        raise click.ClickException(
-            "Model artifact missing feature names; cannot align batch features."
-        )
-    missing = sorted(set(expected_features) - set(features_validated.columns))
-    if missing:
-        raise click.ClickException(f"Batch features missing expected columns: {missing}")
-
-    aligned_features = features_validated[expected_features]
-    latest_ts = aligned_features.index.max()
-    feature_row = aligned_features.loc[latest_ts]
-    current_price = float(prices["close"].iloc[-1])
-    tau = float(_config().get("tau", 0.01) or 0.01)
-    prediction = predict_bar(
-        booster,
-        feature_row,
-        timestamp=latest_ts,
-        current_price=current_price,
-        tau=tau,
-    )
-
-    timestamp_value = prediction.get("timestamp", latest_ts)
-    timestamp_utc = pd.to_datetime(timestamp_value, utc=True, errors="coerce")
-    if pd.isna(timestamp_utc):
-        raise click.ClickException("Inference produced an invalid timestamp.")
-    if hasattr(timestamp_utc, "tz_convert"):
-        timestamp_utc = timestamp_utc.tz_convert(None)
-    timestamp_py = timestamp_utc.to_pydatetime()
-
-    record = {
-        "timestamp_utc": timestamp_py,
-        "predicted_return": prediction.get("predicted_return"),
-        "predicted_price": prediction.get("predicted_price"),
-        "freq": freq_val,
-        "horizon": horizon_val,
-        "model_version": model_version or __version__,
-        "realized_r": np.nan,
-    }
-    new_df = ensure_predictions_contract(pd.DataFrame([record]))
-
-    predictions_path = _predictions_path(freq_val, horizon_val)
-    predictions_path.parent.mkdir(parents=True, exist_ok=True)
-    if predictions_path.exists():
-        existing = ensure_predictions_contract(pd.read_parquet(predictions_path))
-        combined = (
-            pd.concat([existing, new_df], axis=0, ignore_index=True)
-            .sort_values("timestamp_utc")
-            .drop_duplicates(subset=["timestamp_utc", "horizon", "model_version"], keep="last")
-        )
-    else:
-        combined = new_df
-    combined = ensure_predictions_contract(combined)
-    combined.to_parquet(predictions_path, index=False)
-    latest_record = combined.iloc[-1]
-    click.echo(f"Stored prediction for {latest_record['timestamp_utc']} at {predictions_path}")
-
-    # Also store in autonomous.db so the dashboard and validation loop can see it.
-    try:
-        from bitbat.autonomous.db import AutonomousDB
-        from bitbat.autonomous.models import init_database
-
-        autonomous_cfg = _config().get("autonomous", {})
-        db_url = str(autonomous_cfg.get("database_url", "sqlite:///data/autonomous.db"))
-        init_database(db_url)
-        db = AutonomousDB(db_url)
-
-        predicted_return = prediction.get("predicted_return")
-        predicted_direction = prediction["predicted_direction"]
-
-        with db.session() as session:
-            db.store_prediction(
-                session=session,
-                timestamp_utc=timestamp_py,
-                predicted_direction=predicted_direction,
-                model_version=model_version or __version__,
-                freq=freq_val,
-                horizon=horizon_val,
-                predicted_return=predicted_return,
-                predicted_price=prediction.get("predicted_price"),
-                p_up=float(prediction.get("p_up", 0.0)),
-                p_down=float(prediction.get("p_down", 0.0)),
-            )
-        click.echo(f"Also stored in autonomous DB ({db_url})")
-    except Exception as exc:
-        click.echo(f"Warning: could not store in autonomous DB: {exc}", err=True)
-
-
-@batch.command("realize")
-@click.option("--freq", default=None, help="Bar frequency.")
-@click.option("--horizon", default=None, help="Prediction horizon.")
-def batch_realize(
-    freq: str | None,
-    horizon: str | None,
-) -> None:
-    """Attach realized returns to stored predictions."""
-    freq_val = _resolve_setting(freq, "freq")
-    horizon_val = _resolve_setting(horizon, "horizon")
-
-    predictions_path = _predictions_path(freq_val, horizon_val)
-    _ensure_path_exists(predictions_path, "Predictions parquet")
-    preds = ensure_predictions_contract(pd.read_parquet(predictions_path))
-    if preds.empty:
-        raise click.ClickException("No predictions available to realise.")
-
-    preds["timestamp_utc"] = pd.to_datetime(
-        preds["timestamp_utc"], utc=True, errors="coerce"
-    ).dt.tz_localize(None)
-
-    pending_mask = preds["realized_r"].isna()
-    if not pending_mask.any():
-        click.echo("All predictions already realised.")
-        return
-
-    prices = _load_prices_indexed(freq_val)
-    returns = forward_return(prices[["close"]], horizon_val)
-    reindexed = pd.to_datetime(returns.index)
-    if getattr(reindexed, "tz", None) is not None:
-        reindexed = reindexed.tz_localize(None)
-    returns.index = reindexed
-
-    preds.loc[pending_mask, "realized_r"] = preds.loc[pending_mask, "timestamp_utc"].map(returns)
-    updated_mask = preds["realized_r"].notna()
-
-    preds = ensure_predictions_contract(preds)
-    preds.to_parquet(predictions_path, index=False)
-    click.echo(f"Updated {updated_mask.sum()} predictions with realised returns.")
-
-
 @monitor.command("refresh")
 @click.option("--freq", default=None, help="Bar frequency.")
 @click.option("--horizon", default=None, help="Prediction horizon.")
@@ -1214,11 +748,15 @@ def monitor_refresh(
     cost_bps: float | None,
 ) -> None:
     """Refresh monitoring metrics from prediction store."""
+    from bitbat.contracts import ensure_predictions_contract
+
     freq_val = _resolve_setting(freq, "freq")
     horizon_val = _resolve_setting(horizon, "horizon")
     cost = cost_bps if cost_bps is not None else float(_config()["cost_bps"])
 
     predictions_path = _predictions_path(freq_val, horizon_val)
+    from bitbat.cli._helpers import _ensure_path_exists
+
     _ensure_path_exists(predictions_path, "Predictions parquet")
     preds = ensure_predictions_contract(pd.read_parquet(predictions_path))
     if preds.empty:
@@ -1463,167 +1001,6 @@ def monitor_snapshots(freq: str | None, horizon: str | None, last_count: int) ->
             f"sharpe={(snapshot.sharpe_ratio or 0.0):.3f} | "
             f"realized={snapshot.realized_predictions}"
         )
-
-
-@validate.command("run")
-@click.option("--freq", default=None, help="Bar frequency (defaults to config).")
-@click.option("--horizon", default=None, help="Prediction horizon (defaults to config).")
-def validate_run(freq: str | None, horizon: str | None) -> None:
-    """Validate pending predictions against realized outcomes."""
-    from bitbat.autonomous.db import AutonomousDB
-    from bitbat.autonomous.models import init_database
-    from bitbat.autonomous.validator import PredictionValidator
-
-    freq_val = _resolve_setting(freq, "freq")
-    horizon_val = _resolve_setting(horizon, "horizon")
-    db_url = str(
-        _config().get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
-    )
-
-    click.echo(f"Starting validation: freq={freq_val}, horizon={horizon_val}")
-
-    init_database(db_url)
-    db = AutonomousDB(db_url)
-    validator = PredictionValidator(db=db, freq=freq_val, horizon=horizon_val)
-    results = validator.validate_all()
-
-    click.echo("")
-    click.echo("Validation complete")
-    click.echo(f"  Validated: {results['validated_count']} predictions")
-    click.echo(f"  Correct: {results['correct_count']}")
-    click.echo(f"  Hit rate: {results['hit_rate']:.2%}")
-
-    errors = list(results.get("errors", []))
-    if errors:
-        click.echo("")
-        click.echo(f"Errors ({len(errors)}):")
-        for error in errors[:5]:
-            click.echo(f"  {error}")
-        if len(errors) > 5:
-            click.echo(f"  ... and {len(errors) - 5} more")
-
-
-@ingest.command("prices-once")
-@click.option("--symbol", default="BTC-USD", show_default=True, help="Yahoo Finance ticker.")
-@click.option(
-    "--interval",
-    default="1h",
-    show_default=True,
-    help="Bar interval (e.g. '1h', '1d').",
-)
-def ingest_prices_once(symbol: str, interval: str) -> None:
-    """Fetch the latest prices once and store them."""
-    from bitbat.autonomous.price_ingestion import PriceIngestionService
-
-    service = PriceIngestionService(symbol=symbol, interval=interval)
-    count = service.fetch_with_retry()
-    click.echo(f"Ingested {count} price bars")
-
-
-@ingest.command("news-once")
-def ingest_news_once() -> None:
-    """Fetch the latest news from all sources once and store them."""
-    from bitbat.autonomous.news_ingestion import NewsIngestionService
-
-    service = NewsIngestionService()
-    count = service.fetch_all_sources()
-    click.echo(f"Ingested {count} news articles")
-
-
-@ingest.command("macro-once")
-def ingest_macro_once() -> None:
-    """Fetch the latest FRED macro data once and store it."""
-    from bitbat.autonomous.macro_ingestion import MacroIngestionService
-
-    data_dir = Path(_config()["data_dir"]).expanduser()
-    service = MacroIngestionService(data_dir=data_dir)
-    count = service.fetch_with_retry()
-    click.echo(f"Ingested {count} macro rows")
-
-
-@ingest.command("onchain-once")
-def ingest_onchain_once() -> None:
-    """Fetch the latest on-chain data once and store it."""
-    from bitbat.autonomous.onchain_ingestion import OnchainIngestionService
-
-    data_dir = Path(_config()["data_dir"]).expanduser()
-    service = OnchainIngestionService(data_dir=data_dir)
-    count = service.fetch_with_retry()
-    click.echo(f"Ingested {count} on-chain rows")
-
-
-@ingest.command("status")
-def ingest_status() -> None:
-    """Show ingestion data and rate-limit status."""
-    from bitbat.autonomous.news_ingestion import NewsIngestionService
-    from bitbat.autonomous.price_ingestion import PriceIngestionService
-
-    price_service = PriceIngestionService()
-    last_price_ts = price_service._get_last_timestamp()
-
-    click.echo("Ingestion Status\n")
-    click.echo("Prices:")
-    click.echo(f"  Last update : {last_price_ts or 'never'}")
-    click.echo(f"  Data dir    : {price_service.prices_dir}")
-
-    news_service = NewsIngestionService()
-    rate_status = news_service.newsapi_limiter.get_status()
-
-    click.echo("\nNews APIs:")
-    click.echo(f"  NewsAPI key  : {'set' if news_service.newsapi_key else 'not set'}")
-    click.echo(
-        f"  NewsAPI usage: "
-        f"{rate_status['requests_made']}/{rate_status['limit']} "
-        f"({rate_status['requests_remaining']} remaining)"
-    )
-    reset = rate_status.get("time_until_reset")
-    click.echo(f"  Reset in     : {reset or 'N/A'}")
-    click.echo(f"  Reddit keys  : {'set' if news_service.reddit_client_id else 'not set'}")
-    click.echo(f"  News dir     : {news_service.news_dir}")
-
-
-@_cli.group(help="System lifecycle commands.")
-def system() -> None:
-    pass
-
-
-@system.command("reset")
-@click.option("--yes", is_flag=True, help="Skip confirmation prompt.")
-def system_reset(yes: bool) -> None:
-    """Delete data/, models/, and autonomous.db for a clean-slate restart.
-
-    After reset, run: bitbat ingest prices-once, features build, model train.
-    """
-    import shutil
-
-    if not yes:
-        click.confirm(
-            "This will delete all data, models, and the monitor database. Continue?",
-            abort=True,
-        )
-
-    cfg = _config()
-    data_dir = Path(str(cfg.get("data_dir", "data"))).expanduser()
-    models_dir = Path("models")
-    db_url = str(cfg.get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db"))
-    db_path = Path(db_url.replace("sqlite:///", ""))
-
-    deleted: list[str] = []
-    for target in [data_dir, models_dir]:
-        if target.exists():
-            shutil.rmtree(target, ignore_errors=True)
-            deleted.append(str(target))
-
-    # Delete autonomous.db explicitly only if it's outside data_dir
-    # (data_dir rmtree already covers the typical case of data/autonomous.db)
-    if db_path.exists() and not db_path.is_relative_to(data_dir):
-        db_path.unlink(missing_ok=True)
-        deleted.append(str(db_path))
-
-    if deleted:
-        click.echo(f"Reset complete. Deleted: {', '.join(deleted)}")
-    else:
-        click.echo("Nothing to delete — already clean.")
 
 
 def main() -> None:
