@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Accuracy Recovery & Technical Debt Remediation
 status: in_progress
-last_updated: "2026-03-12T15:08:31Z"
+last_updated: "2026-03-12T16:20:00Z"
 progress:
   total_phases: 24
   completed_phases: 24
@@ -108,9 +108,10 @@ Progress: [██████████] 100% (63/63 plans complete)
 - Operator must run `bitbat system reset --yes` before retraining to clear pre-fix autonomous.db predictions.
 - Known pre-existing non-regression blocker: `tests/diagnosis/test_pipeline_stage_trace.py::test_serving_direction_is_balanced` still fails until the operator runs `bitbat system reset --yes` and retrains against fresh runtime data.
 - Phase 33 is complete. Phase 34 (DB Unification) is the next planned milestone step.
+- Phase 34 context is gathered: fail-fast DB behavior, short standardized diagnostics, removal of raw sqlite fallbacks, and smaller atomic transactions are locked for planning.
 
 ## Session Continuity
 
-Last session: 2026-03-12T15:08:31Z
-Stopped at: Completed 33-VERIFICATION.md
-Resume with: Discuss or plan Phase 34 — DB Unification
+Last session: 2026-03-12T16:20:00Z
+Stopped at: Phase 34 context gathered
+Resume with: Plan Phase 34 using .planning/phases/34-db-unification/34-CONTEXT.md
