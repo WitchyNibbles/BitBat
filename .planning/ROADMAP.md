@@ -22,7 +22,7 @@
 
 </details>
 
-### v1.6 Accuracy Recovery & Technical Debt Remediation (In Progress)
+### v1.6 Accuracy Recovery & Technical Debt Remediation (Execution Complete)
 
 **Milestone Goal:** Diagnose and fix the live prediction accuracy collapse (~1%), restore the pipeline to a working state with clean reset + retrain, add an accuracy collapse guardrail to the monitor, and eliminate the four deferred tech debt items.
 
@@ -32,7 +32,7 @@
 - [x] **Phase 32: CLI Decomposition** — Split cli.py monolith (1802+ lines, 53 functions) into focused command modules (completed 2026-03-12)
 - [x] **Phase 33: Path Centralization** — Replace all 15+ hardcoded Path("models")/Path("metrics") sites with config-driven path resolution (completed 2026-03-12)
 - [x] **Phase 34: DB Unification** — Consolidate dual DB access (SQLAlchemy ORM + raw sqlite3) into a single consistent approach (completed 2026-03-12)
-- [ ] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model
+- [x] **Phase 35: XGBoost Fix** — Replace reg:squarederror with a classification objective and retrain the model (completed 2026-03-12)
 
 ## Phase Details
 
@@ -130,7 +130,10 @@ Plans:
   2. Model outputs are valid class probabilities (sum to 1.0 per row, values in [0,1]) verified by an automated test
   3. Existing model training, inference, and evaluation tests pass with the new objective
   4. After retrain with the corrected objective, walk-forward CV PR-AUC meets the existing 0.7 guardrail threshold
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] 35-01-PLAN.md — Make walk-forward and optimizer classification-aware for label targets while preserving regression fallback
+- [x] 35-02-PLAN.md — Wire CLI CV/optimization to labels and surface PR-AUC-aware summaries
 
 ## Progress
 
@@ -147,4 +150,4 @@ Plans:
 | 32. CLI Decomposition | 3/3 | Complete    | 2026-03-12 | - |
 | 33. Path Centralization | 2/2 | Complete   | 2026-03-12 | - |
 | 34. DB Unification | 3/3 | Complete    | 2026-03-12 | - |
-| 35. XGBoost Fix | v1.6 | 0/TBD | Not started | - |
+| 35. XGBoost Fix | v1.6 | 2/2 | Complete | 2026-03-12 |

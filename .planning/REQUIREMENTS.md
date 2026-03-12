@@ -20,9 +20,9 @@
 ### Tech Debt
 
 - [x] **DEBT-01**: cli.py monolith decomposed — 53 functions and 1802+ lines split into focused modules with no behavioral change
-- [ ] **DEBT-02**: Hardcoded `Path("models")` / `Path("metrics")` centralized — all 15+ occurrences replaced with config-driven path resolution
-- [ ] **DEBT-03**: Dual DB access unified — SQLAlchemy ORM + raw sqlite3 consolidated into a single consistent approach
-- [ ] **DEBT-04**: XGBoost objective mismatch fixed — `reg:squarederror` replaced with `multi:softprob` (or equivalent classification objective), model retrained
+- [x] **DEBT-02**: Hardcoded `Path("models")` / `Path("metrics")` centralized — all 15+ occurrences replaced with config-driven path resolution
+- [x] **DEBT-03**: Dual DB access unified — SQLAlchemy ORM + raw sqlite3 consolidated into a single consistent approach
+- [x] **DEBT-04**: XGBoost objective mismatch fixed — `reg:squarederror` replaced with `multi:softprob` (or equivalent classification objective), model retrained
 
 ## Future Requirements
 
@@ -51,9 +51,9 @@
 | FIXR-03 | Phase 30 | Complete |
 | FIXR-04 | Phase 31 | Complete |
 | DEBT-01 | Phase 32 | Complete |
-| DEBT-02 | Phase 33 | Pending |
-| DEBT-03 | Phase 34 | Pending |
-| DEBT-04 | Phase 35 | Pending |
+| DEBT-02 | Phase 33 | Complete |
+| DEBT-03 | Phase 34 | Complete |
+| DEBT-04 | Phase 35 | Complete |
 
 **Coverage:**
 - v1 requirements: 10 total
@@ -62,4 +62,4 @@
 
 ---
 *Requirements defined: 2026-03-08*
-*Last updated: 2026-03-08 — traceability confirmed after roadmap creation*
+*Last updated: 2026-03-12 — DEBT-02/03/04 completed through Phases 33-35*
