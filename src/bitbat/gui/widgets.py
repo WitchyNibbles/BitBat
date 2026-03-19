@@ -14,34 +14,11 @@ from typing import Any
 
 from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
 from bitbat.common.ingestion_status import get_ingestion_status  # noqa: F401
+from bitbat.gui.shared import db_query, get_db
 
 # ---------------------------------------------------------------------------
 # Data helpers (no Streamlit dependency — pure Python)
 # ---------------------------------------------------------------------------
-
-
-def _get_db(db_path: Path) -> AutonomousDB | None:
-    if not db_path.exists():
-        return None
-    try:
-        return AutonomousDB(
-            f"sqlite:///{db_path}",
-            allow_incompatible_schema=True,
-        )
-    except Exception:
-        return None
-
-
-def db_query(db_path: Path, sql: str, params: tuple = ()) -> list:
-    """Run a SQL SELECT against the autonomous DB, returning rows or []."""
-    db = _get_db(db_path)
-    if db is None:
-        return []
-    try:
-        with db.engine.connect() as connection:
-            return list(connection.exec_driver_sql(sql, params).fetchall())
-    except Exception:
-        return []
 
 
 def _table_columns(db_path: Path, table: str) -> set[str]:
@@ -133,7 +110,7 @@ def _latest_monitor_heartbeat(db_path: Path) -> datetime | None:
 
 def get_system_status(db_path: Path) -> dict[str, Any]:
     """Return a dict with system status derived from recent monitoring activity."""
-    db = _get_db(db_path)
+    db = get_db(db_path)
     latest_snapshot = None
     latest_monitor_log = None
     latest_retraining = None
@@ -173,7 +150,7 @@ def get_system_status(db_path: Path) -> dict[str, Any]:
 
 def get_latest_prediction(db_path: Path) -> dict[str, Any] | None:
     """Return the most recent prediction row, or None."""
-    db = _get_db(db_path)
+    db = get_db(db_path)
     if db is None:
         return None
     try:
@@ -184,7 +161,7 @@ def get_latest_prediction(db_path: Path) -> dict[str, Any] | None:
 
 def get_recent_events(db_path: Path, limit: int = 10) -> list[dict[str, Any]]:
     """Return recent system events from system_logs."""
-    db = _get_db(db_path)
+    db = get_db(db_path)
     if db is None:
         return []
     try:

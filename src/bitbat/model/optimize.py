@@ -50,9 +50,8 @@ class HyperparamOptimizer:
 
     @staticmethod
     def _is_classification_target(y: pd.Series) -> bool:
-        allowed = set(DIRECTION_CLASSES)
-        values = {str(value) for value in y.dropna().unique()}
-        return bool(values) and values.issubset(allowed)
+        from bitbat.model.utils import is_classification_target
+        return is_classification_target(y)
 
     @staticmethod
     def _json_safe(value: Any) -> Any:
@@ -95,17 +94,10 @@ class HyperparamOptimizer:
         y_te = self.y[test_mask]
         classification_mode = self._is_classification_target(y_tr)
 
-        if classification_mode:
-            y_tr_labels = y_tr.astype(str)
-            y_te_labels = y_te.astype(str)
-            y_tr_values = y_tr_labels.map(DIRECTION_CLASSES).astype(int).to_numpy()
-            y_te_values = y_te_labels.map(DIRECTION_CLASSES).astype(int).to_numpy()
-        else:
-            y_tr_values = y_tr.astype("float64").to_numpy()
-            y_te_values = y_te.astype("float64").to_numpy()
-
-        dtrain = xgb.DMatrix(X_tr, label=y_tr_values, feature_names=list(self.X.columns))
-        dtest = xgb.DMatrix(X_te, label=y_te_values, feature_names=list(self.X.columns))
+        from bitbat.model.utils import create_dmatrices
+        dtrain, dtest, _y_tr, y_te_norm = create_dmatrices(
+            X_tr, y_tr, X_te, y_te, list(self.X.columns), classification_mode
+        )
 
         xgb_params = dict(params)
         num_rounds = int(xgb_params.pop("num_boost_round", 100))
@@ -136,9 +128,9 @@ class HyperparamOptimizer:
 
         preds = booster.predict(dtest)
         if classification_mode:
-            metrics = classification_probability_metrics(y_te_labels.to_numpy(dtype=object), preds)
+            metrics = classification_probability_metrics(y_te_norm.to_numpy(dtype=object), preds)
             return float(1.0 - metrics["pr_auc"])
-        return float(np.sqrt(np.mean((y_te_values - preds) ** 2)))
+        return float(np.sqrt(np.mean((y_te_norm.to_numpy() - preds) ** 2)))
 
     def _cv_score(
         self,

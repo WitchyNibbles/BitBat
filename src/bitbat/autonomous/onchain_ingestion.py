@@ -26,18 +26,8 @@ class OnchainIngestionService:
 
     def _get_last_date(self) -> datetime | None:
         """Return the latest date found in the stored parquet file."""
-        parquet_file = self.onchain_dir / "blockchain_info.parquet"
-        if not parquet_file.exists():
-            return None
-        try:
-            df = pd.read_parquet(parquet_file)
-            if df.empty or "date" not in df.columns:
-                return None
-            max_date = pd.to_datetime(df["date"]).max()
-            return max_date.to_pydatetime()
-        except Exception:
-            logger.warning("Could not read existing onchain parquet")
-            return None
+        from bitbat.autonomous.ingest_base import get_last_parquet_date
+        return get_last_parquet_date(self.onchain_dir / "blockchain_info.parquet", "date", logger)
 
     def fetch_latest(self) -> int:
         """Fetch on-chain data from the last stored date to today.
@@ -55,20 +45,5 @@ class OnchainIngestionService:
 
     def fetch_with_retry(self, max_retries: int = 3) -> int:
         """Fetch with exponential backoff on failure."""
-        for attempt in range(max_retries):
-            try:
-                return self.fetch_latest()
-            except Exception as exc:
-                if attempt >= max_retries - 1:
-                    logger.error("All %d onchain fetch attempts failed: %s", max_retries, exc)
-                    raise
-                wait = 2**attempt
-                logger.warning(
-                    "Onchain fetch attempt %d/%d failed: %s — retrying in %ds",
-                    attempt + 1,
-                    max_retries,
-                    exc,
-                    wait,
-                )
-                time.sleep(wait)
-        return 0  # unreachable, satisfies type checker
+        from bitbat.autonomous.ingest_base import run_with_retry
+        return run_with_retry(self.fetch_latest, logger, "onchain", max_retries)

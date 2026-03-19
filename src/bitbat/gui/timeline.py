@@ -302,18 +302,6 @@ def _sanitize_limit(limit: int) -> int:
     return max(parsed, 1)
 
 
-def _get_db(db_path: Path) -> AutonomousDB | None:
-    if not db_path.exists():
-        return None
-    try:
-        return AutonomousDB(
-            f"sqlite:///{db_path}",
-            allow_incompatible_schema=True,
-        )
-    except Exception:
-        return None
-
-
 def get_timeline_data(
     db_path: Path,
     freq: str,
@@ -330,7 +318,8 @@ def get_timeline_data(
         return _empty_timeline_frame()
 
     safe_limit = _sanitize_limit(limit)
-    db = _get_db(db_path)
+    from bitbat.gui.shared import get_db
+    db = get_db(db_path)
     if db is None:
         return _empty_timeline_frame()
 
@@ -351,7 +340,8 @@ def list_timeline_filter_options(
     default_horizon: str,
 ) -> tuple[list[str], list[str]]:
     """List available freq/horizon filter options from prediction history."""
-    db = _get_db(db_path)
+    from bitbat.gui.shared import get_db
+    db = get_db(db_path)
     if db is None:
         return [default_freq], [default_horizon]
     try:

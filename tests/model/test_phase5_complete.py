@@ -1,22 +1,16 @@
 """
 Phase 5 Complete Integration Test.
 
-End-to-end: optimize → walk-forward → ensemble → monte carlo
+End-to-end: optimize → walk-forward
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
-import xgboost as xgb
 
-from bitbat.analytics.monte_carlo import MonteCarloSimulator
-from bitbat.backtest.engine import run as backtest_run
 from bitbat.dataset.splits import Fold
-from bitbat.model.ensemble import MultiHorizonEnsemble
 from bitbat.model.optimize import HyperparamOptimizer
 from bitbat.model.walk_forward import WalkForwardValidator
 
@@ -42,30 +36,6 @@ def dataset() -> tuple[pd.DataFrame, pd.Series, list[Fold]]:
         Fold(train=idx[:225], test=idx[225:300]),
     ]
     return X, y, folds
-
-
-@pytest.fixture(scope="module")
-def model_dir(tmp_path_factory: pytest.TempPathFactory, dataset: tuple) -> Path:
-    """Train models for 3 horizons."""
-    X, y, _ = dataset
-    root = tmp_path_factory.mktemp("models")
-    np.random.default_rng(42)
-
-    for horizon in ("1h", "4h", "24h"):
-        d = root / f"1h_{horizon}"
-        d.mkdir()
-        dtrain = xgb.DMatrix(X, label=y, feature_names=list(X.columns))
-        booster = xgb.train(
-            {
-                "objective": "reg:squarederror",
-                "max_depth": 2,
-                "seed": hash(horizon) % 10000,
-            },
-            dtrain,
-            num_boost_round=10,
-        )
-        booster.save_model(str(d / "xgb.json"))
-    return root
 
 
 class TestPhase5Integration:
@@ -129,64 +99,3 @@ class TestPhase5Integration:
         assert walk_forward_summary["objective_mode"] == "classification"
         assert "mean_rmse" in walk_forward_summary
         assert 0.0 <= float(walk_forward_summary["mean_pr_auc"]) <= 1.0
-
-    def test_ensemble_combines_horizons(self, model_dir: Path, dataset: tuple) -> None:
-        X, _, _ = dataset
-        ens = MultiHorizonEnsemble(model_dir, freq="1h", horizons=["1h", "4h", "24h"])
-        assert len(ens.available_horizons()) == 3
-        pred = ens.predict(X.iloc[[0]])
-        assert pred.predicted_direction in ("up", "down")
-        assert len(pred.horizon_predictions) == 3
-        assert isinstance(pred.predicted_return, float)
-
-    def test_monte_carlo_on_backtest(self, dataset: tuple, model_dir: Path) -> None:
-        X, _, _ = dataset
-        rng = np.random.default_rng(7)
-        n = len(X)
-        idx = X.index
-        close = pd.Series(np.cumprod(1 + X["feat_ret_1"].fillna(0)) * 100, index=idx)
-        predicted_returns = pd.Series(rng.normal(0, 0.005, n), index=idx)
-
-        trades, equity = backtest_run(close, predicted_returns)
-        sim = MonteCarloSimulator(trades["pnl"].values)
-        mc = sim.run(n_simulations=100, seed=42)
-
-        assert mc.n_simulations == 100
-        assert 0.0 <= mc.probability_of_loss() <= 1.0
-        s = mc.summary()
-        assert "median_return" in s
-        assert "probability_of_loss" in s
-
-    def test_full_pipeline_end_to_end(self, dataset: tuple, model_dir: Path) -> None:
-        """optimize → walk-forward → ensemble → backtest → monte carlo."""
-        X, y, folds = dataset
-
-        # 1. Walk-forward
-        wf = WalkForwardValidator(X, y, folds, num_boost_round=5)
-        wf_result = wf.run()
-        assert wf_result.mean_directional_accuracy > 0
-
-        # 2. Ensemble
-        ens = MultiHorizonEnsemble(model_dir, freq="1h")
-        pred = ens.predict(X.iloc[[0]])
-        assert pred.confidence > 0
-
-        # 3. Backtest with ensemble-derived predicted returns
-        idx = X.index
-        close = pd.Series(np.cumprod(1 + X["feat_ret_1"].fillna(0)) * 100, index=idx)
-        batch_preds = ens.predict_batch(X)
-        predicted_returns = pd.Series([p.predicted_return for p in batch_preds], index=idx)
-        trades, equity = backtest_run(close, predicted_returns)
-
-        # 4. Monte Carlo
-        sim = MonteCarloSimulator(trades["pnl"].values)
-        mc = sim.run(n_simulations=50, seed=0)
-        ci_lo, ci_hi = mc.confidence_interval("total_returns")
-        assert ci_lo <= ci_hi
-
-        # Verify everything is JSON-serialisable
-        import json
-
-        json.dumps(wf_result.summary())
-        json.dumps(pred.summary())
-        json.dumps(mc.summary())

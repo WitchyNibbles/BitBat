@@ -182,20 +182,5 @@ class PriceIngestionService:
         Returns:
             Number of bars written on success.
         """
-        for attempt in range(max_retries):
-            try:
-                return self.fetch_latest()
-            except Exception as exc:
-                if attempt >= max_retries - 1:
-                    logger.error("All %d fetch attempts failed: %s", max_retries, exc)
-                    raise
-                wait = 2**attempt
-                logger.warning(
-                    "Fetch attempt %d/%d failed: %s — retrying in %ds",
-                    attempt + 1,
-                    max_retries,
-                    exc,
-                    wait,
-                )
-                time.sleep(wait)
-        return 0  # unreachable, but satisfies type checker
+        from bitbat.autonomous.ingest_base import run_with_retry
+        return run_with_retry(self.fetch_latest, logger, "price", max_retries)

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 import random
-import shutil
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Any, cast
 
 import pandas as pd
 
@@ -17,8 +16,12 @@ try:
 except ImportError:  # pragma: no cover - defer import errors for optional dependency
     requests = None  # type: ignore[assignment]
 
-from bitbat.contracts import ensure_news_contract
-from bitbat.io.fs import read_parquet, write_parquet
+from bitbat.ingest.http_helpers import (
+    SessionProtocol,
+    ensure_utc,
+    fetch_json_with_backoff,
+    merge_and_save_news_parquet,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,50 +34,9 @@ class CryptoCompareError(RuntimeError):
     """Raised when the CryptoCompare API returns an unexpected response."""
 
 
-def _ensure_utc(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC)
-
-
 def _target_path(root: Path | str | None = None) -> Path:
     base = Path(root) if root is not None else Path("data") / "raw" / "news" / "cryptocompare_1h"
     return base / "cryptocompare_btc_1h.parquet"
-
-
-@runtime_checkable
-class SessionProtocol(Protocol):
-    def get(  # pragma: no cover - protocol
-        self,
-        url: str,
-        **kwargs: Any,
-    ) -> Any:
-        """Perform a GET request."""
-
-    def close(self) -> None:  # pragma: no cover - protocol
-        """Close the session."""
-
-
-def _response_content_type(response: Any) -> str:
-    headers = getattr(response, "headers", None)
-    if headers is None:
-        return "unknown"
-    getter = getattr(headers, "get", None)
-    if not callable(getter):
-        return "unknown"
-    value = getter("Content-Type") or getter("content-type")
-    return str(value) if value else "unknown"
-
-
-def _response_preview(response: Any, limit: int = 200) -> str | None:
-    try:
-        text = str(getattr(response, "text", "") or "")
-    except Exception:  # pragma: no cover - best effort only
-        return None
-    compact = " ".join(text.split())
-    if not compact:
-        return None
-    return compact[:limit]
 
 
 def _fetch_page(  # noqa: C901
@@ -92,85 +54,25 @@ def _fetch_page(  # noqa: C901
         "categories": categories,
         "lTs": int(lts),
     }
+
     attempt = 0
     delay = max(backoff_base, 0.0)
 
     while True:
-        response = session.get(
-            CRYPTOCOMPARE_ENDPOINT,
-            params=payload,
-            timeout=30,
-            headers={"Accept": "application/json"},
-        )
-
-        if response.status_code == 429:
-            if attempt >= retries:
-                raise CryptoCompareError(
-                    "CryptoCompare request failed with status 429 after retries"
-                )
-            jitter = random.uniform(0, max(delay, backoff_base))  # noqa: S311
-            sleep_for = max(delay + jitter, backoff_base)
-            LOGGER.warning(
-                "Rate limited by CryptoCompare (429) at lTs=%s; sleeping %.2fs before retry",
-                lts,
-                sleep_for,
-            )
-            time.sleep(sleep_for)
-            attempt += 1
-            delay = max(delay * 2, backoff_base)
-            continue
-
-        if response.status_code >= 500:
-            if attempt >= retries:
-                raise CryptoCompareError(
-                    f"CryptoCompare request failed with status {response.status_code} after retries"
-                )
-            jitter = random.uniform(0, max(delay, backoff_base))  # noqa: S311
-            sleep_for = max(delay + jitter, backoff_base)
-            LOGGER.warning(
-                "Transient CryptoCompare server error (%s) at lTs=%s; sleeping %.2fs before retry",
-                response.status_code,
-                lts,
-                sleep_for,
-            )
-            time.sleep(sleep_for)
-            attempt += 1
-            delay = max(delay * 2, backoff_base)
-            continue
-
-        if response.status_code >= 400:
-            raise CryptoCompareError(
-                f"CryptoCompare request failed with status {response.status_code}"
-            )
-
         try:
-            payload_json = response.json()
-        except ValueError as exc:  # pragma: no cover - defensive
-            content_type = _response_content_type(response)
-            snippet = _response_preview(response)
-            if attempt >= retries:
-                message = (
-                    "Failed to decode CryptoCompare JSON response after retries "
-                    f"(status={response.status_code}, content-type={content_type})"
-                )
-                if snippet:
-                    message += f"; payload preview: {snippet!r}"
-                raise CryptoCompareError(message) from exc
-
-            jitter = random.uniform(0, max(delay, backoff_base))  # noqa: S311
-            sleep_for = max(delay + jitter, backoff_base)
-            LOGGER.warning(
-                "Non-JSON CryptoCompare response at lTs=%s "
-                "(status=%s, content-type=%s); sleeping %.2fs before retry",
-                lts,
-                response.status_code,
-                content_type,
-                sleep_for,
+            payload_json = fetch_json_with_backoff(
+                session=session,
+                url=CRYPTOCOMPARE_ENDPOINT,
+                params=payload,
+                retries=retries,
+                throttle_seconds=throttle_seconds,
+                backoff_base=backoff_base,
+                api_name="CryptoCompare",
+                context_msg=f"at lTs={lts}",
+                error_class=CryptoCompareError,
             )
-            time.sleep(sleep_for)
-            attempt += 1
-            delay = max(delay * 2, backoff_base)
-            continue
+        except CryptoCompareError:
+            raise
 
         if not isinstance(payload_json, dict):
             raise CryptoCompareError("Unexpected CryptoCompare response structure")
@@ -242,20 +144,6 @@ def _articles_to_frame(articles: list[dict[str, Any]]) -> pd.DataFrame:
     return frame
 
 
-def _load_existing(target: Path) -> pd.DataFrame | None:
-    if target.exists():
-        try:
-            existing = read_parquet(target)
-        except Exception as exc:  # pragma: no cover - defensive
-            LOGGER.warning("Failed to read existing CryptoCompare dataset: %s", exc)
-            return None
-        missing_cols = [col for col in RESULT_COLUMNS if col not in existing.columns]
-        for col in missing_cols:
-            existing[col] = pd.NA
-        return existing[RESULT_COLUMNS]
-    return None
-
-
 def fetch(  # noqa: C901
     from_dt: datetime,
     to_dt: datetime,
@@ -272,8 +160,8 @@ def fetch(  # noqa: C901
     if from_dt >= to_dt:
         raise ValueError("`from_dt` must be earlier than `to_dt`.")
 
-    start = _ensure_utc(from_dt)
-    end = _ensure_utc(to_dt)
+    start = ensure_utc(from_dt)
+    end = ensure_utc(to_dt)
     start_naive = start.replace(tzinfo=None)
     end_naive = end.replace(tzinfo=None)
 
@@ -340,36 +228,5 @@ def fetch(  # noqa: C901
     if created_session:
         active_session.close()
 
-    if not all_frames:
-        return pd.DataFrame(columns=RESULT_COLUMNS)
-
-    merged = (
-        pd.concat(all_frames, axis=0, ignore_index=True)
-        .sort_values("published_utc")
-        .drop_duplicates(subset=["url"])
-    )
-
     target_path = _target_path(output_root)
-    existing = _load_existing(target_path)
-    if existing is not None and not existing.empty:
-        merged = (
-            pd.concat([existing, merged], axis=0, ignore_index=True)
-            .sort_values("published_utc")
-            .drop_duplicates(subset=["url"])
-        )
-
-    merged = ensure_news_contract(merged)
-
-    partitions = merged.copy()
-    partitions["year"] = partitions["published_utc"].dt.year
-    partitions["month"] = partitions["published_utc"].dt.month
-
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    if target_path.exists():
-        if target_path.is_dir():
-            shutil.rmtree(target_path)
-        else:
-            target_path.unlink()
-
-    write_parquet(partitions, target_path, partition_cols=["year", "month"])
-    return merged.reset_index(drop=True)
+    return merge_and_save_news_parquet(all_frames, target_path, RESULT_COLUMNS)
