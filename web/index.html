@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitBat - The Witchy Oracle</title>
+    <meta name="description" content="A cute, witchy Bitcoin price predictor powering autonomous predictions locally.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:ital,wght@1,500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="stars"></div>
+    <main class="dashboard">
+        <header class="glass-panel">
+            <div class="logo-area">
+                <span class="bat-icon">🦇</span>
+                <div class="title-wrap">
+                    <h1>BITBAT</h1>
+                    <span class="subtitle">The Autonomous Oracle</span>
+                </div>
+            </div>
+            <div id="status-indicator" class="status-indicator pulse-active">
+                <div class="orb"></div>
+                <span id="system-status">Pipeline Active</span>
+            </div>
+        </header>
+
+        <section class="prediction-center glass-panel">
+            <h2 class="section-title">Latest Prophecy</h2>
+            <div class="crystal-ball-container">
+                <div class="crystal-ball">
+                    <div id="prediction-direction" class="direction up">UP</div>
+                    <div id="prediction-confidence" class="confidence">85%</div>
+                    <div id="confidence-caption" class="confidence-caption">
+                        Model confidence in this direction
+                    </div>
+                </div>
+                <div class="ball-glow"></div>
+                <div class="ball-base"></div>
+            </div>
+            <div class="prediction-details">
+                <p id="prediction-time">Casting forecast...</p>
+                <p id="prediction-summary" class="prediction-summary">
+                    Waiting for a fresh probability distribution.
+                </p>
+                <div class="probability-header">
+                    <span>Probability split</span>
+                    <span id="probability-status">Bull / Flat / Bear</span>
+                </div>
+                <div class="progress-bar-container" aria-label="Probability split">
+                    <div class="progress-segment up" id="probability-up" style="width: 34%;"></div>
+                    <div class="progress-segment flat" id="probability-flat" style="width: 33%;"></div>
+                    <div class="progress-segment down" id="probability-down" style="width: 33%;"></div>
+                </div>
+                <div class="probability-legend">
+                    <span class="legend-item up" id="probability-up-label">Bull 34%</span>
+                    <span class="legend-item flat" id="probability-flat-label">Flat 33%</span>
+                    <span class="legend-item down" id="probability-down-label">Bear 33%</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="bottom-grid">
+            <section class="metrics-panel glass-panel">
+                <h3 class="section-title">Cauldron Metrics</h3>
+                <ul class="metric-list">
+                    <li>
+                        <span class="label">Ingestion Spell</span>
+                        <span class="value" id="ingest-status">Brewing</span>
+                    </li>
+
+                    <li>
+                        <span class="label">Next Casting</span>
+                        <span class="value" id="next-pred-time">in 12m 45s</span>
+                    </li>
+                </ul>
+
+            </section>
+
+            <section class="configuration-panel glass-panel">
+                <h3 class="section-title">Runes of Configuration</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <span class="label">Preset</span>
+                        <select id="preset-selector" class="glass-select">
+                            <option value="balanced">Balanced ⚖️</option>
+                            <option value="conservative">Conservative 🛡️</option>
+                            <option value="aggressive">Aggressive 🗡️</option>
+                            <option value="scalper">Scalper ⚡</option>
+                            <option value="swing">Swing 🌊</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
+                        <span class="label">Frequency</span>
+                        <select id="freq-selector" class="glass-select">
+                            <option value="5m">5 Minutes</option>
+                            <option value="15m">15 Minutes</option>
+                            <option value="30m">30 Minutes</option>
+                            <option value="1h">1 Hour</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
+                        <span class="label">Horizon</span>
+                        <select id="horizon-selector" class="glass-select">
+                            <option value="5m">5 Minutes</option>
+                            <option value="15m">15 Minutes</option>
+                            <option value="30m">30 Minutes</option>
+                            <option value="1h">1 Hour</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="activity-feed glass-panel">
+                <h3 class="section-title">Grimoire Log</h3>
+                <p id="log-refresh-status" class="panel-caption">Live updates every few seconds</p>
+                <ul id="event-log" class="log-list">
+                    <li class="log-entry"><i>✨</i> Awakened the spirit of computation</li>
+                    <li class="log-entry"><i>🔍</i> Searching the stars (downloading market data)</li>
+                    <li class="log-entry"><i>🔮</i> Aligning features and adjusting weights</li>
+                </ul>
+            </section>
+        </div>
+
+        <div class="summon-wrapper">
+            <button id="train-button" class="magic-btn">Summon Oracle (Train)</button>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

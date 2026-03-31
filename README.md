@@ -69,7 +69,7 @@ Start with [docs/README.md](docs/README.md) for the complete system overview and
 
 ## 🔮 quickstart
 
-```ssh
+```bash
 poetry install
 poetry run bitbat --help
 ```
@@ -82,6 +82,99 @@ From there, the documentation walks through:
 - monitoring & backtesting
 
 Step by step. No guesswork.
+
+### Run BitBat Locally
+
+Use the CLI directly from Poetry:
+
+```bash
+poetry install
+poetry run bitbat --help
+```
+
+Common local entrypoints:
+
+```bash
+# API
+poetry run uvicorn bitbat.api.app:app --reload
+
+# autonomous ingestion loop
+poetry run python scripts/run_ingestion_service.py
+
+# autonomous monitor loop
+poetry run python scripts/run_monitoring_agent.py
+```
+
+### Build The Docker Image
+
+Build the production image from the repository root:
+
+```bash
+docker build -t bitbat:local .
+```
+
+That image includes:
+- the `bitbat` CLI
+- the FastAPI app
+- the ingestion and monitoring scripts
+- the static web assets under `web/`
+
+### Run BitBat From The Docker Image
+
+If you want the full default container behavior, run the image as-is. It starts:
+- the ingestion service
+- the monitoring agent
+- the FastAPI server on port `8000`
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/models:/app/models" \
+  -v "$PWD/logs:/app/logs" \
+  -v "$PWD/config:/app/config" \
+  bitbat:local
+```
+
+If you want the CLI inside the container, override the entrypoint to `bitbat`:
+
+```bash
+docker run --rm -it \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/models:/app/models" \
+  -v "$PWD/config:/app/config" \
+  --entrypoint bitbat \
+  bitbat:local --help
+```
+
+Example CLI usage in the container:
+
+```bash
+docker run --rm -it \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/models:/app/models" \
+  -v "$PWD/config:/app/config" \
+  --entrypoint bitbat \
+  bitbat:local model train --help
+```
+
+### Run With Docker Compose
+
+To build and start the API, ingestion service, monitor, and dashboard together:
+
+```bash
+docker compose up --build
+```
+
+Main ports:
+- `8000` → FastAPI API
+- `3000` → React dashboard
+
+To run only the API service:
+
+```bash
+docker compose up --build bitbat-api
+```
 
 ---
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from bitbat.api.routes import analytics, health, metrics, predictions, system
 
@@ -31,6 +32,11 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router)
     app.include_router(metrics.router)
     app.include_router(system.router)
+
+    from pathlib import Path
+    web_dir = Path(__file__).resolve().parent.parent.parent.parent / "web"
+    web_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web")
 
     return app
 

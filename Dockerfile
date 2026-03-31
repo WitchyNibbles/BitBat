@@ -41,6 +41,7 @@ COPY src/ src/
 COPY streamlit/ streamlit/
 COPY scripts/ scripts/
 COPY .streamlit/ .streamlit/
+COPY web/ web/
 
 # Default data & model directories (mount as volumes in production)
 RUN mkdir -p data models logs config
@@ -48,7 +49,9 @@ RUN mkdir -p data models logs config
 # Default config
 COPY src/bitbat/config/default.yaml config/default.yaml
 
+RUN chmod +x scripts/start.sh
+
 EXPOSE 8000 8501
 
-# Default: run the FastAPI server
-CMD ["uvicorn", "bitbat.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the API and background autonomous monitoring agents
+CMD ["/app/scripts/start.sh"]
