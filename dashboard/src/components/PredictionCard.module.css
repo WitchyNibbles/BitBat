@@ -66,10 +66,100 @@
   color: var(--amber);
 }
 
-.confidence {
+.signalBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.signalHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signalLabel {
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.signalValue {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
   color: var(--text);
+}
+
+.signalHint {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.distributionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.distributionMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.distributionLabel,
+.distributionValue {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.distributionLabel {
+  color: var(--text-muted);
+}
+
+.distributionValue {
+  color: var(--text);
+}
+
+.track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  background: var(--surface-hover);
+  border-radius: 999px;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.fillUp {
+  background: linear-gradient(90deg, var(--success-dim), var(--success));
+}
+
+.fillFlat {
+  background: linear-gradient(90deg, var(--amber-dim), var(--amber));
+}
+
+.fillDown {
+  background: linear-gradient(90deg, var(--danger-dim), var(--danger));
 }
 
 .meta {

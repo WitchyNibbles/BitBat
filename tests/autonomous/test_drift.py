@@ -106,3 +106,54 @@ def test_drift_detector_cooldown(tmp_path: Path) -> None:
 
     detector = DriftDetector(db, "1h", "4h")
     assert detector.is_in_cooldown() is True
+
+
+def test_drift_detector_uses_direction_labels_when_returns_are_unavailable(
+    tmp_path: Path,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with db.session() as session:
+        db.store_model_version(
+            session=session,
+            version="v1",
+            freq="1h",
+            horizon="4h",
+            training_start=now - timedelta(days=30),
+            training_end=now,
+            training_samples=1000,
+            cv_score=0.70,
+            features=[],
+            hyperparameters={},
+            training_metadata={},
+            is_active=True,
+        )
+
+        for idx in range(35):
+            pred = db.store_prediction(
+                session=session,
+                timestamp_utc=now - timedelta(hours=idx + 10),
+                predicted_direction="flat",
+                p_up=0.01,
+                p_down=0.01,
+                p_flat=0.98,
+                model_version="v1",
+                freq="1h",
+                horizon="4h",
+            )
+            db.realize_prediction(
+                session=session,
+                prediction_id=pred.id,
+                actual_return=0.0,
+                actual_direction="flat",
+            )
+
+    detector = DriftDetector(db, "1h", "4h")
+    drift, reason, metrics = detector.check_drift()
+
+    assert drift is False
+    assert reason == "No drift detected"
+    assert metrics["directional_accuracy"] == pytest.approx(1.0)

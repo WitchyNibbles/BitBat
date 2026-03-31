@@ -48,6 +48,10 @@ class PredictionResponse(BaseModel):
     predicted_direction: str
     predicted_return: float | None = None
     predicted_price: float | None = None
+    p_up: float | None = None
+    p_down: float | None = None
+    p_flat: float | None = None
+    confidence: float | None = None
     actual_direction: str | None = None
     actual_return: float | None = None
     correct: bool | None = None
@@ -58,6 +62,29 @@ class PredictionResponse(BaseModel):
 
 class PredictionListResponse(BaseModel):
     predictions: list[PredictionResponse]
+    total: int
+    freq: str
+    horizon: str
+
+
+class PredictionTimelinePoint(BaseModel):
+    timestamp_utc: datetime
+    actual_price: float | None = None
+    predicted_price: float | None = None
+    predicted_direction: str
+    confidence: float | None = None
+    correct: bool | None = None
+    is_realized: bool = False
+
+
+class PriceTimelinePoint(BaseModel):
+    timestamp_utc: datetime
+    actual_price: float
+
+
+class PredictionTimelineResponse(BaseModel):
+    points: list[PredictionTimelinePoint]
+    price_points: list[PriceTimelinePoint] = Field(default_factory=list)
     total: int
     freq: str
     horizon: str

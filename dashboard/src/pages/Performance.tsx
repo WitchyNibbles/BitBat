@@ -15,7 +15,7 @@ const HORIZON = '4h';
 const PRED_COLUMNS = [
   { key: 'time', label: 'Time' },
   { key: 'direction', label: 'Direction' },
-  { key: 'confidence', label: 'Confidence', align: 'right' as const },
+  { key: 'confidence', label: 'Model Conviction', align: 'right' as const },
   { key: 'outcome', label: 'Outcome' },
   { key: 'correct', label: 'Correct', align: 'center' as const },
 ];
@@ -53,8 +53,8 @@ export function Performance() {
         time: p.timestamp_utc,
         direction: p.predicted_direction.toUpperCase(),
         confidence:
-          p.predicted_return != null
-            ? `${(Math.abs(p.predicted_return) * 100).toFixed(1)}%`
+          p.confidence != null
+            ? `${(p.confidence * 100).toFixed(1)}%`
             : '--',
         outcome: p.actual_direction ?? '--',
         correct:
@@ -101,7 +101,7 @@ export function Performance() {
 
       {streakResults.length > 0 && (
         <div className={styles.streakSection}>
-          <span className={styles.streakLabel}>Last 10 results</span>
+          <span className={styles.streakLabel}>Last 10 realized calls</span>
           <StreakBar results={streakResults} />
         </div>
       )}

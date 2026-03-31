@@ -1,3 +1,32 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.summaryText,
+.legend {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.summaryText {
+  color: var(--text);
+}
+
+.legend {
+  color: var(--text-muted);
+}
+
 .bar {
   display: flex;
   flex-direction: row;

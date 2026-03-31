@@ -8,6 +8,8 @@ import { usePolling } from '../hooks/usePolling.ts';
 import { api } from '../api/client.ts';
 import styles from './System.module.css';
 
+const LOG_REFRESH_MS = 10_000;
+
 const SNAPSHOT_COLUMNS = [
   { key: 'time', label: 'Time' },
   { key: 'model', label: 'Model' },
@@ -41,7 +43,10 @@ export function System() {
     status.refetch();
     health.refetch();
     logs.refetch();
-  }, 30_000);
+    snapshots.refetch();
+    retraining.refetch();
+    ingestion.refetch();
+  }, LOG_REFRESH_MS);
 
   // Derive status card values
   const dbStatus = status.data
@@ -158,7 +163,11 @@ export function System() {
           </select>
         </div>
         {logs.data ? (
-          <LogFeed logs={logs.data.logs} />
+          <LogFeed
+            logs={logs.data.logs}
+            lastUpdatedAt={logs.lastUpdatedAt}
+            pollingLabel={`Polling every ${LOG_REFRESH_MS / 1000}s`}
+          />
         ) : (
           <p className={styles.empty}>Loading logs...</p>
         )}

@@ -48,6 +48,10 @@ export interface PredictionResponse {
   predicted_direction: string;
   predicted_return?: number | null;
   predicted_price?: number | null;
+  p_up?: number | null;
+  p_down?: number | null;
+  p_flat?: number | null;
+  confidence?: number | null;
   actual_direction?: string | null;
   actual_return?: number | null;
   correct?: boolean | null;
@@ -58,6 +62,29 @@ export interface PredictionResponse {
 
 export interface PredictionListResponse {
   predictions: PredictionResponse[];
+  total: number;
+  freq: string;
+  horizon: string;
+}
+
+export interface PredictionTimelinePoint {
+  timestamp_utc: string;
+  actual_price?: number | null;
+  predicted_price?: number | null;
+  predicted_direction: string;
+  confidence?: number | null;
+  correct?: boolean | null;
+  is_realized: boolean;
+}
+
+export interface PriceTimelinePoint {
+  timestamp_utc: string;
+  actual_price: number;
+}
+
+export interface PredictionTimelineResponse {
+  points: PredictionTimelinePoint[];
+  price_points: PriceTimelinePoint[];
   total: number;
   freq: string;
   horizon: string;
@@ -228,6 +255,11 @@ export const api = {
   predictionHistory: (freq?: string, horizon?: string, days?: number, limit?: number) =>
     apiFetch<PredictionListResponse>(
       `/predictions/history${qs({ freq, horizon, days, limit })}`,
+    ),
+
+  predictionTimeline: (freq?: string, horizon?: string, days?: number, limit?: number) =>
+    apiFetch<PredictionTimelineResponse>(
+      `/predictions/timeline${qs({ freq, horizon, days, limit })}`,
     ),
 
   performance: (freq?: string, horizon?: string, days?: number) =>

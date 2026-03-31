@@ -4,15 +4,38 @@
   gap: 24px;
 }
 
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.sectionNote {
+  max-width: 36rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(0, 1.8fr) repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.chartSlot {
+  grid-column: 1 / 2;
 }
 
 @media (max-width: 768px) {
   .cards {
     grid-template-columns: 1fr;
+  }
+
+  .chartSlot {
+    grid-column: auto;
   }
 }
 

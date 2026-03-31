@@ -68,3 +68,103 @@ def test_metrics_handles_empty() -> None:
     assert payload["hit_rate"] == 0.0
     assert payload["sharpe_ratio"] == 0.0
     assert payload["max_drawdown"] == 0.0
+
+
+def test_directional_accuracy_falls_back_to_class_predictions() -> None:
+    timestamp = datetime(2024, 1, 1, 0, 0)
+    predictions = [
+        PredictionOutcome(
+            id=1,
+            timestamp_utc=timestamp,
+            prediction_timestamp=timestamp,
+            predicted_direction="up",
+            p_up=0.8,
+            p_down=0.1,
+            p_flat=0.1,
+            predicted_return=None,
+            actual_return=0.01,
+            actual_direction="up",
+            correct=True,
+            model_version="test-v1",
+            freq="5m",
+            horizon="30m",
+        ),
+        PredictionOutcome(
+            id=2,
+            timestamp_utc=timestamp,
+            prediction_timestamp=timestamp,
+            predicted_direction="flat",
+            p_up=0.1,
+            p_down=0.1,
+            p_flat=0.8,
+            predicted_return=None,
+            actual_return=0.0,
+            actual_direction="flat",
+            correct=True,
+            model_version="test-v1",
+            freq="5m",
+            horizon="30m",
+        ),
+        PredictionOutcome(
+            id=3,
+            timestamp_utc=timestamp,
+            prediction_timestamp=timestamp,
+            predicted_direction="down",
+            p_up=0.1,
+            p_down=0.8,
+            p_flat=0.1,
+            predicted_return=None,
+            actual_return=0.01,
+            actual_direction="up",
+            correct=False,
+            model_version="test-v1",
+            freq="5m",
+            horizon="30m",
+        ),
+    ]
+
+    metrics = PerformanceMetrics(predictions)
+
+    assert metrics.directional_accuracy() == pytest.approx(2 / 3)
+
+
+def test_directional_accuracy_uses_direction_labels_when_returns_missing() -> None:
+    timestamp = datetime(2024, 1, 1, 0, 0)
+    predictions = [
+        PredictionOutcome(
+            id=1,
+            timestamp_utc=timestamp,
+            prediction_timestamp=timestamp,
+            predicted_direction="flat",
+            p_up=0.01,
+            p_down=0.01,
+            p_flat=0.98,
+            predicted_return=None,
+            actual_return=0.0,
+            actual_direction="flat",
+            correct=True,
+            model_version="test-v1",
+            freq="5m",
+            horizon="30m",
+        ),
+        PredictionOutcome(
+            id=2,
+            timestamp_utc=timestamp,
+            prediction_timestamp=timestamp,
+            predicted_direction="down",
+            p_up=0.1,
+            p_down=0.8,
+            p_flat=0.1,
+            predicted_return=None,
+            actual_return=-0.01,
+            actual_direction="down",
+            correct=True,
+            model_version="test-v1",
+            freq="5m",
+            horizon="30m",
+        ),
+    ]
+
+    metrics = PerformanceMetrics(predictions)
+
+    assert metrics.directional_accuracy() == pytest.approx(1.0)

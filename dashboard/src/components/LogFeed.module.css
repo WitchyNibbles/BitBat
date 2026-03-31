@@ -5,6 +5,43 @@
   flex-direction: column;
 }
 
+.emptyState {
+  padding: 18px 14px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.statusRow {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  background: rgba(10, 10, 15, 0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+
+.liveBadge,
+.statusText {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.liveBadge {
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.statusText {
+  color: var(--text-muted);
+}
+
 .entry {
   padding: 10px 14px;
   border-left: 3px solid transparent;
@@ -69,6 +106,14 @@
   font-family: var(--font-mono);
   font-size: 0.65rem;
   color: var(--text-muted);
+}
+
+.service {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .message {

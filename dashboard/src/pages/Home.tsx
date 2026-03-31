@@ -1,24 +1,26 @@
 import { StatusCard } from '../components/StatusCard.tsx';
-import { PredictionCard } from '../components/PredictionCard.tsx';
+import { PredictionPriceChart } from '../components/PredictionPriceChart.tsx';
 import { LogFeed } from '../components/LogFeed.tsx';
 import { useApi } from '../hooks/useApi.ts';
 import { usePolling } from '../hooks/usePolling.ts';
 import { api } from '../api/client.ts';
 import styles from './Home.module.css';
 
+const AUTO_REFRESH_MS = 5_000;
+
 export function Home() {
   const health = useApi(() => api.healthDetailed(), []);
-  const prediction = useApi(() => api.latestPrediction(), []);
+  const timeline = useApi(() => api.predictionTimeline(undefined, undefined, 14, 72), []);
   const logs = useApi(() => api.systemLogs(10), []);
   const ingestion = useApi(() => api.ingestionStatus(), []);
 
-  // Auto-refresh every 60s
+  // Keep the home page feeling live without aggressive polling.
   usePolling(() => {
     health.refetch();
-    prediction.refetch();
+    timeline.refetch();
     logs.refetch();
     ingestion.refetch();
-  }, 60_000);
+  }, AUTO_REFRESH_MS);
 
   const agentStatus =
     health.data?.status === 'ok'
@@ -37,6 +39,16 @@ export function Home() {
   return (
     <div className={styles.page}>
       <div className={styles.cards}>
+        <div className={styles.chartSlot}>
+          {timeline.data && timeline.data.points.length > 0 ? (
+            <PredictionPriceChart
+              points={timeline.data.points}
+              pricePoints={timeline.data.price_points}
+            />
+          ) : (
+            <StatusCard label="Prediction Chart" value="No data" status="muted" />
+          )}
+        </div>
         <StatusCard
           label="Agent Status"
           value={agentStatus}
@@ -47,20 +59,6 @@ export function Home() {
               : undefined
           }
         />
-        {prediction.data ? (
-          <PredictionCard
-            direction={prediction.data.predicted_direction}
-            confidence={
-              prediction.data.predicted_return != null
-                ? Math.abs(prediction.data.predicted_return)
-                : undefined
-            }
-            timestamp={prediction.data.timestamp_utc}
-            modelVersion={prediction.data.model_version}
-          />
-        ) : (
-          <StatusCard label="Latest Prediction" value="No data" status="muted" />
-        )}
         <StatusCard
           label="Data Freshness"
           value={
@@ -76,9 +74,19 @@ export function Home() {
       <div className="divider">&#x2726;</div>
 
       <section>
-        <h2>Recent Activity</h2>
+        <div className={styles.sectionHeader}>
+          <h2>Recent Activity</h2>
+          <p className={styles.sectionNote}>
+            Auto-refreshes every {AUTO_REFRESH_MS / 1000}s so new monitor events appear on their
+            own.
+          </p>
+        </div>
         {logs.data ? (
-          <LogFeed logs={logs.data.logs} />
+          <LogFeed
+            logs={logs.data.logs}
+            lastUpdatedAt={logs.lastUpdatedAt}
+            pollingLabel={`Polling every ${AUTO_REFRESH_MS / 1000}s`}
+          />
         ) : (
           <p className={styles.empty}>Loading activity...</p>
         )}
