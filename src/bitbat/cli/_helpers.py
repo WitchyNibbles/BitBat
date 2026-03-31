@@ -35,18 +35,20 @@ def _sentiment_enabled() -> bool:
 
 def _resolve_news_source(source: str | None = None) -> str:
     configured = (
-        source if source not in (None, "") else _config().get("news_source", "cryptocompare")
+        source if source not in (None, "") else _config().get("news_source", "rss")
     )
     resolved = str(configured).strip().lower()
-    if resolved not in {"gdelt", "cryptocompare"}:
+    if resolved not in {"rss", "gdelt", "cryptocompare"}:
         raise click.ClickException(
-            f"Unsupported news_source '{resolved}'. Expected one of: gdelt, cryptocompare."
+            f"Unsupported news_source '{resolved}'. Expected one of: rss, gdelt, cryptocompare."
         )
     return resolved
 
 
 def _news_backend(source: str) -> Any:
-    if source == "gdelt":
+    if source == "rss":
+        from bitbat.ingest import news_rss as backend
+    elif source == "gdelt":
         from bitbat.ingest import news_gdelt as backend
     else:
         from bitbat.ingest import news_cryptocompare as backend

@@ -48,7 +48,7 @@ def write_parquet(
     write_kwargs: dict[str, Any] = {"engine": "pyarrow", "index": False}
     write_kwargs.update(kwargs)
     data.to_parquet(
-        target_path,
+        str(target_path),
         partition_cols=list(partition_cols) if partition_cols else None,
         **write_kwargs,
     )

@@ -2,8 +2,8 @@
 
 Fetches crypto-related news from multiple free sources:
 
-* **CryptoCompare** — unlimited, no key required.
-* **NewsAPI** — 100 requests/day on the free tier; requires ``NEWSAPI_KEY``
+* **RSS Feeds** — free; fetches from CoinDesk, CoinTelegraph, etc.
+* **CryptoCompare** — requires paid API key (``CRYPTOCOMPARE_API_KEY``).
   environment variable.
 * **Reddit (PRAW)** — optional; requires ``REDDIT_CLIENT_ID`` and
   ``REDDIT_CLIENT_SECRET`` environment variables and the ``praw`` package.
@@ -112,6 +112,9 @@ class NewsIngestionService:
         """
         url = "https://min-api.cryptocompare.com/data/v2/news/"
         params: dict = {"lang": "EN"}
+        api_key = os.environ.get("CRYPTOCOMPARE_API_KEY")
+        if api_key:
+            params["api_key"] = api_key
 
         try:
             response = requests.get(url, params=params, timeout=10)
@@ -138,6 +141,69 @@ class NewsIngestionService:
 
         logger.info("Fetched %d articles from CryptoCompare", len(articles))
         return articles
+
+    def fetch_rss(self, max_results: int = 50) -> list[dict]:
+        """Fetch crypto news from RSS feeds (free, no API key, no rate limits).
+
+        Args:
+            max_results: Maximum articles to return.
+
+        Returns:
+            List of article dicts conforming to the news contract.
+        """
+        import xml.etree.ElementTree as ET
+        from email.utils import parsedate_to_datetime
+
+        feeds = [
+            ("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
+            ("CoinTelegraph", "https://cointelegraph.com/rss"),
+            ("Bitcoin Magazine", "https://bitcoinmagazine.com/.rss/full/"),
+            ("Decrypt", "https://decrypt.co/feed"),
+            ("The Block", "https://www.theblock.co/rss.xml"),
+            ("CryptoSlate", "https://cryptoslate.com/feed/"),
+            ("NewsBTC", "https://www.newsbtc.com/feed/"),
+            ("Bitcoinist", "https://bitcoinist.com/feed/"),
+        ]
+
+        articles: list[dict] = []
+        for name, url in feeds:
+            try:
+                resp = requests.get(
+                    url, timeout=15, headers={"User-Agent": "BitBat/1.0"}
+                )
+                resp.raise_for_status()
+                root = ET.fromstring(resp.text)  # noqa: S314
+                items = root.findall(".//item")
+                for item in items:
+                    title_el = item.find("title")
+                    link_el = item.find("link")
+                    pub_el = item.find("pubDate")
+                    title_text = (title_el.text or "").strip() if title_el is not None else ""
+                    link_text = (link_el.text or "").strip() if link_el is not None else ""
+                    if not title_text or not link_text:
+                        continue
+                    pub_date = None
+                    if pub_el is not None and pub_el.text:
+                        try:
+                            pub_date = parsedate_to_datetime(pub_el.text.strip())
+                            pub_date = pub_date.replace(tzinfo=None)
+                        except Exception:
+                            pass
+                    if pub_date is None:
+                        pub_date = pd.Timestamp.now()
+                    articles.append({
+                        "published_utc": pub_date,
+                        "title": title_text,
+                        "url": link_text,
+                        "source": name,
+                        "lang": "en",
+                        "sentiment_score": self._sentiment_score(title_text),
+                    })
+            except Exception as exc:
+                logger.warning("RSS fetch failed for %s: %s", name, exc)
+
+        logger.info("Fetched %d articles from RSS feeds", len(articles))
+        return articles[:max_results]
 
     def fetch_newsapi(self, max_results: int = 10) -> list[dict]:
         """Fetch from NewsAPI (requires ``NEWSAPI_KEY``; 100 requests/day).
@@ -256,7 +322,15 @@ class NewsIngestionService:
             Number of unique articles saved.
         """
         all_articles: list[dict] = []
-        all_articles.extend(self.fetch_cryptocompare(max_results=20))
+
+        # RSS feeds first — free, no API key, no rate limits
+        all_articles.extend(self.fetch_rss(max_results=50))
+
+        # CryptoCompare only if API key is available (paid tier)
+        cc_key = os.environ.get("CRYPTOCOMPARE_API_KEY")
+        if cc_key:
+            all_articles.extend(self.fetch_cryptocompare(max_results=20))
+
         all_articles.extend(self.fetch_newsapi(max_results=10))
         all_articles.extend(self.fetch_reddit())
 

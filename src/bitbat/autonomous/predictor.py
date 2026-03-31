@@ -163,14 +163,23 @@ class LivePredictor:
             # Join sentiment features if news data exists
             enable_sentiment = bool(config.get("enable_sentiment", True))
             if enable_sentiment:
-                news_path = (
+                # Try RSS (free, default) first, then GDELT, then CryptoCompare
+                news_candidates = [
+                    self.data_dir / "raw" / "news" / "rss_1h" / "rss_crypto_1h.parquet",
+                    self.data_dir / "raw" / "news" / "gdelt_1h" / "gdelt_crypto_1h.parquet",
                     self.data_dir
                     / "raw"
                     / "news"
                     / f"cryptocompare_{self.freq}"
-                    / f"cryptocompare_btc_{self.freq}.parquet"
-                )
-                if news_path.exists():
+                    / f"cryptocompare_btc_{self.freq}.parquet",
+                ]
+                news_path = None
+                for candidate in news_candidates:
+                    if candidate.exists():
+                        news_path = candidate
+                        break
+
+                if news_path is not None:
                     try:
                         from bitbat.features.sentiment import aggregate as aggregate_sentiment
 
@@ -189,7 +198,10 @@ class LivePredictor:
                     except Exception as exc:
                         logger.warning("Sentiment feature generation failed: %s", exc)
                 else:
-                    logger.info("No news data at %s — skipping sentiment features", news_path)
+                    logger.info(
+                        "No news data found (searched %s) — skipping sentiment features",
+                        [str(c) for c in news_candidates],
+                    )
 
             # Join auxiliary features if enabled and data exists
             enable_macro = bool(config.get("enable_macro", False))
@@ -294,8 +306,12 @@ class LivePredictor:
             tau=tau,
         )
 
-        predicted_return = float(prediction["predicted_return"])
-        predicted_price = float(prediction["predicted_price"])
+        predicted_return = prediction.get("predicted_return")
+        if predicted_return is not None:
+            predicted_return = float(predicted_return)
+        predicted_price = prediction.get("predicted_price")
+        if predicted_price is not None:
+            predicted_price = float(predicted_price)
         direction = str(prediction["predicted_direction"])
 
         model_version = self._active_model_version()
@@ -319,6 +335,7 @@ class LivePredictor:
                     predicted_price=predicted_price,
                     p_up=float(prediction.get("p_up", 0.0)),
                     p_down=float(prediction.get("p_down", 0.0)),
+                    p_flat=float(prediction.get("p_flat", 0.0)),
                 )
         except Exception as exc:
             raise classify_monitor_db_error(
@@ -333,8 +350,8 @@ class LivePredictor:
             " predicted_price=%.2f model=%s",
             timestamp_py,
             direction,
-            predicted_return,
-            predicted_price,
+            predicted_return if predicted_return is not None else 0.0,
+            predicted_price if predicted_price is not None else 0.0,
             model_version,
         )
 
@@ -347,4 +364,8 @@ class LivePredictor:
             predicted_return=predicted_return,
             predicted_price=predicted_price,
             model_version=model_version,
+            p_up=float(prediction.get("p_up", 0.0)),
+            p_down=float(prediction.get("p_down", 0.0)),
+            p_flat=float(prediction.get("p_flat", 0.0)),
+            confidence=prediction.get("confidence"),
         )

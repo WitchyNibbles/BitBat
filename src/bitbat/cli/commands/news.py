@@ -25,7 +25,7 @@ def news() -> None:
 @click.option("--to", "to_dt", required=True, help="End datetime (ISO8601).")
 @click.option(
     "--source",
-    type=click.Choice(["cryptocompare", "gdelt"], case_sensitive=False),
+    type=click.Choice(["rss", "cryptocompare", "gdelt"], case_sensitive=False),
     default=None,
     help="News source override (defaults to config news_source).",
 )

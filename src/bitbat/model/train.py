@@ -51,7 +51,22 @@ def fit_baseline(
     X = X_train.astype(float)
 
     if family == "xgb":
-        y_encoded = y_train.map(DIRECTION_CLASSES).astype(int)
+        if pd.api.types.is_numeric_dtype(y_train):
+            # Convert float returns to categorical directions for classification
+            tau = 0.01
+            try:
+                from bitbat.config.loader import load_config
+                tau = float(load_config().get("tau", 0.01))
+            except Exception:
+                pass
+            
+            y_dir = pd.Series("flat", index=y_train.index, dtype=str)
+            y_dir.loc[y_train >= tau] = "up"
+            y_dir.loc[y_train <= -tau] = "down"
+            y_encoded = y_dir.map(DIRECTION_CLASSES).astype(int)
+        else:
+            y_encoded = y_train.map(DIRECTION_CLASSES).astype(int)
+
         dtrain = xgb.DMatrix(X, label=y_encoded.to_numpy(), feature_names=list(X.columns))
         params = {
             "objective": "multi:softprob",

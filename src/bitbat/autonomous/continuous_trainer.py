@@ -150,9 +150,7 @@ class ContinuousTrainer:
         from bitbat.dataset.build import generate_price_features
         from bitbat.labeling.returns import forward_return
         from bitbat.model.evaluate import (
-            regression_metrics,
-            window_diagnostics,
-            write_window_diagnostics,
+            classification_probability_metrics,
         )
         from bitbat.model.infer import _ensure_model
         from bitbat.model.train import fit_xgb
@@ -166,12 +164,22 @@ class ContinuousTrainer:
         if len(prices) > self.rolling_window_bars:
             prices = prices.iloc[-self.rolling_window_bars :]
 
+        train_bars = self.train_window_bars
+        backtest_bars = self.backtest_window_bars
+        required_samples = train_bars + backtest_bars
+
+        if len(prices) < required_samples:
+            total_available = len(prices)
+            ratio = train_bars / required_samples
+            train_bars = max(int(total_available * ratio), 80)
+            backtest_bars = max(total_available - train_bars, 1)
+
         # Generate features
         features = generate_price_features(
             prices,
             enable_garch=self.enable_garch,
             freq=self.freq,
-            fold_boundaries=[self.train_window_bars],
+            fold_boundaries=[train_bars],
         )
         features = features.dropna()
         rename_mapping = {
@@ -189,23 +197,35 @@ class ContinuousTrainer:
         if len(features) < 50:
             raise ValueError(f"Too few valid samples after feature generation: {len(features)}")
 
-        required_samples = self.train_window_bars + self.backtest_window_bars
+        required_samples = train_bars + backtest_bars
+
         if len(features) < required_samples:
-            raise ValueError(
-                "Not enough samples for configured windows: "
+            min_required = 80
+            if len(features) < min_required:
+                raise ValueError(
+                    f"Not enough samples to retrain: {len(features)} < {min_required} minimum."
+                )
+
+            logger.warning(
+                "Scaling down retraining windows to match available data: "
                 f"{len(features)} < {required_samples}"
             )
+            total_available = len(features)
+            ratio = train_bars / required_samples
+            train_bars = max(int(total_available * ratio), int(min_required * 0.8))
+            backtest_bars = max(total_available - train_bars, 1)
+            required_samples = train_bars + backtest_bars
 
         scoped_features = features.iloc[-required_samples:]
         scoped_returns = y_returns.iloc[-required_samples:]
-        X_train = scoped_features.iloc[: self.train_window_bars]
-        y_train = scoped_returns.iloc[: self.train_window_bars]
-        X_holdout = scoped_features.iloc[self.train_window_bars :]
-        y_holdout = scoped_returns.iloc[self.train_window_bars :]
+        X_train = scoped_features.iloc[:train_bars]
+        y_train = scoped_returns.iloc[:train_bars]
+        X_holdout = scoped_features.iloc[train_bars:]
+        y_holdout = scoped_returns.iloc[train_bars:]
 
         window_metadata = {
-            "train_window_bars": self.train_window_bars,
-            "backtest_window_bars": self.backtest_window_bars,
+            "train_window_bars": train_bars,
+            "backtest_window_bars": backtest_bars,
             "train_start": X_train.index.min().isoformat(),
             "train_end": X_train.index.max().isoformat(),
             "backtest_start": X_holdout.index.min().isoformat(),
@@ -220,46 +240,46 @@ class ContinuousTrainer:
         # Evaluate new model
         import xgboost as xgb
 
+        # Convert float returns to categorical directions for classification testing
+        tau = 0.01
+        try:
+            from bitbat.config.loader import load_config
+            tau = float(load_config().get("tau", 0.01))
+        except Exception:
+            pass
+        
+        y_dir = pd.Series("flat", index=y_holdout.index, dtype=str)
+        y_dir.loc[y_holdout >= tau] = "up"
+        y_dir.loc[y_holdout <= -tau] = "down"
+
         dtest = xgb.DMatrix(X_holdout, feature_names=list(X_holdout.columns))
         new_preds = new_booster.predict(dtest)
-        new_metrics = regression_metrics(y_holdout, new_preds)
-        new_diagnostics = window_diagnostics(
-            y_holdout,
-            new_preds,
-            window_id="continuous-holdout",
-            family="xgb",
-        )
-        diagnostics_path = write_window_diagnostics(
-            new_diagnostics,
-            output_path=(
-                resolve_metrics_dir() / f"continuous_diagnostics_{self.freq}_{self.horizon}.json"
-            ),
-        )
+        new_metrics = classification_probability_metrics(y_dir, new_preds)
 
         # Compare to current model
         model_path = resolve_models_dir() / f"{self.freq}_{self.horizon}" / "xgb.json"
         deployed = False
-        rmse_improvement = 0.0
+        pr_auc_improvement = 0.0
 
         if model_path.exists():
             old_booster = _ensure_model(model_path)
             old_preds = old_booster.predict(dtest)
-            old_metrics = regression_metrics(y_holdout, old_preds)
+            old_metrics = classification_probability_metrics(y_dir, old_preds)
 
-            rmse_improvement = old_metrics["rmse"] - new_metrics["rmse"]
-            if rmse_improvement > 0:
+            pr_auc_improvement = new_metrics["pr_auc"] - old_metrics["pr_auc"]
+            if pr_auc_improvement > 0:
                 deployed = True
                 logger.info(
-                    "New model improves RMSE by %.6f (%.6f -> %.6f)",
-                    rmse_improvement,
-                    old_metrics["rmse"],
-                    new_metrics["rmse"],
+                    "New model improves PR AUC by %.6f (%.6f -> %.6f)",
+                    pr_auc_improvement,
+                    old_metrics["pr_auc"],
+                    new_metrics["pr_auc"],
                 )
             else:
                 logger.info(
-                    "New model does not improve (old RMSE=%.6f, new RMSE=%.6f)",
-                    old_metrics["rmse"],
-                    new_metrics["rmse"],
+                    "New model does not improve (old PR AUC=%.6f, new PR AUC=%.6f)",
+                    old_metrics["pr_auc"],
+                    new_metrics["pr_auc"],
                 )
         else:
             deployed = True
@@ -279,15 +299,13 @@ class ContinuousTrainer:
                     training_start=features.index.min().to_pydatetime(),
                     training_end=features.index.max().to_pydatetime(),
                     training_samples=len(X_train),
-                    cv_score=new_metrics["rmse"],
+                    cv_score=new_metrics["pr_auc"],
                     features=list(X_train.columns),
                     hyperparameters=None,
                     training_metadata={
                         "trigger": "continuous",
                         "holdout_metrics": new_metrics,
                         "window_metadata": window_metadata,
-                        "window_diagnostics": new_diagnostics,
-                        "window_diagnostics_path": str(diagnostics_path),
                     },
                     is_active=False,
                 )
@@ -295,15 +313,13 @@ class ContinuousTrainer:
         return {
             "deployed": deployed,
             "new_version": new_version if deployed else old_version,
-            "new_rmse": new_metrics["rmse"],
-            "new_mae": new_metrics["mae"],
-            "new_directional_accuracy": new_metrics["directional_accuracy"],
-            "rmse_improvement": rmse_improvement,
+            "new_mlogloss": new_metrics["mlogloss"],
+            "new_pr_auc": new_metrics["pr_auc"],
+            "new_directional_accuracy": new_metrics.get("directional_accuracy", 0.0),
+            "pr_auc_improvement": pr_auc_improvement,
             "training_samples": len(X_train),
             "holdout_samples": len(X_holdout),
             "window_metadata": window_metadata,
-            "window_diagnostics": new_diagnostics,
-            "window_diagnostics_path": str(diagnostics_path),
         }
 
     def _load_prices(self) -> pd.DataFrame:

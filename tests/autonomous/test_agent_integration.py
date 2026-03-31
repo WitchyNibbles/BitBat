@@ -192,6 +192,64 @@ def test_predict_latest_exposes_stable_diagnostic_reason_fields(
     assert "model artifact" in result["diagnostic_message"].lower()
 
 
+def test_predict_latest_persists_full_probability_distribution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _stub_runtime_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+
+    class DummyBooster:
+        feature_names = ["feat_close"]
+
+    bars = pd.DataFrame(
+        {"close": [100.0 + idx for idx in range(40)]},
+        index=pd.date_range("2026-01-01", periods=40, freq="h"),
+    )
+    features = pd.DataFrame(
+        {"feat_close": [0.1 + idx / 1000 for idx in range(40)]},
+        index=bars.index,
+    )
+
+    monkeypatch.setattr(predictor, "_load_model", lambda: DummyBooster())
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor._load_ingested_prices",
+        lambda data_dir, freq: bars,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.generate_price_features",
+        lambda prices, enable_garch, freq: features,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.predict_bar",
+        lambda *args, **kwargs: {
+            "predicted_direction": "flat",
+            "predicted_return": None,
+            "predicted_price": None,
+            "p_up": 0.02,
+            "p_down": 0.03,
+            "p_flat": 0.95,
+        },
+    )
+
+    result = predictor.predict_latest()
+
+    assert result["status"] == "generated"
+    with db.session() as session:
+        stored = db.get_recent_predictions(session, "1h", "4h", days=7, realized_only=False)[0]
+
+    assert stored.predicted_direction == "flat"
+    assert stored.p_up == pytest.approx(0.02)
+    assert stored.p_down == pytest.approx(0.03)
+    assert stored.p_flat == pytest.approx(0.95)
+
+
 def test_run_once_reports_cycle_state_for_missing_model_no_predictions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
+import os
 
 import pandas as pd
 
@@ -54,6 +55,10 @@ def _fetch_page(  # noqa: C901
         "categories": categories,
         "lTs": int(lts),
     }
+    
+    api_key = os.getenv("CRYPTOCOMPARE_API_KEY")
+    if api_key:
+        payload["api_key"] = api_key
 
     attempt = 0
     delay = max(backoff_base, 0.0)

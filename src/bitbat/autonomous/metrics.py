@@ -177,12 +177,27 @@ class PerformanceMetrics:
         return float(np.sqrt(np.mean((predicted - actual) ** 2)))
 
     def directional_accuracy(self) -> float:
-        """Fraction where sign(predicted_return) == sign(actual_return)."""
+        """Fraction of realized predictions whose direction matched the outcome.
+
+        Regression-era rows carry ``predicted_return`` and can still be scored
+        by return sign. Classification rows only store direction labels and
+        class probabilities, so we fall back to comparing the realized and
+        predicted directions directly.
+        """
         predicted = self._predicted_returns()
         actual = self._actual_returns_for_predicted()
-        if predicted.size == 0:
+        if predicted.size > 0:
+            return float(np.mean(np.sign(predicted) == np.sign(actual)))
+
+        matches: list[bool] = []
+        for pred in self.realized:
+            if pred.actual_direction is None:
+                continue
+            matches.append(pred.predicted_direction == pred.actual_direction)
+
+        if not matches:
             return 0.0
-        return float(np.mean(np.sign(predicted) == np.sign(actual)))
+        return float(np.mean(np.array(matches, dtype="float64")))
 
     def max_drawdown(self) -> float:
         """Return maximum drawdown on cumulative return path."""

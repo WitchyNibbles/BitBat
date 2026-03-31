@@ -124,7 +124,18 @@ class PriceIngestionService:
             logger.info("First fetch — downloading last %d days from %s", _FIRST_RUN_DAYS, start)
         else:
             # Offset by one bar to avoid re-fetching the last stored bar.
-            start = last_ts + timedelta(hours=1)
+            unit = self.interval[-1]
+            val = int(self.interval[:-1])
+            if unit == "m":
+                delta = timedelta(minutes=val)
+            elif unit == "h":
+                delta = timedelta(hours=val)
+            elif unit == "d":
+                delta = timedelta(days=val)
+            else:
+                delta = timedelta(hours=1)
+            
+            start = last_ts + delta
             logger.info("Fetching from %s to now", start)
 
         end = datetime.now(UTC).replace(tzinfo=None)

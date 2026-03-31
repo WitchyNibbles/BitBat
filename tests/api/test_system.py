@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 import sqlite3
 from pathlib import Path
 
+import httpx
 import pytest
 
 from bitbat.api.app import create_app
@@ -149,3 +152,113 @@ def test_system_logs_fail_fast_with_short_hint_line(
     detail = response.json()["detail"]
     assert "Hint: Retry shortly." in detail
     assert "CircuitOpen" not in detail
+
+
+def test_training_start_uses_threadpool(
+    client: SyncASGIClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "bitbat.common.presets.list_presets",
+        lambda: {"balanced": object()},
+    )
+
+    calls: list[tuple[object, tuple[object, ...], dict[str, object]]] = []
+
+    async def fake_run_in_threadpool(
+        func: object,
+        *args: object,
+        **kwargs: object,
+    ) -> dict[str, object]:
+        calls.append((func, args, kwargs))
+        return {
+            "status": "success",
+            "model_version": "v-threaded",
+            "duration_seconds": 1.2,
+        }
+
+    def fake_train(*, preset_name: str) -> dict[str, object]:
+        return {
+            "status": "unexpected_direct_call",
+            "model_version": preset_name,
+        }
+
+    monkeypatch.setattr("bitbat.api.routes.system.run_in_threadpool", fake_run_in_threadpool)
+    monkeypatch.setattr("bitbat.autonomous.orchestrator.one_click_train", fake_train)
+
+    response = client.request("POST", "/system/training/start", json={"preset": "balanced"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "success"
+    assert payload["model_version"] == "v-threaded"
+    assert calls
+    func, args, kwargs = calls[0]
+    assert func is fake_train
+    assert kwargs == {"preset_name": "balanced"}
+    assert args == ()
+
+
+def test_training_start_runs_off_event_loop_so_logs_can_refresh(
+    db_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeDB:
+        def list_system_logs(self, *, limit: int, level: str | None = None) -> dict[str, object]:
+            del limit, level
+            return {
+                "logs": [
+                    {
+                        "timestamp": "2026-03-31T12:00:00",
+                        "level": "INFO",
+                        "message": "Training started",
+                        "service": "training",
+                    }
+                ],
+                "total": 1,
+            }
+
+    monkeypatch.setattr("bitbat.api.routes.system._DB_PATH", db_path)
+    monkeypatch.setattr(
+        "bitbat.api.routes.system._USER_CONFIG_PATH",
+        tmp_path / "user_config.yaml",
+    )
+    monkeypatch.setattr("bitbat.api.routes.system._get_db", lambda: _FakeDB())
+    monkeypatch.setattr(
+        "bitbat.autonomous.orchestrator.one_click_train",
+        lambda preset_name: (
+            time.sleep(0.2),
+            {
+                "status": "success",
+                "model_version": f"{preset_name}-v1",
+                "duration_seconds": 0.2,
+            },
+        )[1],
+    )
+
+    app = create_app()
+
+    async def _exercise() -> tuple[httpx.Response, httpx.Response, float]:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+            follow_redirects=True,
+        ) as async_client:
+            training_task = asyncio.create_task(
+                async_client.post("/system/training/start", json={"preset": "balanced"})
+            )
+            await asyncio.sleep(0.05)
+            start = time.perf_counter()
+            logs_response = await async_client.get("/system/logs?limit=1")
+            elapsed = time.perf_counter() - start
+            training_response = await training_task
+            return logs_response, training_response, elapsed
+
+    logs_response, training_response, elapsed = asyncio.run(_exercise())
+
+    assert logs_response.status_code == 200
+    assert logs_response.json()["logs"][0]["message"] == "Training started"
+    assert training_response.status_code == 200
+    assert elapsed < 0.15

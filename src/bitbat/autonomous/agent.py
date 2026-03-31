@@ -69,6 +69,8 @@ def check_accuracy_guardrail(
 class MonitoringAgent:
     """Coordinate autonomous monitoring pipeline steps."""
 
+    _SERVICE_NAME = "monitoring_agent"
+
     def __init__(self, db: AutonomousDB, freq: str = "5m", horizon: str = "30m") -> None:
         self.db = db
         self.freq = freq
@@ -83,6 +85,19 @@ class MonitoringAgent:
         self.validator = PredictionValidator(db, freq=freq, horizon=horizon)
         self.drift_detector = DriftDetector(db, freq=freq, horizon=horizon)
         self.continuous_trainer = ContinuousTrainer(db, freq=freq, horizon=horizon, config=config)
+
+    def _log_event(
+        self,
+        level: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Write a structured event to the system_logs DB table."""
+        try:
+            with self.db.session() as session:
+                self.db.log(session, level, self._SERVICE_NAME, message, details)
+        except Exception:
+            logger.debug("Failed to write system log entry", exc_info=True)
 
     def _validate_schema_preflight(self) -> None:
         """Fail fast when runtime-required schema columns are missing."""
@@ -167,24 +182,38 @@ class MonitoringAgent:
             logger.warning("Price ingestion failed", exc_info=True)
 
     def _ingest_news(self) -> None:
-        """Fetch the latest news articles so sentiment features stay fresh."""
+        """Fetch the latest news articles so sentiment features stay fresh.
+
+        Uses RSS feeds (free, no API key, no rate limits) by default.
+        Falls back to CryptoCompare only when ``CRYPTOCOMPARE_API_KEY`` is set.
+        """
         try:
+            import os
+
             from bitbat.config.loader import get_runtime_config
 
             config = get_runtime_config()
             if not config.get("enable_sentiment", True):
                 return
 
-            from datetime import UTC, datetime, timedelta
+            cc_key = os.environ.get("CRYPTOCOMPARE_API_KEY")
+            if cc_key:
+                from datetime import UTC, datetime, timedelta
 
-            from bitbat.ingest import news_cryptocompare as news_cc
+                from bitbat.ingest import news_cryptocompare as news_cc
 
-            news_cc.fetch(
-                from_dt=datetime.now(UTC) - timedelta(days=2),
-                to_dt=datetime.now(UTC),
-                throttle_seconds=0.5,
-            )
-            logger.info("News data refreshed")
+                now = datetime.now(UTC)
+                news_cc.fetch(
+                    from_dt=now - timedelta(days=2),
+                    to_dt=now,
+                    throttle_seconds=0.5,
+                )
+                logger.info("News data refreshed via CryptoCompare")
+            else:
+                from bitbat.ingest import news_rss
+
+                news_rss.fetch()
+                logger.info("News data refreshed via RSS feeds (free)")
         except Exception:
             logger.warning("News ingestion failed", exc_info=True)
 
@@ -222,6 +251,7 @@ class MonitoringAgent:
     def run_once(self) -> dict[str, Any]:  # noqa: C901
         """Run one monitoring cycle: predict, validate, assess drift, retrain."""
         logger.info("Monitoring cycle started (%s/%s)", self.freq, self.horizon)
+        self._log_event("INFO", f"Monitoring cycle started ({self.freq}/{self.horizon})")
 
         # Step 0a: Refresh price data so predictor sees the latest bars.
         self._ingest_prices()
@@ -234,6 +264,14 @@ class MonitoringAgent:
 
         # Step 1: Validate old predictions whose horizon has elapsed.
         validation_summary = self.validator.validate_all()
+        validated_count = int(validation_summary.get("validated_count", 0))
+        correct_count = int(validation_summary.get("correct_count", 0))
+        if validated_count > 0:
+            self._log_event(
+                "INFO",
+                f"Validated {validated_count} predictions ({correct_count} correct)",
+                {"validated": validated_count, "correct": correct_count},
+            )
 
         # Step 2: Generate a new prediction for the latest bar.
         prediction_result: dict[str, Any]
@@ -249,15 +287,23 @@ class MonitoringAgent:
                 prediction_result = dict(raw_prediction)
             if prediction_result.get("status") == "generated":
                 logger.info("New prediction: %s", prediction_result)
+                direction = prediction_result.get("predicted_direction", "?")
+                self._log_event(
+                    "INFO",
+                    f"Prediction generated: {direction}",
+                    {"direction": direction},
+                )
             else:
+                reason = prediction_result.get("reason", "unknown")
                 logger.info(
                     "No new prediction generated this cycle (%s)",
-                    prediction_result.get("reason", "unknown"),
+                    reason,
                 )
         except MonitorDatabaseError:
             raise
         except Exception as exc:
             logger.exception("Prediction generation failed")
+            self._log_event("ERROR", f"Prediction failed: {exc}")
             prediction_result = {
                 "status": "no_prediction",
                 "reason": "prediction_exception",
@@ -316,6 +362,11 @@ class MonitoringAgent:
         retraining_result: dict[str, Any] | None = None
 
         if drift_detected:
+            self._log_event(
+                "WARNING",
+                f"Drift detected: {drift_reason}",
+                {"reason": drift_reason, "metrics": drift_metrics},
+            )
             send_alert(
                 "WARNING",
                 f"Drift detected for {self.freq}/{self.horizon}",
@@ -327,10 +378,21 @@ class MonitoringAgent:
         # Continuous retraining: retrain on schedule when enough new samples exist
         if self.continuous_trainer.should_retrain():
             retraining_triggered = True
+            self._log_event("INFO", "Continuous retraining started")
             retraining_result = self.continuous_trainer.retrain()
             if retraining_result.get("status") == "completed":
+                self._log_event(
+                    "INFO",
+                    "Continuous retraining completed",
+                    retraining_result,
+                )
                 send_alert("SUCCESS", "Continuous retraining completed", retraining_result)
             else:
+                self._log_event(
+                    "ERROR",
+                    "Continuous retraining failed",
+                    retraining_result,
+                )
                 send_alert("ERROR", "Continuous retraining failed", retraining_result)
 
         result = {
@@ -348,8 +410,8 @@ class MonitoringAgent:
                 "realization_state": realization_state,
                 "cycle_diagnostic": cycle_diagnostic,
             },
-            "validations": int(validation_summary.get("validated_count", 0)),
-            "correct": int(validation_summary.get("correct_count", 0)),
+            "validations": validated_count,
+            "correct": correct_count,
             "hit_rate": float(validation_summary.get("hit_rate", 0.0)),
             "validation_errors": list(validation_summary.get("errors", [])),
             "drift_detected": drift_detected,

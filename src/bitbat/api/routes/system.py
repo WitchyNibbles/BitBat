@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from fastapi.concurrency import run_in_threadpool
 from fastapi import APIRouter, HTTPException, Query
 
 from bitbat.api.schemas import (
@@ -141,7 +142,7 @@ async def start_training(request: TrainingRequest) -> TrainingResponse:
 
     from bitbat.autonomous.orchestrator import one_click_train
 
-    result = one_click_train(preset_name=preset_key)
+    result = await run_in_threadpool(one_click_train, preset_name=preset_key)
 
     return TrainingResponse(
         status=result.get("status", "unknown"),

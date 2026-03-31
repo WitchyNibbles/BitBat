@@ -10,7 +10,7 @@ cost_bps: 4
 fee_bps: 4
 slippage_bps: 0
 price_source: "yfinance"
-news_source: "cryptocompare"
+news_source: "gdelt"
 enable_sentiment: true
 enable_garch: false
 enable_macro: false

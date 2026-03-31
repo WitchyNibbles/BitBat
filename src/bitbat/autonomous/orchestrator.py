@@ -13,7 +13,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_LOOKBACK_DAYS = 730  # 2 years of historical data for training
+_DEFAULT_LOOKBACK_DAYS = 729  # < 730 to avoid boundary errors for 1h/1d
 
 
 def _progress(
@@ -48,6 +48,7 @@ def one_click_train(  # noqa: C901
     ``duration_seconds``, and ``error`` (on failure).
     """
     t0 = time.monotonic()
+    db = None
 
     # ------------------------------------------------------------------
     # Step 1: Load config and preset
@@ -56,6 +57,8 @@ def one_click_train(  # noqa: C901
 
     try:
         from bitbat.common.presets import get_preset
+        from bitbat.autonomous.db import AutonomousDB
+        from bitbat.autonomous.models import init_database
         from bitbat.config.loader import get_runtime_config, load_config
 
         preset = get_preset(preset_name)
@@ -69,8 +72,32 @@ def one_click_train(  # noqa: C901
         enable_macro = bool(config.get("enable_macro", False))
         enable_onchain = bool(config.get("enable_onchain", False))
         db_url = config.get("autonomous", {}).get("database_url", "sqlite:///data/autonomous.db")
+        try:
+            init_database(db_url)
+            db = AutonomousDB(db_url)
+        except Exception:
+            logger.debug("Training event logging unavailable during setup", exc_info=True)
     except Exception as exc:
         return _fail("config", exc, t0)
+
+    def _log_training_event(
+        message: str,
+        details: dict[str, Any] | None = None,
+        *,
+        level: str = "INFO",
+    ) -> None:
+        if db is None:
+            return
+        try:
+            with db.session() as session:
+                db.log(session, level, "training", message, details)
+        except Exception:
+            logger.debug("Failed to write training log entry", exc_info=True)
+
+    _log_training_event(
+        f"Training started for {freq}/{horizon}",
+        {"preset": preset_name, "freq": freq, "horizon": horizon},
+    )
 
     # ------------------------------------------------------------------
     # Step 2: Ingest prices
@@ -80,8 +107,25 @@ def one_click_train(  # noqa: C901
     try:
         from bitbat.ingest import prices as prices_module
 
-        start_dt = datetime.now(UTC) - timedelta(days=_LOOKBACK_DAYS)
-        prices_module.fetch_yf("BTC-USD", freq, start_dt)
+        # Dynamically determine max lookback for Yahoo Finance limits
+        lookback_days = _DEFAULT_LOOKBACK_DAYS
+        if freq in ("1m", "2m"):
+            lookback_days = 7
+        elif freq in ("5m", "15m", "30m"):
+            lookback_days = 59
+        elif freq in ("1h", "60m"):
+            lookback_days = 729
+
+        start_dt = datetime.now(UTC) - timedelta(days=lookback_days)
+        prices_path = data_dir / "raw" / "prices" / f"btcusd_yf_{freq}.parquet"
+        try:
+            prices_module.fetch_yf("BTC-USD", freq, start_dt)
+        except Exception as api_exc:
+            if prices_path.exists():
+                logger.warning("Price Ingestion failed but historical cache exists, using cached data. Error: %s", api_exc)
+            else:
+                raise api_exc
+
     except Exception as exc:
         return _fail("ingest_prices", exc, t0)
 
@@ -90,6 +134,7 @@ def one_click_train(  # noqa: C901
         return _fail("ingest_prices", FileNotFoundError(f"Prices not found: {prices_path}"), t0)
 
     _progress(progress_callback, "Price data downloaded.", 0.25)
+    _log_training_event("Price data ready", {"freq": freq, "horizon": horizon})
 
     # ------------------------------------------------------------------
     # Step 3: Ingest news (optional)
@@ -161,6 +206,10 @@ def one_click_train(  # noqa: C901
         return _fail("build_features", ValueError("Feature matrix is empty"), t0)
 
     _progress(progress_callback, f"Features built: {len(X)} samples.", 0.60)
+    _log_training_event(
+        f"Features built: {len(X)} samples",
+        {"training_samples": len(X), "freq": freq, "horizon": horizon},
+    )
 
     # ------------------------------------------------------------------
     # Step 5: Train model
@@ -177,6 +226,7 @@ def one_click_train(  # noqa: C901
         return _fail("train_model", exc, t0)
 
     _progress(progress_callback, "Model trained and saved.", 0.85)
+    _log_training_event("Model trained and saved", {"freq": freq, "horizon": horizon})
 
     # ------------------------------------------------------------------
     # Step 6: Register model in DB
@@ -185,11 +235,13 @@ def one_click_train(  # noqa: C901
 
     try:
         from bitbat import __version__
-        from bitbat.autonomous.db import AutonomousDB
-        from bitbat.autonomous.models import init_database
 
-        init_database(db_url)
-        db = AutonomousDB(db_url)
+        if db is None:
+            from bitbat.autonomous.db import AutonomousDB
+            from bitbat.autonomous.models import init_database
+
+            init_database(db_url)
+            db = AutonomousDB(db_url)
 
         version_tag = f"{__version__}-{int(time.time())}"
 
@@ -216,6 +268,18 @@ def one_click_train(  # noqa: C901
     except Exception as exc:
         return _fail("register_model", exc, t0)
 
+    duration_so_far = round(time.monotonic() - t0, 1)
+    _log_training_event(
+        f"Training completed: {len(X)} samples, model {version_tag}",
+        {
+            "model_version": version_tag,
+            "training_samples": len(X),
+            "duration_seconds": duration_so_far,
+            "freq": freq,
+            "horizon": horizon,
+        },
+    )
+
     _progress(progress_callback, "Model registered.", 0.95)
 
     # ------------------------------------------------------------------
@@ -227,7 +291,14 @@ def one_click_train(  # noqa: C901
         from bitbat.autonomous.predictor import LivePredictor
 
         predictor = LivePredictor(db, freq=freq, horizon=horizon)
-        predictor.predict_latest()
+        pred_result = predictor.predict_latest()
+        # Log the prediction event for the grimoire log
+        if isinstance(pred_result, dict) and pred_result.get("status") == "generated":
+            direction = pred_result.get("predicted_direction", "?")
+            _log_training_event(
+                f"First prediction generated: {direction}",
+                {"direction": direction},
+            )
     except Exception as exc:
         # Non-fatal — model is ready even if first prediction fails
         logger.warning("First prediction failed (non-fatal): %s", exc)

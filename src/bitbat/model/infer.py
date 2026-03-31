@@ -47,6 +47,30 @@ def directional_confidence(
     return round(p_up, 6), round(p_down, 6)
 
 
+def prediction_confidence(
+    predicted_direction: str,
+    *,
+    p_up: float | None = None,
+    p_down: float | None = None,
+    p_flat: float | None = None,
+) -> float | None:
+    """Return the probability assigned to the winning predicted direction."""
+    direction = str(predicted_direction).lower().strip()
+    mapping = {
+        "up": p_up,
+        "down": p_down,
+        "flat": p_flat,
+    }
+    direct = mapping.get(direction)
+    if direct is not None:
+        return round(float(direct), 6)
+
+    candidates = [value for value in (p_up, p_down, p_flat) if value is not None]
+    if not candidates:
+        return None
+    return round(float(max(candidates)), 6)
+
+
 def predict_bar(
     model: xgb.Booster | str | Path,
     features_row: pd.Series,
@@ -88,6 +112,12 @@ def predict_bar(
     p_up = float(probs[0][DIRECTION_CLASSES["up"]])
     p_down = float(probs[0][DIRECTION_CLASSES["down"]])
     p_flat = float(probs[0][DIRECTION_CLASSES["flat"]])
+    confidence = prediction_confidence(
+        predicted_direction,
+        p_up=p_up,
+        p_down=p_down,
+        p_flat=p_flat,
+    )
 
     return {
         "timestamp": timestamp,
@@ -97,4 +127,5 @@ def predict_bar(
         "p_up": p_up,
         "p_down": p_down,
         "p_flat": p_flat,
+        "confidence": confidence,
     }

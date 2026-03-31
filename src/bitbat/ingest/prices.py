@@ -174,8 +174,6 @@ def fetch_yf(  # noqa: C901
             target_dir.unlink()
     target_dir.parent.mkdir(parents=True, exist_ok=True)
 
-    partitioned = frame.copy()
-    partitioned["year"] = partitioned["timestamp_utc"].dt.year
-    write_parquet(partitioned, target_dir, partition_cols=["year"], engine="pyarrow")
+    write_parquet(frame, target_dir, engine="pyarrow")
 
     return frame

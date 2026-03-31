@@ -217,9 +217,13 @@ class TestNewsIngestionService:
         service = NewsIngestionService(data_dir=tmp_path)
         fake_response = MagicMock()
         fake_response.json.return_value = self._fake_cryptocompare_response()
+        fake_response.text = "<rss><channel></channel></rss>"
         fake_response.raise_for_status.return_value = None
 
-        with patch("bitbat.autonomous.news_ingestion.requests.get", return_value=fake_response):
+        with (
+            patch("bitbat.autonomous.news_ingestion.requests.get", return_value=fake_response),
+            patch.dict("os.environ", {"CRYPTOCOMPARE_API_KEY": "test_key"}),
+        ):
             count = service.fetch_all_sources()
 
         assert count >= 1
@@ -238,9 +242,13 @@ class TestNewsIngestionService:
         raw = self._fake_cryptocompare_response()
         raw["Data"] = raw["Data"] * 2  # Duplicate entries.
         fake_response.json.return_value = raw
+        fake_response.text = "<rss><channel></channel></rss>"
         fake_response.raise_for_status.return_value = None
 
-        with patch("bitbat.autonomous.news_ingestion.requests.get", return_value=fake_response):
+        with (
+            patch("bitbat.autonomous.news_ingestion.requests.get", return_value=fake_response),
+            patch.dict("os.environ", {"CRYPTOCOMPARE_API_KEY": "test_key"}),
+        ):
             count = service.fetch_all_sources()
 
         assert count == 1  # Deduped.
