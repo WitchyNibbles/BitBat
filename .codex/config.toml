@@ -1,0 +1,17 @@
+approval_policy = "on-request"
+model = "gpt-5.4"
+model_provider = "openai"
+model_reasoning_effort = "high"
+model_verbosity = "low"
+project_doc_fallback_filenames = [ ".agents.md" ]
+project_doc_max_bytes = 65_536
+sandbox_mode = "workspace-write"
+
+[agents]
+max_depth = 2
+max_threads = 8
+
+[features]
+enable_request_compression = true
+multi_agent = true
+personality = true

@@ -104,3 +104,7 @@ CLAUDE.md
 AGENTS.md
 .planning/
 skills-lock.json
+
+# devgod
+.env.devgod
+.env.devgod.*

@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "devgod": "file:../devgod"
+  },
+  "name": "project-with-devgod",
+  "private": true,
+  "scripts": {
+    "devgod:bootstrap": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts bootstrap-project",
+    "devgod:health": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts health",
+    "devgod:migrate": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts migrate",
+    "devgod:setup:local": "bash scripts/devgod-setup.sh",
+    "devgod:verify:setup": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts verify-setup"
+  }
+}
