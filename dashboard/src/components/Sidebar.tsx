@@ -1,8 +1,8 @@
-import { Home, Zap, BarChart3, Settings, Activity } from 'lucide-react';
+import { Home, Zap, BarChart3, Settings, Activity, MoonStar } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
-export type Page = 'home' | 'quickstart' | 'performance' | 'settings' | 'system';
+export type Page = 'oracle' | 'home' | 'quickstart' | 'performance' | 'settings' | 'system';
 
 interface NavItem {
   page: Page;
@@ -11,6 +11,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { page: 'oracle', label: 'Oracle', icon: MoonStar },
   { page: 'home', label: 'Dashboard', icon: Home },
   { page: 'quickstart', label: 'Quick Start', icon: Zap },
   { page: 'performance', label: 'Performance', icon: BarChart3 },
@@ -47,7 +48,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
       </nav>
 
       <div className={styles.footer}>
-        <span className={styles.version}>v0.1.0</span>
+        <span className={styles.version}>v0.2.0 / clean-room</span>
       </div>
     </aside>
   );

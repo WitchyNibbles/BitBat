@@ -10,6 +10,9 @@
   background: var(--surface);
   border-right: 1px solid var(--border);
   z-index: 10;
+  background:
+    radial-gradient(circle at top, rgba(212, 179, 83, 0.12), transparent 40%),
+    linear-gradient(180deg, rgba(14, 18, 17, 0.98), rgba(10, 14, 13, 0.98));
 }
 
 .brand {
@@ -77,4 +80,24 @@
   font-family: var(--font-mono);
   font-size: 0.7rem;
   color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: sticky;
+    width: 100%;
+    height: auto;
+    padding: 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .navItem {
+    flex: 1 1 140px;
+  }
 }

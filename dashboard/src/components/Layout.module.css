@@ -46,3 +46,21 @@
   padding: 32px;
   overflow-y: auto;
 }
+
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  .header {
+    padding: 16px 20px;
+  }
+
+  .content {
+    padding: 20px;
+  }
+}

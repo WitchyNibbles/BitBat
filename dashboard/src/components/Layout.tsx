@@ -4,6 +4,7 @@ import type { Page } from './Sidebar';
 import styles from './Layout.module.css';
 
 const PAGE_TITLES: Record<Page, string> = {
+  oracle: 'Oracle Chamber',
   home: 'Dashboard',
   quickstart: 'Quick Start',
   performance: 'Performance',
