@@ -21,6 +21,38 @@ services:
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
+  # BitBat v2 API — clean-room paper-trading runtime for shadow runs
+  # -------------------------------------------------------------------------
+  bitbat-v2-api:
+    build: .
+    command: uvicorn bitbat_v2.api.app:app --host 0.0.0.0 --port 8100
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    ports:
+      - "8100:8100"
+    environment:
+      - PYTHONPATH=/app/src
+      - BITBAT_V2_DATABASE_URL=${BITBAT_V2_DATABASE_URL:-sqlite:///data/bitbat_v2.db}
+      - BITBAT_V2_DEMO_MODE=${BITBAT_V2_DEMO_MODE:-false}
+      - BITBAT_V2_OPERATOR_TOKEN=${BITBAT_V2_OPERATOR_TOKEN:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os, httpx; httpx.get('http://localhost:8100/v1/health', headers={'X-BitBat-Operator-Token': os.getenv('BITBAT_V2_OPERATOR_TOKEN', '')}).raise_for_status()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    profiles:
+      - v2
+
+  # -------------------------------------------------------------------------
   # Data-ingestion service — fetches prices + news every hour
   # -------------------------------------------------------------------------
   bitbat-ingest:

@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "BitBat - Bitcoin price direction prediction pipeline."
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-packages = [{ include = "bitbat", from = "src" }]
+packages = [
+  { include = "bitbat", from = "src" },
+  { include = "bitbat_v2", from = "src" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"

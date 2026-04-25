@@ -1,4 +1,4 @@
-.PHONY: fmt lint test test-release streamlit bootstrap-monitor-model
+.PHONY: fmt lint test test-release streamlit bootstrap-monitor-model v2-api v2-api-dev
 
 fmt:
 	poetry run ruff format src tests
@@ -19,6 +19,12 @@ test-release:
 
 streamlit:
 	poetry run streamlit run streamlit/app.py
+
+v2-api:
+	poetry run uvicorn bitbat_v2.api.app:app --host 0.0.0.0 --port 8100
+
+v2-api-dev:
+	poetry run uvicorn bitbat_v2.api.app:app --reload --host 0.0.0.0 --port 8100
 
 bootstrap-monitor-model:
 	@test -n "$(CONFIG)" || (echo "Usage: make bootstrap-monitor-model CONFIG=path/to/config.yaml [START=YYYY-MM-DD] [SYMBOL=BTC-USD]" && exit 1)
