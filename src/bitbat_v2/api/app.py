@@ -79,7 +79,7 @@ def create_app(  # noqa: C901
         runtime.seed_demo_state()
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI):
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         if config.autorun_enabled:
             autorun.start()
         try:
@@ -226,9 +226,7 @@ def create_app(  # noqa: C901
             decision=DecisionResponse.model_validate(outcome.decision.to_dict()),
             portfolio=PortfolioResponse.model_validate(outcome.portfolio.to_dict()),
             order=(
-                OrderResponse.model_validate(outcome.order.to_dict())
-                if outcome.order
-                else None
+                OrderResponse.model_validate(outcome.order.to_dict()) if outcome.order else None
             ),
         )
 
@@ -249,9 +247,7 @@ def create_app(  # noqa: C901
             decision=DecisionResponse.model_validate(outcome.decision.to_dict()),
             portfolio=PortfolioResponse.model_validate(outcome.portfolio.to_dict()),
             order=(
-                OrderResponse.model_validate(outcome.order.to_dict())
-                if outcome.order
-                else None
+                OrderResponse.model_validate(outcome.order.to_dict()) if outcome.order else None
             ),
         )
 

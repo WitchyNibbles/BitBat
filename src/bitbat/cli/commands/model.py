@@ -31,8 +31,8 @@ from bitbat.model.evaluate import (
     select_champion_report,
 )
 from bitbat.model.optimize import HyperparamOptimizer  # noqa: F401
+from bitbat.model.persist import BaselineFamily, save_baseline_artifact
 from bitbat.model.persist import load as load_model  # noqa: F401
-from bitbat.model.persist import save_baseline_artifact
 from bitbat.model.train import fit_random_forest, fit_xgb  # noqa: F401
 
 # ---------------------------------------------------------------------------
@@ -601,7 +601,7 @@ def model_optimize(
 
     resolved_trials = int(trials if trials is not None else optimization_cfg.get("trials", 20))
     timeout_raw = timeout if timeout is not None else optimization_cfg.get("timeout_seconds")
-    resolved_timeout = int(timeout_raw) if timeout_raw not in (None, "", 0, "0") else None
+    resolved_timeout = None if timeout_raw in (None, "", 0, "0") else int(str(timeout_raw))
     resolved_train_window = (
         train_window or optimization_cfg.get("train_window") or cv_cfg.get("train_window")
     )
@@ -732,7 +732,7 @@ def model_train(
     X.attrs["freq"] = freq_val
     X.attrs["horizon"] = horizon_val
 
-    trained_paths: list[tuple[str, Path]] = []
+    trained_paths: list[tuple[BaselineFamily, Path]] = []
     for model_family in selected_families:
         if model_family == "xgb":
             # XGBoost expects direction labels (up/down/flat); fit_xgb encodes via DIRECTION_CLASSES

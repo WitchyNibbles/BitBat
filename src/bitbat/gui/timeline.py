@@ -7,8 +7,6 @@ from typing import Any
 
 import pandas as pd
 
-from bitbat.autonomous.db import AutonomousDB
-
 _DIRECTION_STYLES = {
     "up": {"color": "#10B981", "symbol": "triangle-up"},
     "down": {"color": "#EF4444", "symbol": "triangle-down"},
@@ -230,7 +228,7 @@ def _build_marker_frame(
         if status not in _STATUS_STYLES:
             status = "pending"
 
-        status_label = _STATUS_STYLES[status]["label"]
+        status_label = str(_STATUS_STYLES[status]["label"])
         rows.append({
             "timestamp_utc": ts,
             "marker_price": price_at_ts,
@@ -319,6 +317,7 @@ def get_timeline_data(
 
     safe_limit = _sanitize_limit(limit)
     from bitbat.gui.shared import get_db
+
     db = get_db(db_path)
     if db is None:
         return _empty_timeline_frame()
@@ -341,6 +340,7 @@ def list_timeline_filter_options(
 ) -> tuple[list[str], list[str]]:
     """List available freq/horizon filter options from prediction history."""
     from bitbat.gui.shared import get_db
+
     db = get_db(db_path)
     if db is None:
         return [default_freq], [default_horizon]

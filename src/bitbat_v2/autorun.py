@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -42,7 +43,7 @@ class AutonomousPaperTrader:
         runtime: BitBatRuntime,
         config: BitBatV2Config,
         market_data_client: CoinbaseMarketDataClient | Any,
-        now_fn=None,
+        now_fn: Callable[[], datetime] | None = None,
     ) -> None:
         self.runtime = runtime
         self.config = config

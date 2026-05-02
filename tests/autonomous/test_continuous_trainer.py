@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import time
-from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
-import numpy as np
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -58,6 +55,7 @@ def test_continuous_trainer_dynamically_scales_windows(
         def predict(self, dtest):
             # return a simulated probability array (N, 3)
             return np.ones((dtest.num_row(), 3)) / 3.0
+
         def save_model(self, *args, **kwargs):
             pass
 
@@ -66,32 +64,43 @@ def test_continuous_trainer_dynamically_scales_windows(
         return m, None
 
     monkeypatch.setattr("bitbat.model.train.fit_xgb", fake_fit)
-    
+
     import xgboost as xgb
+
     class MockDMatrix:
         def __init__(self, data, *args, **kwargs):
             self.n = len(data)
+
         def num_row(self):
             return self.n
+
     monkeypatch.setattr(xgb, "DMatrix", MockDMatrix)
-    
-    monkeypatch.setattr("bitbat.model.evaluate.classification_probability_metrics", lambda *args, **kwargs: {
-        "pr_auc": 0.8, "mlogloss": 1.2, "directional_accuracy": 0.55, "n_samples": 100
-    })
-    
+
+    monkeypatch.setattr(
+        "bitbat.model.evaluate.classification_probability_metrics",
+        lambda *args, **kwargs: {
+            "pr_auc": 0.8,
+            "mlogloss": 1.2,
+            "directional_accuracy": 0.55,
+            "n_samples": 100,
+        },
+    )
+
     # Mock settings directory lookups to avoid crash on yaml load bypasses
-    monkeypatch.setattr("bitbat.autonomous.continuous_trainer.resolve_metrics_dir", lambda: tmp_path)
     monkeypatch.setattr("bitbat.autonomous.continuous_trainer.resolve_models_dir", lambda: tmp_path)
 
     logger_warnings = []
-    monkeypatch.setattr("bitbat.autonomous.continuous_trainer.logger.warning", lambda msg, *args: logger_warnings.append(msg))
+    monkeypatch.setattr(
+        "bitbat.autonomous.continuous_trainer.logger.warning",
+        lambda msg, *args: logger_warnings.append(msg),
+    )
 
     # Should not raise ValueError! Should scale and deploy new model.
     result = trainer._do_retrain("old_v1")
 
     assert result["deployed"] is True
     assert "Scaling down retraining windows" in logger_warnings[0]
-    
+
     meta = result["window_metadata"]
     assert meta["train_window_bars"] < 3000
     assert meta["backtest_window_bars"] < 1000
@@ -114,7 +123,7 @@ def test_continuous_trainer_raises_on_absolute_minimum(
     }
     trainer = ContinuousTrainer(db, freq="1h", horizon="4h", config=config)
 
-    # Provide 110 fake price samples to pass the first check (len(prices) >= 100) 
+    # Provide 110 fake price samples to pass the first check (len(prices) >= 100)
     # but fail the second (len(features) < 80) since feature generation drops ~37 rows.
     # 110 - 37 = 73 < 80 minimum.
     times = pd.date_range("2024-01-01 10:00", periods=110, freq="h", tz="UTC")

@@ -270,11 +270,7 @@ class RuntimeEvent:
     stream_key: str = "runtime"
 
     def to_sse_payload(self) -> str:
-        return (
-            f"id: {self.id}\n"
-            f"event: {self.event_type}\n"
-            f"data: {self.payload}\n\n"
-        )
+        return f"id: {self.id}\n" f"event: {self.event_type}\n" f"data: {self.payload}\n\n"
 
 
 @dataclass(frozen=True)

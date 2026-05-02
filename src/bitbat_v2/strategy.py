@@ -45,8 +45,7 @@ class StrategyEvaluation:
 class Strategy(Protocol):
     name: str
 
-    def evaluate(self, context: StrategyContext) -> StrategyEvaluation:
-        ...
+    def evaluate(self, context: StrategyContext) -> StrategyEvaluation: ...
 
 
 def _anchor_close(history: list[Candle], lookback: int, fallback: float) -> float:
@@ -57,12 +56,12 @@ def _anchor_close(history: list[Candle], lookback: int, fallback: float) -> floa
 
 def compute_metrics(context: StrategyContext) -> StrategyMetrics:
     candle = context.candle
-    previous_close = context.previous_candle.close if context.previous_candle is not None else candle.open
+    previous_close = (
+        context.previous_candle.close if context.previous_candle is not None else candle.open
+    )
     open_to_close_return = (candle.close - candle.open) / candle.open if candle.open else 0.0
     momentum_return = (
-        (candle.close - previous_close) / previous_close
-        if previous_close
-        else open_to_close_return
+        (candle.close - previous_close) / previous_close if previous_close else open_to_close_return
     )
     range_ratio = (candle.high - candle.low) / candle.close if candle.close else 0.0
     body_strength = abs(candle.close - candle.open) / max(candle.high - candle.low, EPSILON)
@@ -159,14 +158,12 @@ class FilteredMomentumV2Strategy:
         sell_trend_ok = metrics.trend_return < 0
         sell_short_ok = metrics.short_trend_return < 0.0005
 
-        reasons.extend(
-            [
-                f"trend_gate={'pass' if buy_trend_ok or sell_trend_ok else 'fail'}",
-                f"short_trend_gate={'pass' if buy_short_ok or sell_short_ok else 'fail'}",
-                f"range_gate={'pass' if buy_range_ok else 'fail'}",
-                f"body_gate={'pass' if buy_body_ok else 'fail'}",
-            ]
-        )
+        reasons.extend([
+            f"trend_gate={'pass' if buy_trend_ok or sell_trend_ok else 'fail'}",
+            f"short_trend_gate={'pass' if buy_short_ok or sell_short_ok else 'fail'}",
+            f"range_gate={'pass' if buy_range_ok else 'fail'}",
+            f"body_gate={'pass' if buy_body_ok else 'fail'}",
+        ])
 
         if score >= context.config.signal_threshold:
             if buy_trend_ok and buy_short_ok and buy_range_ok and buy_body_ok:

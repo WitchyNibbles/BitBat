@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import pickle
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import pandas as pd
 import xgboost as xgb
@@ -13,9 +14,10 @@ from sklearn.ensemble import RandomForestRegressor
 from bitbat.config.loader import resolve_models_dir
 
 BaselineFamily = Literal["xgb", "random_forest"]
-TreeBaselineModel = xgb.Booster | RandomForestRegressor
+TreeBaselineModel: TypeAlias = xgb.Booster | RandomForestRegressor
 
 DIRECTION_CLASSES: dict[str, int] = {"up": 0, "down": 1, "flat": 2}
+LOGGER = logging.getLogger(__name__)
 
 
 def _extract_freq_horizon(X_train: pd.DataFrame) -> tuple[str, str]:
@@ -56,10 +58,11 @@ def fit_baseline(
             tau = 0.01
             try:
                 from bitbat.config.loader import load_config
+
                 tau = float(load_config().get("tau", 0.01))
             except Exception:
-                pass
-            
+                LOGGER.debug("Falling back to default tau during baseline training.", exc_info=True)
+
             y_dir = pd.Series("flat", index=y_train.index, dtype=str)
             y_dir.loc[y_train >= tau] = "up"
             y_dir.loc[y_train <= -tau] = "down"

@@ -57,7 +57,7 @@ def garch_features(
             warnings.simplefilter("ignore")
             model = arch_model(
                 log_returns * 100,  # scale to percent for numerical stability
-                vol="Garch",
+                vol="GARCH",
                 p=1,
                 q=1,
                 mean="Zero",
@@ -65,8 +65,7 @@ def garch_features(
             )
             result = model.fit(disp="off", show_warning=False)
 
-        cond_vol = result.conditional_volatility / 100  # scale back
-        cond_vol = cond_vol.reindex(close_series.index)
+        cond_vol = pd.Series(result.conditional_volatility, index=close_series.index) / 100
     except Exception:
         logger.warning("GARCH fit failed; falling back to rolling volatility")
         returns_full = close_series.pct_change()

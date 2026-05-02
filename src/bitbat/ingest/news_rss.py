@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
@@ -37,11 +37,7 @@ RESULT_COLUMNS = ["published_utc", "title", "url", "source", "lang", "sentiment_
 
 
 def _target_path(root: Path | str | None = None) -> Path:
-    base = (
-        Path(root)
-        if root is not None
-        else Path("data") / "raw" / "news" / "rss_1h"
-    )
+    base = Path(root) if root is not None else Path("data") / "raw" / "news" / "rss_1h"
     return base / "rss_crypto_1h.parquet"
 
 
@@ -52,7 +48,7 @@ def _parse_rss_date(date_str: str | None) -> datetime | None:
     try:
         return parsedate_to_datetime(date_str)
     except Exception:
-        pass
+        LOGGER.debug("Failed to parse RSS date with RFC parser: %r", date_str, exc_info=True)
     # Fallback: ISO-style dates some feeds use
     try:
         return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
@@ -60,7 +56,7 @@ def _parse_rss_date(date_str: str | None) -> datetime | None:
         return None
 
 
-def _fetch_feed(feed: dict[str, str], timeout: int = 15) -> list[dict[str, Any]]:
+def _fetch_feed(feed: dict[str, str], timeout: int = 15) -> list[dict[str, Any]]:  # noqa: C901
     """Fetch and parse a single RSS feed, returning article dicts."""
     name = feed["name"]
     url = feed["url"]
@@ -102,9 +98,10 @@ def _fetch_feed(feed: dict[str, str], timeout: int = 15) -> list[dict[str, Any]]
                 link_el = item.find("atom:link", ns)
                 if link_el is not None and link_el.text is None:
                     # Atom <link> uses href attribute
-                    link_text = link_el.get("href", "")
+                    href = link_el.get("href")
+                    link_text = href or ""
                 else:
-                    link_text = link_el.text if link_el is not None else ""
+                    link_text = "" if link_el is None or link_el.text is None else link_el.text
             else:
                 link_text = link_el.text or ""
             if pub_el is None:
@@ -113,9 +110,7 @@ def _fetch_feed(feed: dict[str, str], timeout: int = 15) -> list[dict[str, Any]]
 
             title_text = (title_el.text or "").strip() if title_el is not None else ""
             link_text = (link_text or "").strip()
-            pub_date = _parse_rss_date(
-                (pub_el.text or "").strip() if pub_el is not None else None
-            )
+            pub_date = _parse_rss_date((pub_el.text or "").strip() if pub_el is not None else None)
 
             if not title_text or not link_text:
                 continue
@@ -141,9 +136,7 @@ def _articles_to_frame(articles: list[dict[str, Any]]) -> pd.DataFrame:
     frame = pd.DataFrame(articles)
 
     # Normalise timestamps
-    frame["published_utc"] = pd.to_datetime(
-        frame["published_utc"], utc=True, errors="coerce"
-    )
+    frame["published_utc"] = pd.to_datetime(frame["published_utc"], utc=True, errors="coerce")
     frame["published_utc"] = frame["published_utc"].dt.tz_localize(None)
     frame = frame.dropna(subset=["published_utc", "url"])
     frame = frame[frame["url"].str.startswith("http", na=False)]

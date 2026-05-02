@@ -153,7 +153,13 @@ class RuntimeStore:
                     payload=json.dumps(payload, sort_keys=True),
                 )
             )
-            event_id = int(result.inserted_primary_key[0])
+            inserted_primary_key = result.inserted_primary_key
+            if not inserted_primary_key:
+                raise RuntimeError("Database did not return a primary key for runtime event.")
+            inserted_id = inserted_primary_key[0]
+            if inserted_id is None:
+                raise RuntimeError("Database did not return a primary key for runtime event.")
+            event_id = int(inserted_id)
         return RuntimeEvent(
             id=event_id,
             event_type=event_type,
@@ -166,9 +172,7 @@ class RuntimeStore:
         safe_limit = max(0, min(limit, 100))
         with self.engine.begin() as conn:
             rows = conn.execute(
-                select(self.events)
-                .order_by(self.events.c.id.desc())
-                .limit(safe_limit)
+                select(self.events).order_by(self.events.c.id.desc()).limit(safe_limit)
             ).all()
         return [self._event_from_row(row) for row in reversed(rows)]
 
@@ -229,9 +233,7 @@ class RuntimeStore:
                 conn.execute(insert(self.latest_signal).values(**values))
             else:
                 conn.execute(
-                    update(self.latest_signal)
-                    .where(self.latest_signal.c.id == 1)
-                    .values(**values)
+                    update(self.latest_signal).where(self.latest_signal.c.id == 1).values(**values)
                 )
 
     def get_latest_signal(self) -> PredictionSignal | None:
@@ -240,20 +242,18 @@ class RuntimeStore:
         if row is None:
             return None
         mapping = row._mapping
-        return PredictionSignal.from_dict(
-            {
-                "signal_id": mapping["signal_id"],
-                "generated_at": self._normalize_dt(mapping["generated_at"]).isoformat(),
-                "product_id": mapping["product_id"],
-                "venue": mapping["venue"],
-                "model_name": mapping["model_name"],
-                "direction": mapping["direction"],
-                "confidence": mapping["confidence"],
-                "predicted_return": mapping["predicted_return"],
-                "predicted_price": mapping["predicted_price"],
-                "reasons": json.loads(mapping["reasons_json"]),
-            }
-        )
+        return PredictionSignal.from_dict({
+            "signal_id": mapping["signal_id"],
+            "generated_at": self._normalize_dt(mapping["generated_at"]).isoformat(),
+            "product_id": mapping["product_id"],
+            "venue": mapping["venue"],
+            "model_name": mapping["model_name"],
+            "direction": mapping["direction"],
+            "confidence": mapping["confidence"],
+            "predicted_return": mapping["predicted_return"],
+            "predicted_price": mapping["predicted_price"],
+            "reasons": json.loads(mapping["reasons_json"]),
+        })
 
     def save_portfolio(self, portfolio: PortfolioSnapshot) -> None:
         values = {
@@ -274,9 +274,7 @@ class RuntimeStore:
                 conn.execute(insert(self.portfolio).values(**values))
             else:
                 conn.execute(
-                    update(self.portfolio)
-                    .where(self.portfolio.c.id == 1)
-                    .values(**values)
+                    update(self.portfolio).where(self.portfolio.c.id == 1).values(**values)
                 )
 
     def get_portfolio(self) -> PortfolioSnapshot:

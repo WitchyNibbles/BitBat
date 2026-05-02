@@ -11,7 +11,7 @@ from typing import Any
 import pandas as pd
 
 from bitbat.autonomous.db import AutonomousDB
-from bitbat.config.loader import resolve_metrics_dir, resolve_models_dir
+from bitbat.config.loader import resolve_models_dir
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class ContinuousTrainer:
             )
             return {"status": "failed", "error": str(exc), "duration_seconds": round(duration, 1)}
 
-    def _do_retrain(self, old_version: str) -> dict[str, Any]:
+    def _do_retrain(self, old_version: str) -> dict[str, Any]:  # noqa: C901
         from bitbat.dataset.build import generate_price_features
         from bitbat.labeling.returns import forward_return
         from bitbat.model.evaluate import (
@@ -244,10 +244,11 @@ class ContinuousTrainer:
         tau = 0.01
         try:
             from bitbat.config.loader import load_config
+
             tau = float(load_config().get("tau", 0.01))
         except Exception:
-            pass
-        
+            logger.debug("Falling back to default tau during continuous retraining.", exc_info=True)
+
         y_dir = pd.Series("flat", index=y_holdout.index, dtype=str)
         y_dir.loc[y_holdout >= tau] = "up"
         y_dir.loc[y_holdout <= -tau] = "down"

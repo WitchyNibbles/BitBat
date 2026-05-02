@@ -57,7 +57,7 @@ def response_preview(response: Any, limit: int = 200) -> str | None:
     return compact[:limit]
 
 
-def fetch_json_with_backoff(
+def fetch_json_with_backoff(  # noqa: C901
     session: SessionProtocol,
     url: str,
     params: dict[str, Any],
@@ -120,7 +120,7 @@ def fetch_json_with_backoff(
 
         try:
             payload = response.json()
-            if not isinstance(payload, (dict, list)):
+            if not isinstance(payload, dict | list):
                 raise ValueError("Payload is not a dict or list")
             return payload
         except ValueError as exc:

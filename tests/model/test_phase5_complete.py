@@ -87,10 +87,14 @@ class TestPhase5Integration:
             Fold(train=idx[:100], test=idx[100:120]),
         ]
 
-        optimization_summary = HyperparamOptimizer(X, y, folds, seed=21).optimize(
-            n_trials=2,
-            timeout=30,
-        ).summary()
+        optimization_summary = (
+            HyperparamOptimizer(X, y, folds, seed=21)
+            .optimize(
+                n_trials=2,
+                timeout=30,
+            )
+            .summary()
+        )
         walk_forward_summary = WalkForwardValidator(X, y, folds, num_boost_round=5).run().summary()
 
         assert optimization_summary["objective_mode"] == "classification"

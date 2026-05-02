@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -51,7 +52,7 @@ def load_candles_from_parquet(path: str | Path, config: BitBatV2Config) -> list[
         raise ValueError(f"missing required columns: {', '.join(missing)}")
     frame = frame.sort_values("timestamp_utc").reset_index(drop=True)
     timestamps = pd.to_datetime(frame["timestamp_utc"], utc=True)
-    candles = [
+    return [
         Candle(
             product_id=config.product_id,
             granularity_seconds=config.granularity_seconds,
@@ -64,7 +65,6 @@ def load_candles_from_parquet(path: str | Path, config: BitBatV2Config) -> list[
         )
         for idx in range(len(frame))
     ]
-    return candles
 
 
 def simulate_strategy(
@@ -141,7 +141,7 @@ def simulate_strategy(
 def compare_strategies(
     candles: list[Candle],
     config: BitBatV2Config,
-) -> dict[str, dict[str, dict[str, float | int | str]]]:
+) -> dict[str, Any]:
     baseline = simulate_strategy(candles, config, "baseline_v1")
     improved = simulate_strategy(candles, config, "filtered_momentum_v2")
     return {

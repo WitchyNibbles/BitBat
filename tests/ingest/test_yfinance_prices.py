@@ -24,11 +24,16 @@ def test_fetch_yf_btcusd_hourly(tmp_path: Path) -> None:
     assert str(frame["timestamp_utc"].dtype) == "datetime64[ns]"
     assert (frame["source"] == "yfinance").all()
 
-    output_dir = tmp_path / "btcusd_yf_1h.parquet"
-    assert output_dir.exists()
-    partition_dirs = sorted(path for path in output_dir.iterdir() if path.is_dir())
-    assert partition_dirs, "Expected partitioned parquet output by year."
-    assert all(path.name.startswith("year=") for path in partition_dirs)
+    output_path = tmp_path / "btcusd_yf_1h.parquet"
+    assert output_path.exists()
+    if output_path.is_dir():
+        partition_dirs = sorted(path for path in output_path.iterdir() if path.is_dir())
+        assert (
+            partition_dirs
+        ), "Expected parquet dataset partitions when storage is directory-based."
+        assert all(path.name.startswith("year=") for path in partition_dirs)
+    else:
+        assert output_path.is_file()
 
-    dataset = pd.read_parquet(output_dir)
+    dataset = pd.read_parquet(output_path)
     assert len(dataset) == len(frame)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -57,23 +56,21 @@ def test_config_redirect_metrics_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 def test_no_hardcoded_models_path() -> None:
     """No literal Path("models") remains in src/."""
-    result = subprocess.run(
-        ["grep", "-r", "--include=*.py", 'Path("models")', "src/"],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
+    matches = [
+        str(path)
+        for path in Path("src").rglob("*.py")
+        if 'Path("models")' in path.read_text(encoding="utf-8")
+    ]
 
-    assert result.stdout == ""
+    assert matches == []
 
 
 def test_no_hardcoded_metrics_path() -> None:
     """No literal Path("metrics") remains in src/."""
-    result = subprocess.run(
-        ["grep", "-r", "--include=*.py", 'Path("metrics")', "src/"],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
+    matches = [
+        str(path)
+        for path in Path("src").rglob("*.py")
+        if 'Path("metrics")' in path.read_text(encoding="utf-8")
+    ]
 
-    assert result.stdout == ""
+    assert matches == []

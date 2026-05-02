@@ -34,9 +34,7 @@ def _sentiment_enabled() -> bool:
 
 
 def _resolve_news_source(source: str | None = None) -> str:
-    configured = (
-        source if source not in (None, "") else _config().get("news_source", "rss")
-    )
+    configured = source if source not in (None, "") else _config().get("news_source", "rss")
     resolved = str(configured).strip().lower()
     if resolved not in {"rss", "gdelt", "cryptocompare"}:
         raise click.ClickException(
@@ -47,12 +45,16 @@ def _resolve_news_source(source: str | None = None) -> str:
 
 def _news_backend(source: str) -> Any:
     if source == "rss":
-        from bitbat.ingest import news_rss as backend
-    elif source == "gdelt":
-        from bitbat.ingest import news_gdelt as backend
-    else:
-        from bitbat.ingest import news_cryptocompare as backend
-    return backend
+        from bitbat.ingest import news_rss as rss_backend
+
+        return rss_backend
+    if source == "gdelt":
+        from bitbat.ingest import news_gdelt as gdelt_backend
+
+        return gdelt_backend
+    from bitbat.ingest import news_cryptocompare as cryptocompare_backend
+
+    return cryptocompare_backend
 
 
 def _data_path(*parts: str | Path) -> Path:
@@ -137,11 +139,15 @@ def _resolve_model_families(selection: str | None) -> list[Literal["xgb", "rando
 
     if requested == "both":
         return ["xgb", "random_forest"]
+    if requested == "xgb":
+        return ["xgb"]
+    if requested == "random_forest":
+        return ["random_forest"]
     if requested not in {"xgb", "random_forest"}:
         raise click.ClickException(
             f"Unsupported model family '{requested}'. Expected xgb, random_forest, or both."
         )
-    return [requested]
+    raise click.ClickException("Unsupported model family resolution state.")
 
 
 def _predict_baseline(

@@ -156,9 +156,7 @@ def classification_probability_metrics(
     y_true_bin = label_binarize(y_encoded, classes=list(range(len(class_labels))))
 
     pr_auc = float(average_precision_score(y_true_bin, normalized_probs, average="macro"))
-    mlogloss = float(
-        log_loss(y_encoded, normalized_probs, labels=list(range(len(class_labels))))
-    )
+    mlogloss = float(log_loss(y_encoded, normalized_probs, labels=list(range(len(class_labels)))))
     directional_accuracy = float(np.mean(predicted_labels == y_t)) if y_t.size else 0.0
 
     return {

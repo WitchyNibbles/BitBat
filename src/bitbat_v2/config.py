@@ -69,9 +69,7 @@ class BitBatV2Config:
                     str(cls.short_trend_lookback_candles),
                 )
             ),
-            max_range_ratio=float(
-                os.getenv("BITBAT_V2_MAX_RANGE_RATIO", str(cls.max_range_ratio))
-            ),
+            max_range_ratio=float(os.getenv("BITBAT_V2_MAX_RANGE_RATIO", str(cls.max_range_ratio))),
             min_body_strength=float(
                 os.getenv("BITBAT_V2_MIN_BODY_STRENGTH", str(cls.min_body_strength))
             ),

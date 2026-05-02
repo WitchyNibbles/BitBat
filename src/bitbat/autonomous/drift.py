@@ -111,7 +111,7 @@ class DriftDetector:
                 realized_only=True,
             )
 
-        metrics = PerformanceMetrics(predictions).to_dict()
+        metrics: dict[str, Any] = PerformanceMetrics(predictions).to_dict()
         baseline = self.get_baseline_metrics()
         diagnostics = self._window_diagnostics(predictions)
         metrics["baseline_hit_rate"] = baseline["baseline_hit_rate"]

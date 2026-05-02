@@ -14,7 +14,7 @@ class HealthResponse(BaseModel):
     trading_paused: bool
     event_count: int
     last_event_at: datetime | None = None
-    autorun: "AutorunStatusResponse"
+    autorun: AutorunStatusResponse
 
 
 class AutorunStatusResponse(BaseModel):

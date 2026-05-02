@@ -198,6 +198,7 @@ class WalkForwardValidator:
     @staticmethod
     def _is_classification_target(y: pd.Series) -> bool:
         from bitbat.model.utils import is_classification_target
+
         return is_classification_target(y)
 
     def _cost_metrics(
@@ -272,6 +273,7 @@ class WalkForwardValidator:
             classification_mode = self._is_classification_target(y_tr)
 
             from bitbat.model.utils import create_dmatrices
+
             dtrain, dtest, _y_tr, y_te_norm = create_dmatrices(
                 X_tr, y_tr, X_te, y_te, list(self.X.columns), classification_mode
             )

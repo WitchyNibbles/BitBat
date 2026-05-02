@@ -24,7 +24,7 @@ from .domain import (
     utc_now,
 )
 from .storage import RuntimeStore
-from .strategy import StrategyEvaluation, StrategyContext, compute_metrics, get_strategy
+from .strategy import StrategyContext, StrategyEvaluation, get_strategy
 
 
 @dataclass
@@ -472,7 +472,5 @@ class BitBatRuntime:
 
 def format_sse(event: RuntimeEvent) -> str:
     return (
-        f"id: {event.id}\n"
-        f"event: {event.event_type}\n"
-        f"data: {json.dumps(event.payload)}\n\n"
+        f"id: {event.id}\n" f"event: {event.event_type}\n" f"data: {json.dumps(event.payload)}\n\n"
     )

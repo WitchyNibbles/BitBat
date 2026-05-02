@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import pickle
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestRegressor
 from bitbat.config.loader import resolve_models_dir
 
 BaselineFamily = Literal["xgb", "random_forest"]
-TreeBaselineModel = xgb.Booster | RandomForestRegressor
+TreeBaselineModel: TypeAlias = xgb.Booster | RandomForestRegressor
 
 
 def _family_filename(family: BaselineFamily) -> str:

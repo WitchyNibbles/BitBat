@@ -168,9 +168,7 @@ class NewsIngestionService:
         articles: list[dict] = []
         for name, url in feeds:
             try:
-                resp = requests.get(
-                    url, timeout=15, headers={"User-Agent": "BitBat/1.0"}
-                )
+                resp = requests.get(url, timeout=15, headers={"User-Agent": "BitBat/1.0"})
                 resp.raise_for_status()
                 root = ET.fromstring(resp.text)  # noqa: S314
                 items = root.findall(".//item")
@@ -188,7 +186,11 @@ class NewsIngestionService:
                             pub_date = parsedate_to_datetime(pub_el.text.strip())
                             pub_date = pub_date.replace(tzinfo=None)
                         except Exception:
-                            pass
+                            logger.debug(
+                                "Failed to parse RSS publication date for %s.",
+                                name,
+                                exc_info=True,
+                            )
                     if pub_date is None:
                         pub_date = pd.Timestamp.now()
                     articles.append({

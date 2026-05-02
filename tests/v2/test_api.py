@@ -102,8 +102,7 @@ def test_v2_control_pause_resume_reset_retrain_and_acknowledge(tmp_path) -> None
     )
     assert acknowledged.status_code == 200
     assert (
-        acknowledged.json()["control"]["last_acknowledged_alert"]
-        == "operator cleared ritual alert"
+        acknowledged.json()["control"]["last_acknowledged_alert"] == "operator cleared ritual alert"
     )
 
     reset = client.request("POST", "/v1/control/reset-paper", headers=AUTH_HEADERS)

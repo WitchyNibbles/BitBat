@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import logging
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
-
-import pandas as pd
 
 from bitbat.ingest.onchain import fetch_blockchain_info
 
@@ -27,6 +24,7 @@ class OnchainIngestionService:
     def _get_last_date(self) -> datetime | None:
         """Return the latest date found in the stored parquet file."""
         from bitbat.autonomous.ingest_base import get_last_parquet_date
+
         return get_last_parquet_date(self.onchain_dir / "blockchain_info.parquet", "date", logger)
 
     def fetch_latest(self) -> int:
@@ -46,4 +44,5 @@ class OnchainIngestionService:
     def fetch_with_retry(self, max_retries: int = 3) -> int:
         """Fetch with exponential backoff on failure."""
         from bitbat.autonomous.ingest_base import run_with_retry
+
         return run_with_retry(self.fetch_latest, logger, "onchain", max_retries)

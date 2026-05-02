@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import random
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
-import os
 
 import pandas as pd
 
@@ -55,7 +55,7 @@ def _fetch_page(  # noqa: C901
         "categories": categories,
         "lTs": int(lts),
     }
-    
+
     api_key = os.getenv("CRYPTOCOMPARE_API_KEY")
     if api_key:
         payload["api_key"] = api_key
@@ -212,11 +212,14 @@ def fetch(  # noqa: C901
             if not frame.empty:
                 all_frames.append(frame)
 
-        timestamps = [
-            int(item.get("published_on"))
-            for item in articles
-            if isinstance(item, dict) and item.get("published_on") is not None
-        ]
+        timestamps: list[int] = []
+        for item in articles:
+            if not isinstance(item, dict):
+                continue
+            published_on = item.get("published_on")
+            if published_on is None:
+                continue
+            timestamps.append(int(published_on))
         if not timestamps:
             break
 

@@ -37,9 +37,8 @@ def create_dmatrices(
         dtrain = xgb.DMatrix(X_tr, label=y_tr_values, feature_names=feature_names)
         dtest = xgb.DMatrix(X_te, label=y_te_values, feature_names=feature_names)
         return dtrain, dtest, y_tr_labels, y_te_labels
-    else:
-        y_tr_values = y_tr.astype("float64")
-        y_te_values = y_te.astype("float64")
-        dtrain = xgb.DMatrix(X_tr, label=y_tr_values.to_numpy(), feature_names=feature_names)
-        dtest = xgb.DMatrix(X_te, label=y_te_values.to_numpy(), feature_names=feature_names)
-        return dtrain, dtest, y_tr_values, y_te_values
+    y_tr_values = y_tr.astype("float64")
+    y_te_values = y_te.astype("float64")
+    dtrain = xgb.DMatrix(X_tr, label=y_tr_values.to_numpy(), feature_names=feature_names)
+    dtest = xgb.DMatrix(X_te, label=y_te_values.to_numpy(), feature_names=feature_names)
+    return dtrain, dtest, y_tr_values, y_te_values

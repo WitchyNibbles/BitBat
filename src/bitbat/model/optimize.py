@@ -51,6 +51,7 @@ class HyperparamOptimizer:
     @staticmethod
     def _is_classification_target(y: pd.Series) -> bool:
         from bitbat.model.utils import is_classification_target
+
         return is_classification_target(y)
 
     @staticmethod
@@ -95,6 +96,7 @@ class HyperparamOptimizer:
         classification_mode = self._is_classification_target(y_tr)
 
         from bitbat.model.utils import create_dmatrices
+
         dtrain, dtest, _y_tr, y_te_norm = create_dmatrices(
             X_tr, y_tr, X_te, y_te, list(self.X.columns), classification_mode
         )
@@ -218,16 +220,27 @@ class HyperparamOptimizer:
                 direction="minimize",
                 sampler=optuna.samplers.TPESampler(seed=outer_seed),
             )
-            study.optimize(
-                lambda trial, fold_set=inner_folds, seed=outer_seed: self._cv_score(
+
+            def _objective(
+                trial: optuna.Trial,
+                fold_set: list[Fold] = inner_folds,
+                seed_value: int = outer_seed,
+            ) -> float:
+                return self._cv_score(
                     self._suggest_params(trial),
                     folds=fold_set,
-                    seed=seed,
-                ),
+                    seed=seed_value,
+                )
+
+            study.optimize(
+                _objective,
                 n_trials=n_trials,
                 timeout=timeout,
             )
             selected_params = dict(study.best_trial.params)
+            best_trial_value = study.best_trial.value
+            if best_trial_value is None:
+                raise RuntimeError("Optuna study produced no best-trial value.")
             outer_score = self._cv_score(
                 selected_params,
                 folds=[outer_fold],
@@ -240,11 +253,9 @@ class HyperparamOptimizer:
                 "inner_fold_count": int(len(inner_folds)),
                 "window": self._fold_window(outer_fold),
                 "selected_params": self._json_safe(selected_params),
-                "inner_best_score": round(float(study.best_trial.value), 6),
+                "inner_best_score": round(float(best_trial_value), 6),
                 "outer_score": round(float(outer_score), 6),
-                "outer_pr_auc": round(float(1.0 - outer_score), 6)
-                if classification_mode
-                else None,
+                "outer_pr_auc": round(float(1.0 - outer_score), 6) if classification_mode else None,
             })
             all_trial_history.append({
                 "outer_fold": outer_idx + 1,
@@ -254,7 +265,7 @@ class HyperparamOptimizer:
             best_trial_lineage.append({
                 "outer_fold": outer_idx + 1,
                 "trial_number": int(study.best_trial.number),
-                "inner_score": round(float(study.best_trial.value), 6),
+                "inner_score": round(float(best_trial_value), 6),
                 "params": self._json_safe(selected_params),
             })
 

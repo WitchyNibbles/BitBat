@@ -7,7 +7,6 @@ date-partitioned parquet files under ``data/raw/prices/``.
 from __future__ import annotations
 
 import logging
-import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -134,7 +133,7 @@ class PriceIngestionService:
                 delta = timedelta(days=val)
             else:
                 delta = timedelta(hours=1)
-            
+
             start = last_ts + delta
             logger.info("Fetching from %s to now", start)
 
@@ -194,4 +193,5 @@ class PriceIngestionService:
             Number of bars written on success.
         """
         from bitbat.autonomous.ingest_base import run_with_retry
+
         return run_with_retry(self.fetch_latest, logger, "price", max_retries)
