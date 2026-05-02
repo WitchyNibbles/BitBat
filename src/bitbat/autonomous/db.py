@@ -386,9 +386,7 @@ class AutonomousDB:
                 _col_or_null("training_duration_seconds"),
             ]
             order_col = self._first_available(columns, ("started_at", "id"))
-            sql = (
-                f"SELECT {', '.join(select_cols)} FROM retraining_events"  # noqa: S608
-            )
+            sql = f"SELECT {', '.join(select_cols)} FROM retraining_events"  # noqa: S608
             if order_col is not None:
                 sql += f" ORDER BY {order_col} DESC"
             sql += " LIMIT :limit"
@@ -423,9 +421,7 @@ class AutonomousDB:
                 _col_or_null("max_drawdown"),
             ]
             order_col = self._first_available(columns, ("snapshot_time", "id"))
-            sql = (
-                f"SELECT {', '.join(select_cols)} FROM performance_snapshots"  # noqa: S608
-            )
+            sql = f"SELECT {', '.join(select_cols)} FROM performance_snapshots"  # noqa: S608
             if order_col is not None:
                 sql += f" ORDER BY {order_col} DESC"
             sql += " LIMIT :limit"
@@ -492,6 +488,7 @@ class AutonomousDB:
                 "created_at": ("created_at", "prediction_timestamp", "timestamp_utc"),
                 "p_up": ("p_up",),
                 "p_down": ("p_down",),
+                "p_flat": ("p_flat",),
                 "confidence_raw": ("confidence",),
             }
 
@@ -507,9 +504,7 @@ class AutonomousDB:
                 columns,
                 ("created_at", "timestamp_utc", "prediction_timestamp", "id"),
             )
-            sql = (
-                f"SELECT {', '.join(expressions)} FROM prediction_outcomes"  # noqa: S608
-            )
+            sql = f"SELECT {', '.join(expressions)} FROM prediction_outcomes"  # noqa: S608
             if order_column is not None:
                 sql += f" ORDER BY {order_column} DESC"
             sql += " LIMIT 1"
@@ -521,10 +516,13 @@ class AutonomousDB:
 
             p_up = row["p_up"]
             p_down = row["p_down"]
+            p_flat = row["p_flat"]
             confidence = row["confidence_raw"]
             if confidence is None:
-                candidates = [value for value in (p_up, p_down) if value is not None]
-                confidence = max(candidates) if candidates else None
+                confidence_candidates: list[float] = [
+                    float(value) for value in (p_up, p_down, p_flat) if value is not None
+                ]
+                confidence = max(confidence_candidates) if confidence_candidates else None
 
             return {
                 "timestamp_utc": row["timestamp_utc"],
@@ -537,6 +535,7 @@ class AutonomousDB:
                 "created_at": row["created_at"] or row["timestamp_utc"],
                 "p_up": p_up,
                 "p_down": p_down,
+                "p_flat": p_flat,
                 "confidence": confidence,
             }
 
@@ -596,7 +595,9 @@ class AutonomousDB:
                     for row in connection.execute(
                         text(sql),
                         {"freq": freq, "horizon": horizon, "limit": limit},
-                    ).mappings().all()
+                    )
+                    .mappings()
+                    .all()
                 ]
 
         return self._run_read(step="gui.timeline", operation=_read)
@@ -707,6 +708,10 @@ class AutonomousDB:
         prediction_id: int,
         actual_return: float,
         actual_direction: str,
+        *,
+        correct: bool | None = None,
+        start_price: float | None = None,
+        end_price: float | None = None,
     ) -> PredictionOutcome:
         """Fill realized fields for an existing prediction row."""
         prediction = session.get(PredictionOutcome, prediction_id)
@@ -715,7 +720,13 @@ class AutonomousDB:
 
         prediction.actual_return = actual_return
         prediction.actual_direction = actual_direction
-        prediction.correct = prediction.predicted_direction == actual_direction
+        prediction.start_price = start_price
+        prediction.end_price = end_price
+        prediction.correct = (
+            bool(correct)
+            if correct is not None
+            else prediction.predicted_direction == actual_direction
+        )
         prediction.realized_at = _utcnow()
         session.flush()
         return prediction
@@ -733,7 +744,24 @@ class AutonomousDB:
         query = session.query(PredictionOutcome).filter(
             PredictionOutcome.freq == freq,
             PredictionOutcome.horizon == horizon,
-            PredictionOutcome.created_at >= cutoff,
+            PredictionOutcome.timestamp_utc >= cutoff,
+        )
+        if realized_only:
+            query = query.filter(PredictionOutcome.actual_return.is_not(None))
+        return list(query.order_by(desc(PredictionOutcome.timestamp_utc)).all())
+
+    def get_pair_predictions(
+        self,
+        session: Session,
+        freq: str,
+        horizon: str,
+        *,
+        realized_only: bool = False,
+    ) -> list[PredictionOutcome]:
+        """Return the full prediction ledger for a frequency/horizon pair."""
+        query = session.query(PredictionOutcome).filter(
+            PredictionOutcome.freq == freq,
+            PredictionOutcome.horizon == horizon,
         )
         if realized_only:
             query = query.filter(PredictionOutcome.actual_return.is_not(None))
@@ -921,11 +949,14 @@ class AutonomousDB:
             realized_predictions=int(metrics.get("realized_predictions", 0)),
             hit_rate=metrics.get("hit_rate"),
             sharpe_ratio=metrics.get("sharpe_ratio"),
-            avg_return=metrics.get("avg_return"),
+            avg_return=metrics.get("average_return", metrics.get("avg_return")),
             max_drawdown=metrics.get("max_drawdown"),
             win_streak=metrics.get("win_streak"),
             lose_streak=metrics.get("lose_streak"),
             calibration_score=metrics.get("calibration_score"),
+            mae=metrics.get("mae"),
+            rmse=metrics.get("rmse"),
+            directional_accuracy=metrics.get("directional_accuracy"),
         )
         session.add(snapshot)
         session.flush()

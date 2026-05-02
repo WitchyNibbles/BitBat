@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine
@@ -166,6 +166,8 @@ PREDICTION_OUTCOMES_CONTRACT: dict[str, ColumnContract] = {
     "p_flat": ColumnContract("FLOAT", nullable=True, additive=True),
     "predicted_return": ColumnContract("FLOAT", nullable=True, additive=True),
     "predicted_price": ColumnContract("FLOAT", nullable=True, additive=True),
+    "start_price": ColumnContract("FLOAT", nullable=True, additive=True),
+    "end_price": ColumnContract("FLOAT", nullable=True, additive=True),
     "actual_return": ColumnContract("FLOAT", nullable=True, additive=True),
     "actual_direction": ColumnContract("VARCHAR(10)", nullable=True, additive=True),
     "correct": ColumnContract("BOOLEAN", nullable=True, additive=True),
@@ -408,7 +410,7 @@ def _rebuild_table_with_current_schema(connection: Connection, table_name: str) 
     connection.execute(text(f'DROP TABLE "{temp_name}"'))
 
 
-def _transaction(connection: Connection):
+def _transaction(connection: Connection) -> Any:
     if connection.in_transaction():
         return connection.begin_nested()
     return connection.begin()

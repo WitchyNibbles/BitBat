@@ -34,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
 
     from pathlib import Path
+
     web_dir = Path(__file__).resolve().parent.parent.parent.parent / "web"
     web_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web")

@@ -172,3 +172,11 @@ def test_phase7_primary_gui_workflow_signals_remain_operational(phase7_gui_db: P
     assert latest_prediction is not None
     assert latest_prediction["direction"] == "up"
     assert any("Monitoring cycle complete" in event["message"] for event in events)
+
+
+def test_phase7_home_and_system_views_reference_cycle_health_surface() -> None:
+    app_source = (STREAMLIT_DIR / "app.py").read_text(encoding="utf-8")
+    system_source = (PAGES_DIR / "4_🔧_System.py").read_text(encoding="utf-8")
+
+    assert "cycle_health" in app_source
+    assert "cycle_health" in system_source

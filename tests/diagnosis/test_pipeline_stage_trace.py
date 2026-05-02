@@ -86,9 +86,7 @@ def test_serving_direction_is_balanced():
     flat_count = counts.get("flat", 0)
     assert flat_count > 0, "Flat class must appear in predictions after Bug 2 fix"
     non_down_count = up_count + flat_count
-    assert not (
-        down_count > non_down_count * 2
-    ), (
+    assert not (down_count > non_down_count * 2), (
         "Down-only collapse should be eliminated after fix. "
         f"down={down_count}, up={up_count}, flat={flat_count}"
     )

@@ -63,6 +63,8 @@ class PredictionOutcome(Base):
     p_flat = mapped_column(Float, nullable=True)
     predicted_return = mapped_column(Float, nullable=True)
     predicted_price = mapped_column(Float, nullable=True)
+    start_price = mapped_column(Float, nullable=True)
+    end_price = mapped_column(Float, nullable=True)
     actual_return = mapped_column(Float, nullable=True)
     actual_direction = mapped_column(String(10), nullable=True)
     correct = mapped_column(Boolean, nullable=True)
@@ -86,6 +88,9 @@ class PredictionOutcome(Base):
             "p_down": self.p_down,
             "p_flat": self.p_flat,
             "predicted_return": self.predicted_return,
+            "predicted_price": self.predicted_price,
+            "start_price": self.start_price,
+            "end_price": self.end_price,
             "actual_return": self.actual_return,
             "actual_direction": self.actual_direction,
             "correct": self.correct,

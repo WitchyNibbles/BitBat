@@ -196,18 +196,20 @@ class TestPredictionResponseProbabilities:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from bitbat.api.app import create_app
         from tests.api.client import SyncASGIClient
+
+        from bitbat.api.app import create_app
 
         db_path = tmp_path / "data" / "autonomous.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
         monkeypatch.chdir(tmp_path)
 
         db = AutonomousDB(f"sqlite:///{db_path}")
+        now = datetime.now(UTC).replace(tzinfo=None)
         with db.session() as session:
             db.store_prediction(
                 session,
-                timestamp_utc=datetime(2024, 6, 1, tzinfo=UTC).replace(tzinfo=None),
+                timestamp_utc=now - timedelta(hours=1),
                 predicted_direction="up",
                 predicted_return=0.005,
                 predicted_price=65000.0,

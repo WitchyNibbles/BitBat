@@ -16,6 +16,7 @@ import pandas as pd
 import xgboost as xgb
 
 from bitbat.autonomous.db import AutonomousDB, classify_monitor_db_error
+from bitbat.autonomous.models import PredictionOutcome
 from bitbat.config.loader import get_runtime_config, load_config, resolve_models_dir
 from bitbat.dataset.build import generate_price_features
 from bitbat.model.infer import predict_bar
@@ -27,6 +28,44 @@ MIN_BARS_REQUIRED = 30
 
 def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _normalize_timestamp(value: datetime | pd.Timestamp) -> datetime:
+    ts = pd.Timestamp(value)
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert(None)
+    return ts.to_pydatetime()
+
+
+def _fill_optional_feature_defaults(features: pd.DataFrame) -> pd.DataFrame:
+    """Fill runtime-safe defaults for optional feature families."""
+    if features.empty:
+        return features
+
+    filled = features.copy()
+    for column in filled.columns:
+        if not column.startswith("feat_sent_"):
+            continue
+        if column.endswith(("mean", "median", "decay")):
+            filled[column] = filled[column].fillna(0.0)
+        elif column.endswith(("pos", "neg", "neu", "count")):
+            filled[column] = filled[column].fillna(0)
+    return filled
+
+
+def _derive_classifier_predicted_price(
+    direction: str,
+    *,
+    current_price: float,
+    tau: float,
+) -> float:
+    """Derive a concrete target price when the classifier only emits a direction label."""
+    normalized = direction.strip().lower()
+    if normalized == "up":
+        return current_price * (1.0 + tau)
+    if normalized == "down":
+        return current_price * (1.0 - tau)
+    return current_price
 
 
 def _load_ingested_prices(data_dir: Path, freq: str) -> pd.DataFrame:
@@ -220,7 +259,6 @@ class LivePredictor:
                     freq=self.freq,
                 )
 
-            features = features.dropna()
             rename_mapping = {
                 col: col if col.startswith("feat_") else f"feat_{col}" for col in features.columns
             }
@@ -263,16 +301,47 @@ class LivePredictor:
                 details={"missing_columns": missing},
             )
 
-        aligned = features[expected_features]
+        aligned = _fill_optional_feature_defaults(features[expected_features])
+        aligned = aligned.dropna()
+        if aligned.empty:
+            logger.warning("Aligned feature set produced no usable rows")
+            return self._result(
+                status="no_prediction",
+                reason="no_features",
+                message="Feature generation produced no usable rows",
+            )
+
         latest_ts = aligned.index.max()
+        latest_feature_ts = _normalize_timestamp(latest_ts)
+        latest_price_ts = _normalize_timestamp(prices.index.max())
+
+        if latest_feature_ts < latest_price_ts:
+            logger.warning(
+                "Latest usable feature row lags latest price bar (feature=%s price=%s)",
+                latest_feature_ts,
+                latest_price_ts,
+            )
+            return self._result(
+                status="no_prediction",
+                reason="stale_features",
+                message="Latest feature row lags latest price bar",
+                details={
+                    "latest_feature_timestamp": latest_feature_ts.isoformat(),
+                    "latest_price_timestamp": latest_price_ts.isoformat(),
+                },
+            )
 
         # Check for duplicate prediction — don't re-predict the same bar
         try:
             with self.db.session() as session:
-                existing = self.db.get_unrealized_predictions(
-                    session=session,
-                    freq=self.freq,
-                    horizon=self.horizon,
+                any_existing = (
+                    session.query(PredictionOutcome.id)
+                    .filter(
+                        PredictionOutcome.freq == self.freq,
+                        PredictionOutcome.horizon == self.horizon,
+                        PredictionOutcome.timestamp_utc == latest_feature_ts,
+                    )
+                    .first()
                 )
         except Exception as exc:
             raise classify_monitor_db_error(
@@ -281,22 +350,18 @@ class LivePredictor:
                 database_url=self.db.database_url,
                 engine=self.db.engine,
             ) from exc
-        for pred in existing:
-            pred_ts = pd.Timestamp(pred.timestamp_utc)
-            if pred_ts.tzinfo is not None:
-                pred_ts = pred_ts.tz_localize(None)
-            if pred_ts == pd.Timestamp(latest_ts):
-                logger.info("Prediction for %s already exists — skipping", latest_ts)
-                return self._result(
-                    status="no_prediction",
-                    reason="duplicate_bar",
-                    message="Prediction for latest bar already exists",
-                    details={"timestamp_utc": str(latest_ts)},
-                )
+        if any_existing is not None:
+            logger.info("Prediction for %s already exists in history — skipping", latest_ts)
+            return self._result(
+                status="no_prediction",
+                reason="duplicate_bar",
+                message="Prediction for latest bar already exists",
+                details={"timestamp_utc": str(latest_ts)},
+            )
 
         # Run inference
         feature_row = aligned.loc[latest_ts]
-        current_price = float(prices["close"].iloc[-1])
+        current_price = float(prices.loc[latest_ts, "close"])
         tau = float(config.get("tau", 0.01) or 0.01)
         prediction = predict_bar(
             booster,
@@ -309,10 +374,16 @@ class LivePredictor:
         predicted_return = prediction.get("predicted_return")
         if predicted_return is not None:
             predicted_return = float(predicted_return)
+        direction = str(prediction["predicted_direction"])
         predicted_price = prediction.get("predicted_price")
         if predicted_price is not None:
             predicted_price = float(predicted_price)
-        direction = str(prediction["predicted_direction"])
+        elif predicted_return is None:
+            predicted_price = _derive_classifier_predicted_price(
+                direction,
+                current_price=current_price,
+                tau=tau,
+            )
 
         model_version = self._active_model_version()
 

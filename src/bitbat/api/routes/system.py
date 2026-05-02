@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi.concurrency import run_in_threadpool
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 
 from bitbat.api.schemas import (
     PerformanceSnapshotEntry,

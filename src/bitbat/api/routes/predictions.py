@@ -10,11 +10,11 @@ from fastapi import APIRouter, HTTPException, Query
 from bitbat.api.defaults import _default_freq, _default_horizon
 from bitbat.api.schemas import (
     PerformanceResponse,
-    PriceTimelinePoint,
     PredictionListResponse,
     PredictionResponse,
     PredictionTimelinePoint,
     PredictionTimelineResponse,
+    PriceTimelinePoint,
 )
 from bitbat.autonomous.db import AutonomousDB
 from bitbat.model.infer import prediction_confidence
@@ -65,6 +65,8 @@ def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped
         p_down=p_down,
         p_flat=p_flat,
         confidence=confidence,
+        start_price=getattr(p, "start_price", None),
+        end_price=getattr(p, "end_price", None),
         actual_direction=p.actual_direction,
         actual_return=p.actual_return,
         correct=p.correct,
@@ -111,7 +113,7 @@ async def latest_prediction(
     """Return the most recent prediction for the requested config."""
     db = _get_db()
     with db.session() as session:
-        rows = db.get_recent_predictions(session, freq, horizon, days=7, realized_only=False)
+        rows = db.get_pair_predictions(session, freq, horizon, realized_only=False)
         if not rows:
             raise HTTPException(status_code=404, detail="No predictions found")
         return _prediction_to_response(rows[0])
@@ -127,7 +129,7 @@ async def prediction_history(
     """Return recent prediction history."""
     db = _get_db()
     with db.session() as session:
-        rows = db.get_recent_predictions(session, freq, horizon, days=days, realized_only=False)
+        rows = db.get_pair_predictions(session, freq, horizon, realized_only=False)
         limited = rows[:limit]
         return PredictionListResponse(
             predictions=[_prediction_to_response(r) for r in limited],
@@ -147,7 +149,7 @@ async def prediction_timeline(
     """Return chart-friendly price/prediction points for the Home view."""
     db = _get_db()
     with db.session() as session:
-        rows = db.get_recent_predictions(session, freq, horizon, days=days, realized_only=False)
+        rows = db.get_pair_predictions(session, freq, horizon, realized_only=False)
 
     limited = rows[:limit]
     if not limited:
@@ -159,23 +161,21 @@ async def prediction_timeline(
             horizon=horizon,
         )
 
-    points_frame = pd.DataFrame(
-        [
-            {
-                "timestamp_utc": pd.Timestamp(row.timestamp_utc),
-                "predicted_price": row.predicted_price,
-                "predicted_direction": row.predicted_direction,
-                "confidence": _timeline_confidence(row),
-                "correct": row.correct,
-                "is_realized": bool(
-                    row.correct is not None
-                    or row.actual_direction is not None
-                    or row.actual_return is not None
-                ),
-            }
-            for row in limited
-        ]
-    )
+    points_frame = pd.DataFrame([
+        {
+            "timestamp_utc": pd.Timestamp(row.timestamp_utc),
+            "predicted_price": row.predicted_price,
+            "predicted_direction": row.predicted_direction,
+            "confidence": _timeline_confidence(row),
+            "correct": row.correct,
+            "is_realized": bool(
+                row.correct is not None
+                or row.actual_direction is not None
+                or row.actual_return is not None
+            ),
+        }
+        for row in limited
+    ])
     points_frame["timestamp_utc"] = pd.to_datetime(
         points_frame["timestamp_utc"], utc=True
     ).dt.tz_localize(None)
@@ -217,9 +217,7 @@ async def prediction_timeline(
         PredictionTimelinePoint(
             timestamp_utc=record["timestamp_utc"].to_pydatetime(),
             actual_price=(
-                float(record["actual_price"])
-                if pd.notna(record.get("actual_price"))
-                else None
+                float(record["actual_price"]) if pd.notna(record.get("actual_price")) else None
             ),
             predicted_price=(
                 float(record["predicted_price"])
@@ -228,9 +226,7 @@ async def prediction_timeline(
             ),
             predicted_direction=str(record["predicted_direction"]),
             confidence=(
-                float(record["confidence"])
-                if pd.notna(record.get("confidence"))
-                else None
+                float(record["confidence"]) if pd.notna(record.get("confidence")) else None
             ),
             correct=record["correct"],
             is_realized=bool(record["is_realized"]),
@@ -256,7 +252,7 @@ async def prediction_performance(
     """Return aggregate performance metrics for realized predictions."""
     db = _get_db()
     with db.session() as session:
-        rows = db.get_recent_predictions(session, freq, horizon, days=days, realized_only=True)
+        rows = db.get_pair_predictions(session, freq, horizon, realized_only=True)
         total = len(rows)
         if total == 0:
             return PerformanceResponse(
@@ -283,11 +279,6 @@ async def prediction_performance(
             ar = r.actual_return
             if pr is not None and ar is not None:
                 errors.append(pr - ar)
-                # Directional accuracy: both same sign (or both zero)
-                if (pr >= 0 and ar >= 0) or (pr < 0 and ar < 0):
-                    dir_correct += 1
-                dir_total += 1
-                continue
 
             predicted_direction = getattr(r, "predicted_direction", None)
             actual_direction = getattr(r, "actual_direction", None)

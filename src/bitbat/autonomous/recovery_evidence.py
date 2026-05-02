@@ -17,6 +17,7 @@ from bitbat.config.loader import (
     resolve_metrics_dir,
     resolve_models_dir,
 )
+from bitbat.labeling.targets import direction_from_returns
 from bitbat.model.infer import predict_bar
 from bitbat.model.persist import load as load_model
 
@@ -113,6 +114,19 @@ def _evidence_output_path() -> Path:
     return resolve_metrics_dir() / "recovery_evidence.json"
 
 
+def _relabel_recovery_split(dataset: pd.DataFrame, *, tau: float) -> pd.DataFrame:
+    """Align recovery labels with the validator's tau-based direction contract."""
+    if "r_forward" not in dataset.columns:
+        raise ValueError("Recovery dataset missing required 'r_forward' column")
+
+    relabeled = dataset.copy()
+    returns = pd.to_numeric(relabeled["r_forward"], errors="coerce")
+    if returns.isna().any():
+        raise ValueError("Recovery dataset contains invalid r_forward values")
+    relabeled["label"] = direction_from_returns(returns, tau=tau, name="label")
+    return relabeled
+
+
 def stage_recovery_dataset(
     source_dataset: Path,
     *,
@@ -134,8 +148,9 @@ def stage_recovery_dataset(
             f"{len(dataset)} rows but evaluation_rows={evaluation_rows} leaves no train split"
         )
 
-    training = dataset.iloc[:-evaluation_rows].copy()
-    evaluation = dataset.iloc[-evaluation_rows:].copy()
+    tau = float(_config().get("tau", 0.01))
+    training = _relabel_recovery_split(dataset.iloc[:-evaluation_rows], tau=tau)
+    evaluation = _relabel_recovery_split(dataset.iloc[-evaluation_rows:], tau=tau)
 
     training_path = (
         _data_dir() / "features" / f"{resolved_freq}_{resolved_horizon}" / "dataset.parquet"
@@ -167,17 +182,21 @@ def _synthetic_price_history(dataset: pd.DataFrame, horizon: str) -> pd.DataFram
 
     step = _timedelta_from_duration(horizon)
     close = 100.0
-    rows: list[dict[str, Any]] = []
+    price_map: dict[pd.Timestamp, float] = {}
     for timestamp, forward_return in zip(timestamps, returns, strict=True):
-        rows.append({
-            "timestamp_utc": timestamp,
-            "close": close,
-        })
-        close = close * (1.0 + float(forward_return))
-    rows.append({
-        "timestamp_utc": timestamps.iloc[-1] + step,
-        "close": close,
-    })
+        ts = pd.Timestamp(timestamp)
+        current_close = float(price_map.get(ts, close))
+        price_map[ts] = current_close
+
+        target_ts = ts + step
+        target_close = current_close * (1.0 + float(forward_return))
+        price_map.setdefault(target_ts, target_close)
+        close = target_close
+
+    rows = [
+        {"timestamp_utc": timestamp.to_pydatetime(), "close": float(value)}
+        for timestamp, value in sorted(price_map.items(), key=lambda item: item[0])
+    ]
     return pd.DataFrame(rows)
 
 

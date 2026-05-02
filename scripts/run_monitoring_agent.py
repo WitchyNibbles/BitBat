@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import signal
 import sys
 import time
-from datetime import UTC, datetime
 from pathlib import Path
 from types import FrameType
 
@@ -18,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bitbat.autonomous.agent import MonitoringAgent
 from bitbat.autonomous.db import AutonomousDB, MonitorDatabaseError
+from bitbat.autonomous.heartbeat import heartbeat_path_for_db_url, write_monitor_heartbeat
 from bitbat.autonomous.models import init_database
 from bitbat.config.loader import (
     get_runtime_config_path,
@@ -50,10 +49,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _heartbeat_path(db_url: str) -> Path:
-    if db_url.startswith("sqlite:///"):
-        db_path = Path(db_url.replace("sqlite:///", "", 1))
-        return db_path.parent / "monitoring_agent_heartbeat.json"
-    return Path("data") / "monitoring_agent_heartbeat.json"
+    return heartbeat_path_for_db_url(db_url)
 
 
 def _write_heartbeat(
@@ -71,36 +67,29 @@ def _write_heartbeat(
     cycle_prediction_reason: str | None = None,
     cycle_realization_state: str | None = None,
     cycle_diagnostic: str | None = None,
+    cycle_ingestion_state: str | None = None,
+    cycle_ingestion_failures: list[dict[str, object]] | None = None,
 ) -> None:
-    payload = {
-        "status": status,
-        "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
-        "freq": freq,
-        "horizon": horizon,
-        "config_source": config_source,
-        "config_path": config_path,
-        "interval_seconds": int(interval),
-        "database_url": db_url,
-    }
-    if error is not None:
-        payload["error"] = error
-    if cycle_prediction_state is not None:
-        payload["cycle_prediction_state"] = cycle_prediction_state
-    if cycle_prediction_reason is not None:
-        payload["cycle_prediction_reason"] = cycle_prediction_reason
-    if cycle_realization_state is not None:
-        payload["cycle_realization_state"] = cycle_realization_state
-    if cycle_diagnostic is not None:
-        payload["cycle_diagnostic"] = cycle_diagnostic
-
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, sort_keys=True))
-    except Exception:
-        logging.getLogger(__name__).debug("Failed to write heartbeat file", exc_info=True)
+    write_monitor_heartbeat(
+        path,
+        status=status,
+        freq=freq,
+        horizon=horizon,
+        interval=interval,
+        db_url=db_url,
+        config_source=config_source,
+        config_path=config_path,
+        error=error,
+        cycle_prediction_state=cycle_prediction_state,
+        cycle_prediction_reason=cycle_prediction_reason,
+        cycle_realization_state=cycle_realization_state,
+        cycle_diagnostic=cycle_diagnostic,
+        cycle_ingestion_state=cycle_ingestion_state,
+        cycle_ingestion_failures=cycle_ingestion_failures,
+    )
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901
     args = _parse_args()
     _configure_logging()
     logger = logging.getLogger(__name__)
@@ -154,6 +143,8 @@ def main() -> int:
             prediction_reason = None
             realization_state = None
             cycle_diagnostic = None
+            ingestion_state = None
+            ingestion_failures = None
             if isinstance(result, dict):
                 if result.get("prediction_state") is not None:
                     prediction_state = str(result.get("prediction_state"))
@@ -163,6 +154,10 @@ def main() -> int:
                     realization_state = str(result.get("realization_state"))
                 if result.get("cycle_diagnostic") is not None:
                     cycle_diagnostic = str(result.get("cycle_diagnostic"))
+                if result.get("ingestion_state") is not None:
+                    ingestion_state = str(result.get("ingestion_state"))
+                if isinstance(result.get("ingestion_failures"), list):
+                    ingestion_failures = result.get("ingestion_failures")
             _write_heartbeat(
                 heartbeat,
                 status="ok",
@@ -176,6 +171,8 @@ def main() -> int:
                 cycle_prediction_reason=prediction_reason,
                 cycle_realization_state=realization_state,
                 cycle_diagnostic=cycle_diagnostic,
+                cycle_ingestion_state=ingestion_state,
+                cycle_ingestion_failures=ingestion_failures,
             )
         except MonitorDatabaseError as exc:
             logger.error(

@@ -9,14 +9,18 @@ import streamlit as st
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+STREAMLIT_DIR = ROOT / "streamlit"
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(STREAMLIT_DIR))
 
+from style import inject_css
 from bitbat.gui.presets import DEFAULT_PRESET, get_preset, list_presets
 
 st.set_page_config(page_title="Settings — BitBat", page_icon="⚙️", layout="wide")
+inject_css()
 
-st.title("⚙️ Settings")
-st.markdown("Choose how BitBat makes predictions for you.")
+st.title("Settings")
+st.markdown("Tune how the watcher behaves, then apply the new ritual to the durable runtime.")
 
 # ------------------------------------------------------------------
 # Session state
@@ -117,9 +121,7 @@ with st.expander("🔧 Advanced Settings (for experienced users)"):
             "Forecast Period",
             options=horizon_options,
             index=(
-                horizon_options.index(cfg["horizon"])
-                if cfg["horizon"] in horizon_options
-                else 0
+                horizon_options.index(cfg["horizon"]) if cfg["horizon"] in horizon_options else 0
             ),
             help="How far ahead to predict.",
         )

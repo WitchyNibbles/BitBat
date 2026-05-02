@@ -137,6 +137,34 @@ def test_validate_prediction(tmp_path: Path) -> None:
     assert result["correct"] is True
 
 
+def test_validate_prediction_rejects_prices_outside_freq_tolerance(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    validator = PredictionValidator(db=db, freq="1h", horizon="4h", tau=0.01)
+
+    with db.session() as session:
+        prediction = db.store_prediction(
+            session=session,
+            timestamp_utc=datetime(2024, 1, 1, 10, 0, 0),
+            predicted_direction="up",
+            p_up=0.7,
+            p_down=0.2,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+        )
+
+    price_data = {
+        datetime(2024, 1, 1, 10, 0, 0): 43000.0,
+        datetime(2024, 1, 1, 13, 15, 0): 43500.0,
+    }
+
+    result = validator.validate_prediction(prediction, price_data)
+
+    assert result is None
+
+
 def test_validate_batch_updates_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _seed_prices(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -177,6 +205,68 @@ def test_validate_batch_updates_database(tmp_path: Path, monkeypatch: pytest.Mon
             realized_only=True,
         )
     assert len(realized) == 2
+
+
+def test_validate_batch_uses_direction_labels_and_persists_price_anchors_for_predicted_return_rows(
+    tmp_path: Path,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    validator = PredictionValidator(db=db, freq="1h", horizon="4h", tau=0.01)
+
+    with db.session() as session:
+        prediction = db.store_prediction(
+            session=session,
+            timestamp_utc=datetime(2024, 1, 1, 10, 0, 0),
+            predicted_direction="flat",
+            p_up=0.05,
+            p_down=0.05,
+            p_flat=0.90,
+            predicted_return=0.02,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+        )
+
+    price_data = {
+        datetime(2024, 1, 1, 10, 0, 0): 100.0,
+        datetime(2024, 1, 1, 14, 0, 0): 102.0,
+    }
+    result = validator.validate_prediction(prediction, price_data)
+
+    assert result is not None
+    assert result["actual_direction"] == "up"
+    assert result["correct"] is False
+    assert result["start_price"] == pytest.approx(100.0)
+    assert result["end_price"] == pytest.approx(102.0)
+
+    with db.session() as session:
+        db.realize_prediction(
+            session=session,
+            prediction_id=int(result["prediction_id"]),
+            actual_return=float(result["actual_return"]),
+            actual_direction=str(result["actual_direction"]),
+            correct=bool(result["correct"]),
+            start_price=float(result["start_price"]),
+            end_price=float(result["end_price"]),
+        )
+
+    with db.session() as session:
+        realized = db.get_recent_predictions(
+            session=session,
+            freq="1h",
+            horizon="4h",
+            days=1000,
+            realized_only=True,
+        )
+
+    assert len(realized) == 1
+    assert realized[0].predicted_direction == "flat"
+    assert realized[0].actual_direction == "up"
+    assert realized[0].correct is False
+    assert realized[0].start_price == pytest.approx(100.0)
+    assert realized[0].end_price == pytest.approx(102.0)
 
 
 def test_find_predictions_to_validate_surfaces_runtime_db_error(

@@ -26,5 +26,5 @@ def test_oracle_frontend_uses_probability_contract_not_return_scaling() -> None:
 
     assert "predData.confidence" in source
     assert "predData.p_flat" in source
-    assert "Probability split" in source
-    assert "* 1000" not in source
+    assert "deriveProbabilities(predData)" in source
+    assert "predData.predicted_return" not in source

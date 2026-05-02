@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,7 @@ class PredictionValidator:
         cfg_tau = float(cfg.get("tau", 0.01))
         self.tau = tau if tau is not None else cfg_tau
         self.horizon_delta = self._parse_horizon(horizon)
+        self.price_match_tolerance_minutes = self._match_tolerance_minutes(freq)
 
         logger.info(
             "Initialized validator with freq=%s horizon=%s",
@@ -75,6 +77,16 @@ class PredictionValidator:
         if unit == "m":
             return timedelta(minutes=quantity)
         raise ValueError(f"Invalid horizon format: {horizon}")
+
+    def _match_tolerance_minutes(self, freq: str) -> int:
+        """Use half a bar interval as the max allowed nearest-price gap."""
+        try:
+            interval = pd.to_timedelta(freq)
+        except ValueError:
+            logger.warning("Could not parse freq=%s for price tolerance; using 60 minutes", freq)
+            return 60
+
+        return max(1, math.ceil(interval.total_seconds() / 120.0))
 
     def find_predictions_to_validate(self) -> list[PredictionOutcome]:
         """Return unrealized predictions that have passed the horizon cutoff."""
@@ -243,7 +255,7 @@ class PredictionValidator:
             start_price = self.get_price_at_timestamp(
                 price_data=price_data,
                 timestamp=prediction_time,
-                tolerance_minutes=60,
+                tolerance_minutes=self.price_match_tolerance_minutes,
             )
             if start_price is None:
                 logger.error(
@@ -257,7 +269,7 @@ class PredictionValidator:
             end_price = self.get_price_at_timestamp(
                 price_data=price_data,
                 timestamp=target_time,
-                tolerance_minutes=60,
+                tolerance_minutes=self.price_match_tolerance_minutes,
             )
             if end_price is None:
                 logger.error(
@@ -270,13 +282,15 @@ class PredictionValidator:
             actual_return = self.calculate_return(start_price, end_price)
             actual_direction = self.classify_direction(actual_return)
 
-            # Directional sign match: compare sign of predicted vs actual return
-            if prediction.predicted_return is not None:
-                pred_sign = (prediction.predicted_return > 0) - (prediction.predicted_return < 0)
-                actual_sign = (actual_return > 0) - (actual_return < 0)
-                correct = pred_sign == actual_sign
-            else:
-                correct = prediction.predicted_direction == actual_direction
+            predicted_direction = str(prediction.predicted_direction or "").strip().lower()
+            if (
+                predicted_direction not in {"up", "down", "flat"}
+                and prediction.predicted_return is not None
+            ):
+                predicted_direction = self.classify_direction(float(prediction.predicted_return))
+            if predicted_direction not in {"up", "down", "flat"}:
+                predicted_direction = "flat"
+            correct = predicted_direction == actual_direction
 
             if abs(actual_return) > 0.5:
                 logger.warning(
@@ -322,8 +336,9 @@ class PredictionValidator:
         max_time = max(
             _normalize_timestamp(pred.timestamp_utc) + self.horizon_delta for pred in predictions
         )
-        window_start = min_time - timedelta(hours=1)
-        window_end = max_time + timedelta(hours=1)
+        buffer = max(timedelta(hours=1), timedelta(minutes=self.price_match_tolerance_minutes))
+        window_start = min_time - buffer
+        window_end = max_time + buffer
 
         logger.info("Fetching prices for batch window %s to %s", window_start, window_end)
         price_data = self.fetch_price_data(window_start, window_end)
@@ -353,6 +368,9 @@ class PredictionValidator:
                         prediction_id=int(result["prediction_id"]),
                         actual_return=float(result["actual_return"]),
                         actual_direction=str(result["actual_direction"]),
+                        correct=bool(result["correct"]),
+                        start_price=float(result["start_price"]),
+                        end_price=float(result["end_price"]),
                     )
             except Exception as exc:
                 raise classify_monitor_db_error(

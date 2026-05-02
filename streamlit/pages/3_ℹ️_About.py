@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import streamlit as st
 
-st.set_page_config(page_title="About — BitBat", page_icon="ℹ️", layout="wide")
+ROOT = Path(__file__).resolve().parents[2]
+STREAMLIT_DIR = ROOT / "streamlit"
+sys.path.insert(0, str(STREAMLIT_DIR))
 
-st.title("ℹ️ About BitBat")
-st.markdown("Everything you need to know about how BitBat works.")
+from style import inject_css
+
+st.set_page_config(page_title="About — BitBat", page_icon="ℹ️", layout="wide")
+inject_css()
+
+st.title("About BitBat")
+st.markdown(
+    "Operator field guide for how the watcher gathers proof, makes signals, and improves itself."
+)
 
 # ------------------------------------------------------------------
 # How it works

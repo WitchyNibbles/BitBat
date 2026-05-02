@@ -50,6 +50,7 @@ def test_build_recovery_evidence_generates_fresh_realized_accuracy(tmp_path: Pat
     try:
         staged = stage_recovery_dataset(source_dataset=source_dataset, evaluation_rows=240)
         train_df = pd.read_parquet(staged.training_dataset_path).sort_values("timestamp_utc")
+        eval_df = pd.read_parquet(staged.evaluation_dataset_path).sort_values("timestamp_utc")
         feature_cols = [col for col in train_df.columns if col.startswith("feat_")]
         X_train = train_df[feature_cols].set_index(train_df["timestamp_utc"])
         X_train.attrs["freq"] = "1h"
@@ -77,6 +78,7 @@ def test_build_recovery_evidence_generates_fresh_realized_accuracy(tmp_path: Pat
 
     assert summary.realized_count == 240
     assert summary.accuracy > 0.33
+    assert int((eval_df["label"].astype(str) == "flat").sum()) > 0
     assert summary.direction_counts["flat"] > 0
     assert summary.zero_return_count < 50
     assert evidence_payload["accuracy"] == pytest.approx(summary.accuracy)

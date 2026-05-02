@@ -218,13 +218,14 @@ def test_audit_detects_legacy_missing_column(tmp_path: Path) -> None:
     _create_legacy_prediction_outcomes(database_url)
 
     report = audit_schema_compatibility(database_url=database_url)
+    expected_missing = ("end_price", "predicted_price", "start_price")
 
     assert report.is_compatible is False
     assert report.can_auto_upgrade is True
-    assert report.missing_columns == {"prediction_outcomes": ("predicted_price",)}
+    assert report.missing_columns == {"prediction_outcomes": expected_missing}
 
     table = next(t for t in report.tables if t.table_name == "prediction_outcomes")
-    assert table.addable_missing_columns == ("predicted_price",)
+    assert table.addable_missing_columns == expected_missing
     assert table.blocking_missing_columns == ()
 
 
@@ -252,7 +253,7 @@ def test_formatted_audit_is_actionable(tmp_path: Path) -> None:
 
     assert "Autonomous schema compatibility audit" in output
     assert "prediction_outcomes: incompatible" in output
-    assert "missing: predicted_price" in output
+    assert "missing: end_price, predicted_price, start_price" in output
 
 
 def test_init_script_audit_is_non_destructive(tmp_path: Path) -> None:
@@ -269,7 +270,7 @@ def test_init_script_audit_is_non_destructive(tmp_path: Path) -> None:
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "Compatibility status: FAIL" in result.stdout
-    assert "missing: predicted_price" in result.stdout
+    assert "missing: end_price, predicted_price, start_price" in result.stdout
     assert "predicted_price" not in _prediction_columns(database_url)
 
 
@@ -282,9 +283,14 @@ def test_upgrade_is_idempotent_and_preserves_rows(tmp_path: Path) -> None:
 
     assert first.upgraded is True
     assert first.upgrade_state == "upgraded"
-    assert first.operation_count == 1
-    assert first.missing_columns_before == 1
+    assert first.operation_count == 3
+    assert first.missing_columns_before == 3
     assert first.missing_columns_after == 0
+    assert {(action.table_name, action.column_name) for action in first.actions} >= {
+        ("prediction_outcomes", "end_price"),
+        ("prediction_outcomes", "predicted_price"),
+        ("prediction_outcomes", "start_price"),
+    }
     assert ("prediction_outcomes", "predicted_price") in {
         (action.table_name, action.column_name) for action in first.actions
     }
@@ -405,8 +411,8 @@ def test_autonomous_db_init_applies_upgrade_for_legacy_schema(tmp_path: Path) ->
 
     first_db = AutonomousDB(database_url)
     assert first_db.schema_compatibility_status["upgrade_state"] == "upgraded"
-    assert first_db.schema_compatibility_status["operations_applied"] == 1
-    assert first_db.schema_compatibility_status["missing_columns_before"] == 1
+    assert first_db.schema_compatibility_status["operations_applied"] == 3
+    assert first_db.schema_compatibility_status["missing_columns_before"] == 3
     assert first_db.schema_compatibility_status["missing_columns_after"] == 0
 
     db = AutonomousDB(database_url)
@@ -420,7 +426,7 @@ def test_autonomous_db_init_applies_upgrade_for_legacy_schema(tmp_path: Path) ->
             session=session,
             freq="1h",
             horizon="4h",
-            days=30,
+            days=365,
             realized_only=False,
         )
     assert rows

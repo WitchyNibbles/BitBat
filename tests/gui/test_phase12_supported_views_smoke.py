@@ -60,3 +60,10 @@ def test_phase12_smoke_app_navigation_covers_every_supported_page() -> None:
         "pages/4_🔧_System.py",
     }
     assert destinations == expected
+
+
+def test_phase12_smoke_system_page_redacts_raw_heartbeat_payload() -> None:
+    source = _read(PAGES_DIR / "4_🔧_System.py")
+
+    assert "sanitize_heartbeat_payload" in source
+    assert "st.json(heartbeat_payload)" not in source

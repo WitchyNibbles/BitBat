@@ -5,6 +5,7 @@ from __future__ import annotations
 import click
 import numpy as np
 import pandas as pd
+import xgboost as xgb
 
 from bitbat import __version__
 from bitbat.cli._helpers import (
@@ -71,6 +72,8 @@ def batch_run(
     model_path = _model_path(freq_val, horizon_val)
     _ensure_path_exists(model_path, "Model artifact")
     booster = load_model(model_path)
+    if not isinstance(booster, xgb.Booster):
+        raise click.ClickException("Batch inference requires an XGBoost model artifact.")
 
     features_with_ts = features.copy()
     features_with_ts["timestamp_utc"] = features_with_ts.index

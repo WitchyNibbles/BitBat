@@ -118,11 +118,19 @@ def predict_bar(
         p_down=p_down,
         p_flat=p_flat,
     )
+    predicted_price: float | None = None
+    if current_price is not None:
+        if predicted_direction == "up":
+            predicted_price = float(current_price) * (1.0 + tau)
+        elif predicted_direction == "down":
+            predicted_price = float(current_price) * (1.0 - tau)
+        else:
+            predicted_price = float(current_price)
 
     return {
         "timestamp": timestamp,
         "predicted_return": None,  # No longer a regression model
-        "predicted_price": None,  # Cannot compute without predicted return
+        "predicted_price": predicted_price,
         "predicted_direction": predicted_direction,
         "p_up": p_up,
         "p_down": p_down,

@@ -52,6 +52,8 @@ class PredictionResponse(BaseModel):
     p_down: float | None = None
     p_flat: float | None = None
     confidence: float | None = None
+    start_price: float | None = None
+    end_price: float | None = None
     actual_direction: str | None = None
     actual_return: float | None = None
     correct: bool | None = None

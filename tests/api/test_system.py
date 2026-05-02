@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import time
 import sqlite3
+import time
 from pathlib import Path
 
 import httpx
@@ -136,8 +136,7 @@ def test_system_logs_fail_fast_with_short_hint_line(
             MonitorDatabaseError(
                 step="system.logs",
                 detail=(
-                    "Database temporarily unavailable. "
-                    "Circuit open after repeated lock retries."
+                    "Database temporarily unavailable. " "Circuit open after repeated lock retries."
                 ),
                 remediation="Retry shortly.",
                 error_class="CircuitOpen",

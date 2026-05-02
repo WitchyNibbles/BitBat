@@ -184,7 +184,7 @@ class TestMetricsWithIncompatibleSchema:
         text = client.get("/metrics").text
         assert "bitbat_database_available 1" in text
         assert "bitbat_schema_compatible 0" in text
-        assert "bitbat_schema_missing_columns 1" in text
+        assert "bitbat_schema_missing_columns 3" in text
         assert "bitbat_schema_auto_upgrade_possible 1" in text
 
     def test_prediction_gauges_are_not_emitted_when_schema_incompatible(

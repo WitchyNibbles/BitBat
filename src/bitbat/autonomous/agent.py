@@ -164,7 +164,59 @@ class MonitoringAgent:
                 engine=self.db.engine,
             ) from exc
 
-    def _ingest_prices(self) -> None:
+    @staticmethod
+    def _ingestion_result(
+        *,
+        source: str,
+        required: bool,
+        status: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        result = {
+            "source": source,
+            "required": required,
+            "status": status,
+            "message": message,
+        }
+        if details:
+            result["details"] = details
+        return result
+
+    def _normalize_ingestion_result(
+        self,
+        source: str,
+        result: dict[str, Any] | None,
+        *,
+        required: bool,
+    ) -> dict[str, Any]:
+        if result is None:
+            return self._ingestion_result(
+                source=source,
+                required=required,
+                status="ok",
+                message=f"{source} ingestion completed",
+            )
+
+        normalized = dict(result)
+        normalized.setdefault("source", source)
+        normalized.setdefault("required", required)
+        normalized.setdefault("status", "ok")
+        normalized.setdefault("message", f"{source} ingestion completed")
+        return normalized
+
+    def _report_ingestion_failure(self, result: dict[str, Any]) -> None:
+        source = str(result.get("source", "unknown"))
+        message = str(result.get("message", f"{source} ingestion failed"))
+        details = dict(result.get("details", {}))
+        self._log_event("ERROR" if bool(result.get("required")) else "WARNING", message, details)
+        send_alert(
+            "ERROR" if bool(result.get("required")) else "WARNING",
+            f"{source.title()} ingestion failed for {self.freq}/{self.horizon}",
+            {"message": message, **details},
+        )
+
+    def _ingest_prices(self) -> dict[str, Any]:
         """Fetch the latest price bars so the predictor sees fresh data."""
         try:
             from pathlib import Path
@@ -178,10 +230,24 @@ class MonitoringAgent:
             n = svc.fetch_with_retry()
             if n > 0:
                 logger.info("Ingested %d new price bars", n)
-        except Exception:
+            return self._ingestion_result(
+                source="prices",
+                required=True,
+                status="ok",
+                message="Price ingestion completed",
+                details={"new_bars": int(n)},
+            )
+        except Exception as exc:
             logger.warning("Price ingestion failed", exc_info=True)
+            return self._ingestion_result(
+                source="prices",
+                required=True,
+                status="failed",
+                message="Price refresh failed",
+                details={"error": str(exc)},
+            )
 
-    def _ingest_news(self) -> None:
+    def _ingest_news(self) -> dict[str, Any]:
         """Fetch the latest news articles so sentiment features stay fresh.
 
         Uses RSS feeds (free, no API key, no rate limits) by default.
@@ -194,7 +260,12 @@ class MonitoringAgent:
 
             config = get_runtime_config()
             if not config.get("enable_sentiment", True):
-                return
+                return self._ingestion_result(
+                    source="news",
+                    required=False,
+                    status="skipped",
+                    message="News ingestion disabled",
+                )
 
             cc_key = os.environ.get("CRYPTOCOMPARE_API_KEY")
             if cc_key:
@@ -209,22 +280,50 @@ class MonitoringAgent:
                     throttle_seconds=0.5,
                 )
                 logger.info("News data refreshed via CryptoCompare")
-            else:
-                from bitbat.ingest import news_rss
+                return self._ingestion_result(
+                    source="news",
+                    required=False,
+                    status="ok",
+                    message="News data refreshed via CryptoCompare",
+                )
 
-                news_rss.fetch()
-                logger.info("News data refreshed via RSS feeds (free)")
-        except Exception:
+            from bitbat.ingest import news_rss
+
+            news_rss.fetch()
+            logger.info("News data refreshed via RSS feeds (free)")
+            return self._ingestion_result(
+                source="news",
+                required=False,
+                status="ok",
+                message="News data refreshed via RSS",
+            )
+        except Exception as exc:
             logger.warning("News ingestion failed", exc_info=True)
+            return self._ingestion_result(
+                source="news",
+                required=False,
+                status="failed",
+                message="News refresh failed",
+                details={"error": str(exc)},
+            )
 
-    def _ingest_auxiliary_data(self) -> None:
+    def _ingest_auxiliary_data(self) -> dict[str, Any]:
         """Refresh macro and on-chain data if enabled in config."""
         try:
             from bitbat.config.loader import get_runtime_config
 
             config = get_runtime_config()
-        except Exception:
-            return
+        except Exception as exc:
+            logger.warning("Auxiliary config load failed", exc_info=True)
+            return self._ingestion_result(
+                source="auxiliary",
+                required=False,
+                status="failed",
+                message="Auxiliary ingestion config load failed",
+                details={"error": str(exc)},
+            )
+
+        failures: list[str] = []
 
         if config.get("enable_macro"):
             try:
@@ -234,8 +333,9 @@ class MonitoringAgent:
 
                 data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
                 MacroIngestionService(data_dir=data_dir).fetch_with_retry()
-            except Exception:
+            except Exception as exc:
                 logger.warning("Macro data ingestion failed", exc_info=True)
+                failures.append(f"macro: {exc}")
 
         if config.get("enable_onchain"):
             try:
@@ -245,8 +345,25 @@ class MonitoringAgent:
 
                 data_dir = Path(str(config.get("data_dir", "data"))).expanduser()
                 OnchainIngestionService(data_dir=data_dir).fetch_with_retry()
-            except Exception:
+            except Exception as exc:
                 logger.warning("On-chain data ingestion failed", exc_info=True)
+                failures.append(f"onchain: {exc}")
+
+        if failures:
+            return self._ingestion_result(
+                source="auxiliary",
+                required=False,
+                status="failed",
+                message="Auxiliary data refresh failed",
+                details={"errors": failures},
+            )
+
+        return self._ingestion_result(
+            source="auxiliary",
+            required=False,
+            status="ok",
+            message="Auxiliary data refresh completed",
+        )
 
     def run_once(self) -> dict[str, Any]:  # noqa: C901
         """Run one monitoring cycle: predict, validate, assess drift, retrain."""
@@ -254,13 +371,36 @@ class MonitoringAgent:
         self._log_event("INFO", f"Monitoring cycle started ({self.freq}/{self.horizon})")
 
         # Step 0a: Refresh price data so predictor sees the latest bars.
-        self._ingest_prices()
+        price_ingestion = self._normalize_ingestion_result(
+            "prices",
+            self._ingest_prices(),
+            required=True,
+        )
 
         # Step 0b: Refresh news data so sentiment features stay current.
-        self._ingest_news()
+        news_ingestion = self._normalize_ingestion_result(
+            "news",
+            self._ingest_news(),
+            required=False,
+        )
 
         # Step 0c: Refresh auxiliary data sources (macro, on-chain).
-        self._ingest_auxiliary_data()
+        auxiliary_ingestion = self._normalize_ingestion_result(
+            "auxiliary",
+            self._ingest_auxiliary_data(),
+            required=False,
+        )
+
+        ingestion_results = [price_ingestion, news_ingestion, auxiliary_ingestion]
+        ingestion_failures = [
+            result for result in ingestion_results if result.get("status") == "failed"
+        ]
+        for failure in ingestion_failures:
+            self._report_ingestion_failure(failure)
+        blocking_ingestion_failure = any(
+            bool(result.get("required")) for result in ingestion_failures
+        )
+        ingestion_state = "degraded" if ingestion_failures else "ok"
 
         # Step 1: Validate old predictions whose horizon has elapsed.
         validation_summary = self.validator.validate_all()
@@ -275,41 +415,50 @@ class MonitoringAgent:
 
         # Step 2: Generate a new prediction for the latest bar.
         prediction_result: dict[str, Any]
-        try:
-            raw_prediction = self.predictor.predict_latest()
-            if raw_prediction is None:
-                prediction_result = {
-                    "status": "no_prediction",
-                    "reason": "unknown",
-                    "message": "Predictor returned no payload",
-                }
-            else:
-                prediction_result = dict(raw_prediction)
-            if prediction_result.get("status") == "generated":
-                logger.info("New prediction: %s", prediction_result)
-                direction = prediction_result.get("predicted_direction", "?")
-                self._log_event(
-                    "INFO",
-                    f"Prediction generated: {direction}",
-                    {"direction": direction},
-                )
-            else:
-                reason = prediction_result.get("reason", "unknown")
-                logger.info(
-                    "No new prediction generated this cycle (%s)",
-                    reason,
-                )
-        except MonitorDatabaseError:
-            raise
-        except Exception as exc:
-            logger.exception("Prediction generation failed")
-            self._log_event("ERROR", f"Prediction failed: {exc}")
+        if blocking_ingestion_failure:
             prediction_result = {
                 "status": "no_prediction",
-                "reason": "prediction_exception",
-                "message": "Prediction generation failed",
-                "details": {"error": str(exc)},
+                "reason": "price_ingestion_failed",
+                "message": "Latest price ingestion failed; skipped prediction",
+                "details": {"ingestion_failures": ingestion_failures},
             }
+            logger.warning("Skipping prediction because required ingestion failed")
+        else:
+            try:
+                raw_prediction = self.predictor.predict_latest()
+                if raw_prediction is None:
+                    prediction_result = {
+                        "status": "no_prediction",
+                        "reason": "unknown",
+                        "message": "Predictor returned no payload",
+                    }
+                else:
+                    prediction_result = dict(raw_prediction)
+                if prediction_result.get("status") == "generated":
+                    logger.info("New prediction: %s", prediction_result)
+                    direction = prediction_result.get("predicted_direction", "?")
+                    self._log_event(
+                        "INFO",
+                        f"Prediction generated: {direction}",
+                        {"direction": direction},
+                    )
+                else:
+                    reason = prediction_result.get("reason", "unknown")
+                    logger.info(
+                        "No new prediction generated this cycle (%s)",
+                        reason,
+                    )
+            except MonitorDatabaseError:
+                raise
+            except Exception as exc:
+                logger.exception("Prediction generation failed")
+                self._log_event("ERROR", f"Prediction failed: {exc}")
+                prediction_result = {
+                    "status": "no_prediction",
+                    "reason": "prediction_exception",
+                    "message": "Prediction generation failed",
+                    "details": {"error": str(exc)},
+                }
 
         try:
             with self.db.session() as session:
@@ -400,10 +549,13 @@ class MonitoringAgent:
             "prediction_state": prediction_state,
             "prediction_reason": prediction_reason,
             "prediction_message": prediction_message,
+            "ingestion_state": ingestion_state,
+            "ingestion_failures": ingestion_failures,
             "realization_state": realization_state,
             "pending_validations": pending_count,
             "cycle_diagnostic": cycle_diagnostic,
             "cycle_state": {
+                "ingestion_state": ingestion_state,
                 "prediction_state": prediction_state,
                 "prediction_reason": prediction_reason,
                 "prediction_message": prediction_message,

@@ -56,9 +56,9 @@ def one_click_train(  # noqa: C901
     _progress(progress_callback, "Loading configuration...", 0.02)
 
     try:
-        from bitbat.common.presets import get_preset
         from bitbat.autonomous.db import AutonomousDB
         from bitbat.autonomous.models import init_database
+        from bitbat.common.presets import get_preset
         from bitbat.config.loader import get_runtime_config, load_config
 
         preset = get_preset(preset_name)
@@ -122,7 +122,11 @@ def one_click_train(  # noqa: C901
             prices_module.fetch_yf("BTC-USD", freq, start_dt)
         except Exception as api_exc:
             if prices_path.exists():
-                logger.warning("Price Ingestion failed but historical cache exists, using cached data. Error: %s", api_exc)
+                logger.warning(
+                    "Price ingestion failed but historical cache exists, using cached data. "
+                    "Error: %s",
+                    api_exc,
+                )
             else:
                 raise api_exc
 

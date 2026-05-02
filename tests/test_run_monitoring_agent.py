@@ -77,3 +77,33 @@ def test_write_heartbeat_includes_cycle_diagnostic_fields(tmp_path: Path) -> Non
     assert payload["cycle_prediction_reason"] == "missing_model"
     assert payload["cycle_realization_state"] == "pending"
     assert "missing_model" in payload["cycle_diagnostic"]
+
+
+def test_write_heartbeat_includes_ingestion_state_fields(tmp_path: Path) -> None:
+    heartbeat = tmp_path / "monitoring_agent_heartbeat.json"
+
+    run_monitoring_agent._write_heartbeat(  # noqa: SLF001
+        heartbeat,
+        status="ok",
+        freq="1h",
+        horizon="4h",
+        interval=300,
+        db_url="sqlite:///data/autonomous.db",
+        config_source="--config",
+        config_path=str(tmp_path / "monitor.yaml"),
+        cycle_ingestion_state="degraded",
+        cycle_ingestion_failures=[
+            {
+                "source": "prices",
+                "required": True,
+                "status": "failed",
+                "message": "Price refresh failed",
+                "details": {"error": "upstream outage"},
+            }
+        ],
+    )
+
+    payload = json.loads(heartbeat.read_text(encoding="utf-8"))
+    assert payload["cycle_ingestion_state"] == "degraded"
+    assert payload["cycle_ingestion_failures"][0]["source"] == "prices"
+    assert payload["cycle_ingestion_failures"][0]["required"] is True

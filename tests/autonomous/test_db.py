@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -154,11 +154,12 @@ def test_prediction_store_and_realize_flow(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
     db = AutonomousDB(database_url)
+    prediction_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
 
     with db.session() as session:
         pred = db.store_prediction(
             session=session,
-            timestamp_utc=datetime(2026, 2, 1, 0, 0, 0),
+            timestamp_utc=prediction_time,
             predicted_direction="up",
             p_up=0.6,
             p_down=0.3,
@@ -187,6 +188,77 @@ def test_prediction_store_and_realize_flow(tmp_path: Path) -> None:
         recent = db.get_recent_predictions(session=session, freq="1h", horizon="4h", days=60)
         assert len(recent) == 1
         assert recent[0].correct is True
+
+
+def test_realize_prediction_can_persist_explicit_correct_override(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    prediction_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+
+    with db.session() as session:
+        pred = db.store_prediction(
+            session=session,
+            timestamp_utc=prediction_time,
+            predicted_direction="flat",
+            p_up=0.1,
+            p_down=0.1,
+            p_flat=0.8,
+            predicted_return=0.02,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+        )
+        prediction_id = pred.id
+
+    with db.session() as session:
+        db.realize_prediction(
+            session=session,
+            prediction_id=prediction_id,
+            actual_return=0.02,
+            actual_direction="up",
+            correct=True,
+        )
+
+    with db.session() as session:
+        recent = db.get_recent_predictions(session=session, freq="1h", horizon="4h", days=60)
+
+    assert len(recent) == 1
+    assert recent[0].predicted_direction == "flat"
+    assert recent[0].actual_direction == "up"
+    assert recent[0].correct is True
+
+
+def test_get_recent_predictions_uses_market_time_not_write_time(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    stale_timestamp = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=45)
+
+    with db.session() as session:
+        pred = db.store_prediction(
+            session=session,
+            timestamp_utc=stale_timestamp,
+            predicted_direction="up",
+            p_up=0.7,
+            p_down=0.2,
+            model_version="v1",
+            freq="1h",
+            horizon="4h",
+        )
+        db.realize_prediction(
+            session=session,
+            prediction_id=pred.id,
+            actual_return=0.01,
+            actual_direction="up",
+        )
+
+    with db.session() as session:
+        recent = db.get_recent_predictions(session=session, freq="1h", horizon="4h", days=30)
+        older = db.get_recent_predictions(session=session, freq="1h", horizon="4h", days=60)
+
+    assert recent == []
+    assert len(older) == 1
 
 
 def test_model_and_retraining_events_flow(tmp_path: Path) -> None:
@@ -232,7 +304,15 @@ def test_model_and_retraining_events_flow(tmp_path: Path) -> None:
             freq="1h",
             horizon="4h",
             window_days=30,
-            metrics={"total_predictions": 20, "realized_predictions": 18, "hit_rate": 0.61},
+            metrics={
+                "total_predictions": 20,
+                "realized_predictions": 18,
+                "hit_rate": 0.61,
+                "average_return": 0.004,
+                "mae": 0.012,
+                "rmse": 0.02,
+                "directional_accuracy": 0.58,
+            },
         )
         db.log(
             session=session,
@@ -241,6 +321,16 @@ def test_model_and_retraining_events_flow(tmp_path: Path) -> None:
             message="snapshot complete",
             details={"model_version": "v2"},
         )
+        snapshot_row = session.execute(
+            text(
+                "SELECT avg_return, mae, rmse, directional_accuracy "
+                "FROM performance_snapshots ORDER BY snapshot_time DESC LIMIT 1"
+            )
+        ).one()
+        assert snapshot_row.avg_return == pytest.approx(0.004)
+        assert snapshot_row.mae == pytest.approx(0.012)
+        assert snapshot_row.rmse == pytest.approx(0.02)
+        assert snapshot_row.directional_accuracy == pytest.approx(0.58)
 
 
 def test_monitor_status_prediction_counts_are_pair_scoped(tmp_path: Path) -> None:
@@ -445,6 +535,32 @@ def test_get_prediction_views_support_gui_payload_fallbacks(tmp_path: Path) -> N
     assert timeline_rows[1]["correct"] == 1
 
 
+def test_get_latest_prediction_payload_uses_p_flat_for_flat_confidence(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    with db.session() as session:
+        db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now(UTC).replace(tzinfo=None),
+            predicted_direction="flat",
+            p_up=0.01,
+            p_down=0.02,
+            p_flat=0.97,
+            model_version="v-flat",
+            freq="5m",
+            horizon="30m",
+        )
+
+    latest_prediction = db.get_latest_prediction_payload()
+
+    assert latest_prediction is not None
+    assert latest_prediction["direction"] == "flat"
+    assert latest_prediction["p_flat"] == pytest.approx(0.97)
+    assert latest_prediction["confidence"] == pytest.approx(0.97)
+
+
 def test_list_system_logs_retries_transient_lock_then_opens_circuit(tmp_path: Path) -> None:
     database_url = _db_url(tmp_path)
     init_database(database_url)
@@ -522,11 +638,7 @@ def test_finalize_retraining_success_is_atomic(tmp_path: Path) -> None:
     with db.session() as session:
         active = db.get_active_model(session=session, freq="1h", horizon="4h")
         finished = session.get(type(event), event_id)
-        old_model = (
-            session.query(type(active))
-            .filter(type(active).version == "old-v1")
-            .one()
-        )
+        old_model = session.query(type(active)).filter(type(active).version == "old-v1").one()
 
     assert active is not None
     assert active.version == "new-v2"
@@ -583,11 +695,7 @@ def test_finalize_retraining_success_rolls_back_on_missing_event(tmp_path: Path)
 
     with db.session() as session:
         old_model = db.get_active_model(session=session, freq="1h", horizon="4h")
-        new_model = (
-            session.query(type(old_model))
-            .filter(type(old_model).version == "new-v2")
-            .one()
-        )
+        new_model = session.query(type(old_model)).filter(type(old_model).version == "new-v2").one()
 
     assert old_model is not None
     assert old_model.version == "old-v1"

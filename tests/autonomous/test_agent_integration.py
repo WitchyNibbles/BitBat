@@ -204,13 +204,14 @@ def test_predict_latest_persists_full_probability_distribution(
     monkeypatch.chdir(tmp_path)
 
     predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     class DummyBooster:
         feature_names = ["feat_close"]
 
     bars = pd.DataFrame(
         {"close": [100.0 + idx for idx in range(40)]},
-        index=pd.date_range("2026-01-01", periods=40, freq="h"),
+        index=pd.date_range(now - timedelta(hours=39), periods=40, freq="h"),
     )
     features = pd.DataFrame(
         {"feat_close": [0.1 + idx / 1000 for idx in range(40)]},
@@ -250,6 +251,132 @@ def test_predict_latest_persists_full_probability_distribution(
     assert stored.p_flat == pytest.approx(0.95)
 
 
+def test_predict_latest_rejects_stale_feature_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _stub_runtime_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    class DummyBooster:
+        feature_names = ["feat_close"]
+
+    bars = pd.DataFrame(
+        {"close": [100.0 + idx for idx in range(40)]},
+        index=pd.date_range(now - timedelta(hours=39), periods=40, freq="h"),
+    )
+    features = pd.DataFrame(
+        {"feat_close": [0.1 + idx / 1000 for idx in range(39)] + [None]},
+        index=bars.index,
+    )
+
+    monkeypatch.setattr(predictor, "_load_model", lambda: DummyBooster())
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor._load_ingested_prices",
+        lambda data_dir, freq: bars,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.generate_price_features",
+        lambda prices, enable_garch, freq: features,
+    )
+
+    def _unexpected_predict_bar(*args: object, **kwargs: object) -> dict[str, object]:
+        del args, kwargs
+        raise AssertionError("predict_bar should not run for stale features")
+
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.predict_bar",
+        _unexpected_predict_bar,
+    )
+
+    result = predictor.predict_latest()
+
+    assert result["status"] == "no_prediction"
+    assert result["reason"] == "stale_features"
+    assert "latest_feature_timestamp" in result["details"]
+    assert "latest_price_timestamp" in result["details"]
+
+
+def test_predict_latest_ignores_optional_sentiment_nans_for_price_only_model(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    monkeypatch.chdir(tmp_path)
+
+    config = {
+        "data_dir": str(tmp_path / "data"),
+        "enable_sentiment": True,
+        "enable_garch": False,
+        "enable_macro": False,
+        "enable_onchain": False,
+    }
+    monkeypatch.setattr("bitbat.autonomous.predictor.get_runtime_config", lambda: config)
+    monkeypatch.setattr("bitbat.autonomous.predictor.load_config", lambda: config)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    class DummyBooster:
+        feature_names = ["feat_close"]
+
+    bars = pd.DataFrame(
+        {"close": [100.0 + idx for idx in range(40)]},
+        index=pd.date_range(now - timedelta(hours=39), periods=40, freq="h"),
+    )
+    features = pd.DataFrame(
+        {"feat_close": [0.1 + idx / 1000 for idx in range(40)]},
+        index=bars.index,
+    )
+
+    news_dir = tmp_path / "data" / "raw" / "news" / "rss_1h"
+    news_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({
+        "published_utc": [now - timedelta(days=10)],
+        "title": ["old news"],
+        "url": ["https://example.com/old-news"],
+        "source": ["rss"],
+        "lang": ["en"],
+        "sentiment_score": [0.2],
+    }).to_parquet(news_dir / "rss_crypto_1h.parquet", index=False)
+
+    monkeypatch.setattr(predictor, "_load_model", lambda: DummyBooster())
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor._load_ingested_prices",
+        lambda data_dir, freq: bars,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.generate_price_features",
+        lambda prices, enable_garch, freq: features,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.predict_bar",
+        lambda *args, **kwargs: {
+            "predicted_direction": "up",
+            "predicted_return": 0.01,
+            "predicted_price": 101.0,
+            "p_up": 0.7,
+            "p_down": 0.2,
+            "p_flat": 0.1,
+        },
+    )
+
+    result = predictor.predict_latest()
+
+    assert result["status"] == "generated"
+    assert result["reason"] == "prediction_generated"
+
+
 def test_run_once_reports_cycle_state_for_missing_model_no_predictions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -286,6 +413,128 @@ def test_run_once_reports_cycle_state_for_missing_model_no_predictions(
     assert result["prediction_state"] == "none"
     assert result["prediction_reason"] == "missing_model"
     assert result["realization_state"] == "none"
+
+
+def test_run_once_skips_prediction_when_price_ingestion_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _seed_model_artifact(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    agent = MonitoringAgent(db, "1h", "4h")
+    agent._ingest_prices = lambda: {  # type: ignore[method-assign]
+        "source": "prices",
+        "status": "failed",
+        "required": True,
+        "message": "Price refresh failed",
+        "details": {"error": "upstream outage"},
+    }
+    agent._ingest_news = lambda: None  # type: ignore[method-assign]
+    agent._ingest_auxiliary_data = lambda: None  # type: ignore[method-assign]
+    agent.validator.validate_all = lambda: {  # type: ignore[method-assign]
+        "validated_count": 0,
+        "correct_count": 0,
+        "hit_rate": 0.0,
+        "errors": [],
+    }
+
+    called = {"predictor": 0}
+
+    def _unexpected_predict_latest() -> dict[str, object]:
+        called["predictor"] += 1
+        raise AssertionError("predict_latest should be skipped on price ingestion failure")
+
+    agent.predictor.predict_latest = _unexpected_predict_latest  # type: ignore[method-assign]
+    agent.drift_detector.check_drift = lambda: (  # type: ignore[method-assign]
+        False,
+        "No drift detected",
+        {"hit_rate": 0.0},
+    )
+    agent.continuous_trainer.should_retrain = lambda: False  # type: ignore[method-assign]
+
+    result = agent.run_once()
+
+    assert called["predictor"] == 0
+    assert result["prediction_state"] == "none"
+    assert result["prediction_reason"] == "price_ingestion_failed"
+    assert result["ingestion_state"] == "degraded"
+    assert len(result["ingestion_failures"]) == 1
+    assert result["ingestion_failures"][0]["source"] == "prices"
+
+
+def test_predict_latest_skips_when_latest_bar_exists_in_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    _seed_model(db)
+    _stub_runtime_config(tmp_path, monkeypatch)
+    monkeypatch.chdir(tmp_path)
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+    now = datetime.now(UTC).replace(tzinfo=None)
+    latest_ts = now.replace(minute=0, second=0, microsecond=0)
+
+    class DummyBooster:
+        feature_names = ["feat_close"]
+
+    bars = pd.DataFrame(
+        {"close": [100.0 + idx for idx in range(40)]},
+        index=pd.date_range(latest_ts - timedelta(hours=39), periods=40, freq="h"),
+    )
+    features = pd.DataFrame(
+        {"feat_close": [0.1 + idx / 1000 for idx in range(40)]},
+        index=bars.index,
+    )
+
+    with db.session() as session:
+        existing = db.store_prediction(
+            session=session,
+            timestamp_utc=latest_ts,
+            predicted_direction="up",
+            p_up=0.7,
+            p_down=0.2,
+            model_version="v1.0.0",
+            freq="1h",
+            horizon="4h",
+        )
+        db.realize_prediction(
+            session=session,
+            prediction_id=existing.id,
+            actual_return=0.01,
+            actual_direction="up",
+        )
+
+    monkeypatch.setattr(predictor, "_load_model", lambda: DummyBooster())
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor._load_ingested_prices",
+        lambda data_dir, freq: bars,
+    )
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.generate_price_features",
+        lambda prices, enable_garch, freq: features,
+    )
+
+    def _unexpected_predict_bar(*args: object, **kwargs: object) -> dict[str, object]:
+        del args, kwargs
+        raise AssertionError("predict_bar should not run for duplicate historical bars")
+
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.predict_bar",
+        _unexpected_predict_bar,
+    )
+
+    result = predictor.predict_latest()
+
+    assert result["status"] == "no_prediction"
+    assert result["reason"] == "duplicate_bar"
 
 
 def test_run_once_reports_cycle_state_for_pending_realizations(

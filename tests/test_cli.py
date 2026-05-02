@@ -1892,15 +1892,23 @@ def test_cli_batch_run(
             "predicted_price": None,
         }
 
-    class FakeModel:
-        feature_names = ["feat_price"]
+    import xgboost as xgb
+
+    train_X = pd.DataFrame({"feat_price": [0.0, 1.0, 2.0]})
+    train_y = np.array([0, 1, 2], dtype=int)
+    dtrain = xgb.DMatrix(train_X, label=train_y, feature_names=list(train_X.columns))
+    booster = xgb.train(
+        {"objective": "multi:softprob", "num_class": 3, "max_depth": 2},
+        dtrain,
+        num_boost_round=1,
+    )
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("bitbat.ingest.prices.fetch_yf", fake_fetch_prices)
     monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch_news)
     monkeypatch.setattr("bitbat.cli.commands.batch.generate_price_features", fake_price_features)
     monkeypatch.setattr("bitbat.cli.commands.batch.aggregate_sentiment", fake_sentiment)
-    monkeypatch.setattr("bitbat.cli.commands.batch.load_model", lambda path: FakeModel())
+    monkeypatch.setattr("bitbat.cli.commands.batch.load_model", lambda path: booster)
     monkeypatch.setattr("bitbat.cli.commands.batch.predict_bar", fake_predict)
 
     argv = [

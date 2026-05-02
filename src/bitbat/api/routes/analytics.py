@@ -118,9 +118,7 @@ async def system_status(
                 active = db.get_active_model(session, freq, horizon)
                 if active:
                     active_version = active.version
-                rows = db.get_recent_predictions(
-                    session, freq, horizon, days=365, realized_only=False
-                )
+                rows = db.get_pair_predictions(session, freq, horizon, realized_only=False)
                 total_predictions = len(rows)
                 if rows:
                     last_prediction_time = rows[0].timestamp_utc
