@@ -152,3 +152,57 @@ def test_predict_latest_preserves_model_supplied_predicted_price(
         stored = db.get_recent_predictions(session, "1h", "4h", days=7, realized_only=False)[0]
 
     assert stored.predicted_price == pytest.approx(123.45)
+
+
+def test_predict_latest_skips_when_unrealized_prediction_exists(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor.get_runtime_config",
+        lambda: _runtime_config(tmp_path),
+    )
+
+    with db.session() as session:
+        db.store_prediction(
+            session=session,
+            timestamp_utc=datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1),
+            predicted_direction="up",
+            p_up=0.7,
+            p_down=0.2,
+            model_version="v1.0.0",
+            freq="1h",
+            horizon="4h",
+            predicted_return=0.01,
+            predicted_price=101.0,
+        )
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+
+    class DummyBooster:
+        feature_names = ["feat_close"]
+
+    monkeypatch.setattr(predictor, "_load_model", lambda: DummyBooster())
+
+    def _unexpected_load_prices(*args: object, **kwargs: object) -> pd.DataFrame:
+        del args, kwargs
+        raise AssertionError("price loading should not run while a prediction is still pending")
+
+    monkeypatch.setattr(
+        "bitbat.autonomous.predictor._load_ingested_prices",
+        _unexpected_load_prices,
+    )
+
+    result = predictor.predict_latest()
+
+    assert result["status"] == "no_prediction"
+    assert result["reason"] == "pending_realization"
+    assert result["details"]["pending_predictions"] == 1
+
+    with db.session() as session:
+        stored = db.get_recent_predictions(session, "1h", "4h", days=7, realized_only=False)
+
+    assert len(stored) == 1
