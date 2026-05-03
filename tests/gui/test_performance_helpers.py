@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta, timezone
+
 import pandas as pd
 import pytest
 
@@ -309,3 +311,89 @@ def test_format_recent_predictions_shows_price_proof_columns() -> None:
     assert formatted.loc[0, "Actual Price"] == "$102.00"
     assert formatted.loc[0, "Price Gap %"] == "1.0%"
     assert formatted.loc[0, "Actual Return"] == "2.0%"
+
+
+def test_format_recent_predictions_includes_pending_rows_with_future_target_time() -> None:
+    predictions = pd.DataFrame([
+        {
+            "timestamp_utc": "2026-03-31T12:10:00Z",
+            "predicted_direction": "up",
+            "predicted_price": None,
+            "actual_direction": pd.NA,
+            "actual_return": pd.NA,
+            "correct": pd.NA,
+            "p_up": 0.8,
+            "p_down": 0.1,
+            "p_flat": 0.1,
+        }
+    ])
+    prices = pd.DataFrame([
+        {"timestamp_utc": "2026-03-31T12:10:00Z", "close": 100.0},
+    ])
+
+    formatted = format_recent_predictions(
+        predictions,
+        limit=20,
+        prices=prices,
+        freq="5m",
+        horizon="30m",
+    )
+
+    assert len(formatted) == 1
+    assert formatted.loc[0, "Signal Time"] == pd.Timestamp("2026-03-31T12:10:00")
+    assert formatted.loc[0, "Forecast For"] == pd.Timestamp("2026-03-31T12:40:00")
+    assert formatted.loc[0, "Status"] == "⏳ Pending"
+    assert formatted.loc[0, "Predicted Price"] == "$101.00"
+    assert formatted.loc[0, "Price Gap %"] == "1.0%"
+
+
+def test_format_recent_predictions_can_render_explicit_local_timezone_strings() -> None:
+    predictions = pd.DataFrame([
+        {
+            "timestamp_utc": "2026-05-03T14:25:00Z",
+            "predicted_direction": "flat",
+            "predicted_price": 78661.96875,
+            "actual_direction": pd.NA,
+            "actual_return": pd.NA,
+            "correct": pd.NA,
+            "p_up": 0.004,
+            "p_down": 0.005,
+            "p_flat": 0.991,
+        }
+    ])
+
+    formatted = format_recent_predictions(
+        predictions,
+        limit=20,
+        horizon="30m",
+        display_timezone="Europe/Madrid",
+    )
+
+    assert formatted.loc[0, "Signal Time"] == "2026-05-03 16:25 CEST"
+    assert formatted.loc[0, "Forecast For"] == "2026-05-03 16:55 CEST"
+
+
+def test_format_recent_predictions_accepts_fixed_offset_local_tzinfo() -> None:
+    predictions = pd.DataFrame([
+        {
+            "timestamp_utc": "2026-05-03T14:25:00Z",
+            "predicted_direction": "flat",
+            "predicted_price": 78661.96875,
+            "actual_direction": pd.NA,
+            "actual_return": pd.NA,
+            "correct": pd.NA,
+            "p_up": 0.004,
+            "p_down": 0.005,
+            "p_flat": 0.991,
+        }
+    ])
+
+    formatted = format_recent_predictions(
+        predictions,
+        limit=20,
+        horizon="30m",
+        display_timezone=timezone(timedelta(hours=2), name="CEST"),
+    )
+
+    assert formatted.loc[0, "Signal Time"] == "2026-05-03 16:25 CEST"
+    assert formatted.loc[0, "Forecast For"] == "2026-05-03 16:55 CEST"
