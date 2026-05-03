@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import (
@@ -41,6 +42,9 @@ class RuntimeStore:
 
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
+        if database_url.startswith("sqlite:///") and ":memory:" not in database_url:
+            sqlite_path = Path(database_url.replace("sqlite:///", "", 1))
+            sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         self.engine: Engine = create_engine(database_url, future=True)
         self.metadata = MetaData()
         self.events = Table(
