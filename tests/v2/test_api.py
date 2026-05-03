@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from datetime import UTC, datetime
 
 from bitbat_v2.api.app import create_app
@@ -8,6 +10,21 @@ from tests.api.client import SyncASGIClient
 
 AUTH_HEADERS = {"X-BitBat-Operator-Token": "test-token"}
 AUTH_TOKEN = AUTH_HEADERS["X-BitBat-Operator-Token"]
+
+
+def test_v2_app_module_imports_without_repo_data_dir(tmp_path) -> None:
+    working_dir = tmp_path / "isolated-cwd"
+    working_dir.mkdir()
+
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and import target
+        [sys.executable, "-c", "import bitbat_v2.api.app"],
+        cwd=working_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_v2_api_health_and_simulation_flow(tmp_path) -> None:
