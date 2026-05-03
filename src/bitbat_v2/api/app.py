@@ -21,6 +21,9 @@ from bitbat_v2.api.schemas import (
     HealthResponse,
     OrderResponse,
     OrdersResponse,
+    PaperCockpitResponse,
+    PaperPerformanceResponse,
+    PaperTradeResponse,
     PortfolioResponse,
     ResetPaperResponse,
     SignalResponse,
@@ -31,6 +34,11 @@ from bitbat_v2.autorun import AutonomousPaperTrader
 from bitbat_v2.coinbase import CoinbaseMarketDataClient
 from bitbat_v2.config import BitBatV2Config
 from bitbat_v2.domain import Candle
+from bitbat_v2.paper import (
+    build_paper_cockpit_snapshot,
+    build_paper_performance_summary,
+    closed_trades_from_orders,
+)
 from bitbat_v2.runtime import BitBatRuntime, EventBroker, format_sse
 from bitbat_v2.storage import RuntimeStore
 
@@ -156,6 +164,53 @@ def create_app(  # noqa: C901
                 for order in store.get_orders(limit=limit)
             ]
         )
+
+    @app.get("/v1/paper", response_model=PaperCockpitResponse)
+    def paper(_: None = Depends(require_operator_auth)) -> PaperCockpitResponse:
+        portfolio = store.get_portfolio()
+        latest_signal = store.get_latest_signal()
+        orders = store.get_orders(limit=None)
+        portfolio_events = store.list_events_by_type("portfolio.updated", limit=None)
+        alert_events = store.list_events_by_type("alert.raised", limit=20)
+        snapshot = build_paper_cockpit_snapshot(
+            config=config,
+            portfolio=portfolio,
+            latest_signal=latest_signal,
+            last_event_at=store.get_last_event_at(),
+            orders=orders,
+            portfolio_events=portfolio_events,
+            alert_events=alert_events,
+        )
+        closed_trades = [
+            PaperTradeResponse.model_validate(trade.to_dict())
+            for trade in closed_trades_from_orders(orders, fee_bps=config.fee_bps)
+        ]
+        return PaperCockpitResponse(
+            portfolio=PortfolioResponse.model_validate(snapshot.portfolio.to_dict()),
+            performance=PaperPerformanceResponse.model_validate(snapshot.performance.to_dict()),
+            latest_signal=(
+                SignalResponse.model_validate(snapshot.latest_signal.to_dict())
+                if snapshot.latest_signal is not None
+                else None
+            ),
+            recent_orders=snapshot.recent_orders,
+            recent_alerts=[alert.to_dict() for alert in snapshot.recent_alerts],
+            equity_curve=[point.to_dict() for point in snapshot.equity_curve],
+            closed_trades=closed_trades,
+        )
+
+    @app.get("/v1/performance", response_model=PaperPerformanceResponse)
+    def performance(_: None = Depends(require_operator_auth)) -> PaperPerformanceResponse:
+        orders = store.get_orders(limit=None)
+        summary = build_paper_performance_summary(
+            config=config,
+            portfolio=store.get_portfolio(),
+            latest_signal=store.get_latest_signal(),
+            last_event_at=store.get_last_event_at(),
+            orders=orders,
+            portfolio_events=store.list_events_by_type("portfolio.updated", limit=None),
+        )
+        return PaperPerformanceResponse.model_validate(summary.to_dict())
 
     @app.post("/v1/control/pause", response_model=ControlActionResponse)
     def pause(_: None = Depends(require_operator_auth)) -> ControlActionResponse:

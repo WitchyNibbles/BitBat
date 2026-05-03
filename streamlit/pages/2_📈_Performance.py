@@ -26,6 +26,9 @@ from bitbat.gui.performance import (
     summarize_recent_mix,
 )
 from bitbat.io.prices import load_prices
+from bitbat_v2.config import BitBatV2Config
+from bitbat_v2.paper import build_paper_cockpit_snapshot, closed_trades_from_orders
+from bitbat_v2.storage import RuntimeStore
 from style import inject_css
 
 st.set_page_config(page_title="Performance — BitBat", page_icon="📈", layout="wide")
@@ -33,10 +36,11 @@ inject_css()
 
 st.title("Performance")
 st.markdown(
-    "Read the signal ledger: accuracy, retraining, and whether the watcher still deserves trust."
+    "Read the paper ledger first, then use the legacy signal ledger as a diagnostic-only view."
 )
 
 _DB = ROOT / "data" / "autonomous.db"
+_V2_DB = ROOT / "data" / "bitbat_v2.db"
 
 
 def _query(sql: str, params: tuple = ()) -> list:
@@ -145,15 +149,134 @@ def _display_timezone() -> object | None:
     return datetime.now().astimezone().tzinfo
 
 
+def _load_v2_views() -> tuple[dict, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame] | None:
+    if not _V2_DB.exists():
+        return None
+    try:
+        config = BitBatV2Config(database_url=f"sqlite:///{_V2_DB}")
+        store = RuntimeStore(config.database_url)
+        store.create_schema()
+        snapshot = build_paper_cockpit_snapshot(
+            config=config,
+            portfolio=store.get_portfolio(),
+            latest_signal=store.get_latest_signal(),
+            last_event_at=store.get_last_event_at(),
+            orders=store.get_orders(limit=None),
+            portfolio_events=store.list_events_by_type("portfolio.updated", limit=None),
+            alert_events=store.list_events_by_type("alert.raised", limit=20),
+        )
+        trades = closed_trades_from_orders(store.get_orders(limit=None), fee_bps=config.fee_bps)
+        return (
+            {
+                "portfolio": snapshot.portfolio.to_dict(),
+                "performance": snapshot.performance.to_dict(),
+                "latest_signal": snapshot.latest_signal.to_dict()
+                if snapshot.latest_signal
+                else None,
+            },
+            pd.DataFrame([point.to_dict() for point in snapshot.equity_curve]),
+            pd.DataFrame(snapshot.recent_orders),
+            pd.DataFrame([trade.to_dict() for trade in trades]),
+            pd.DataFrame([alert.to_dict() for alert in snapshot.recent_alerts]),
+        )
+    except Exception:
+        return None
+
+
+def _render_v2_paper_trading() -> None:
+    st.header("Paper Trading Cockpit")
+    st.caption(
+        "Profit-first v2 ledger. Equity, PnL, and drawdown are paper-only and include configured "
+        "execution costs. Legacy directional accuracy is shown lower on this page."
+    )
+    loaded = _load_v2_views()
+    if loaded is None:
+        st.info("No BitBat v2 paper ledger found yet. Start the v2 runtime to populate this view.")
+        return
+
+    snapshot, equity_df, orders_df, trades_df, alerts_df = loaded
+    performance = snapshot["performance"]
+    latest_signal = snapshot.get("latest_signal") or {}
+
+    top1, top2, top3, top4 = st.columns(4)
+    with top1:
+        st.metric("Paper Equity", f"${float(performance['equity']):,.2f}")
+    with top2:
+        st.metric("Net PnL", f"${float(performance['net_pnl']):,.2f}")
+    with top3:
+        st.metric("Position BTC", f"{float(performance['position_qty']):.4f}")
+    with top4:
+        st.metric("Exposure", f"{float(performance['exposure_pct']) * 100:.1f}%")
+
+    sub1, sub2, sub3, sub4 = st.columns(4)
+    with sub1:
+        st.metric("Signal", str(performance.get("last_signal_direction") or "none").upper())
+    with sub2:
+        signal_confidence = performance.get("signal_confidence")
+        st.metric(
+            "Signal Confidence",
+            f"{float(signal_confidence) * 100:.1f}%" if signal_confidence is not None else "N/A",
+        )
+    with sub3:
+        st.metric("Closed Trades", int(performance["closed_trade_count"]))
+    with sub4:
+        st.metric("Alpha vs Buy/Hold", f"{float(performance['alpha_vs_buy_hold']) * 100:.2f}%")
+
+    last_signal_at = performance.get("last_signal_at")
+    last_event_at = performance.get("last_event_at")
+    signal_age = "unknown"
+    if last_signal_at:
+        signal_age = f"last signal {last_signal_at}"
+    runtime_state = latest_signal.get("direction", performance.get("last_signal_direction", "none"))
+    st.caption(
+        f"Paper-only loud and clear. Freshness: {signal_age}. "
+        f"Last event: {last_event_at or 'unknown'}. Runtime signal: {runtime_state}."
+    )
+
+    if not equity_df.empty:
+        chart_df = equity_df.copy()
+        chart_df["occurred_at"] = pd.to_datetime(chart_df["occurred_at"], utc=True)
+        chart_df = chart_df.set_index("occurred_at")[["equity", "cash"]]
+        st.line_chart(chart_df, width="stretch")
+        st.caption("Equity and cash curve from the v2 paper ledger.")
+    else:
+        st.info("No paper equity curve yet.")
+
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Recent Paper Orders")
+        if not orders_df.empty:
+            st.dataframe(orders_df.head(12), width="stretch", hide_index=True)
+        else:
+            st.info("No paper orders yet.")
+    with right:
+        st.subheader("Closed Trades")
+        if not trades_df.empty:
+            st.dataframe(trades_df.head(12), width="stretch", hide_index=True)
+        else:
+            st.info("No closed trades yet.")
+
+    st.subheader("Alert Log")
+    if not alerts_df.empty:
+        st.dataframe(alerts_df.head(10), width="stretch", hide_index=True)
+    else:
+        st.info("No active paper-trading alerts.")
+
+
 # ------------------------------------------------------------------
 # No data guard
 # ------------------------------------------------------------------
-if not _DB.exists():
+if not _DB.exists() and not _V2_DB.exists():
     st.warning(
         "No performance data yet.  \n"
         "Start the monitoring system and wait for predictions to arrive."
     )
     st.stop()
+
+_render_v2_paper_trading()
+st.divider()
+st.header("Legacy Signal Diagnostics")
+st.caption("This lower section is accuracy-led legacy monitoring, not the active v2 paper ledger.")
 
 config = get_runtime_config() or load_config()
 freq, horizon = resolve_performance_scope(st.session_state, config)

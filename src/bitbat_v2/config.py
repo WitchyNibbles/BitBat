@@ -15,9 +15,12 @@ class BitBatV2Config:
     granularity_seconds: int = 300
     starting_cash_usd: float = 10_000.0
     order_size_btc: float = 0.01
+    min_order_size_btc: float = 0.005
     max_position_size_btc: float = 0.05
     signal_threshold: float = 0.0015
     sell_signal_threshold: float = 0.0012
+    fee_bps: float = 4.0
+    slippage_bps: float = 1.0
     stale_after_seconds: int = 180
     trend_lookback_candles: int = 12
     short_trend_lookback_candles: int = 3
@@ -42,6 +45,9 @@ class BitBatV2Config:
                 os.getenv("BITBAT_V2_STARTING_CASH_USD", str(cls.starting_cash_usd))
             ),
             order_size_btc=float(os.getenv("BITBAT_V2_ORDER_SIZE_BTC", str(cls.order_size_btc))),
+            min_order_size_btc=float(
+                os.getenv("BITBAT_V2_MIN_ORDER_SIZE_BTC", str(cls.min_order_size_btc))
+            ),
             max_position_size_btc=float(
                 os.getenv("BITBAT_V2_MAX_POSITION_BTC", str(cls.max_position_size_btc))
             ),
@@ -54,6 +60,8 @@ class BitBatV2Config:
                     str(cls.sell_signal_threshold),
                 )
             ),
+            fee_bps=float(os.getenv("BITBAT_V2_FEE_BPS", str(cls.fee_bps))),
+            slippage_bps=float(os.getenv("BITBAT_V2_SLIPPAGE_BPS", str(cls.slippage_bps))),
             stale_after_seconds=int(
                 os.getenv("BITBAT_V2_STALE_AFTER_SECONDS", str(cls.stale_after_seconds))
             ),

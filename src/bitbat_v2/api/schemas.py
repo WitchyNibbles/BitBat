@@ -70,6 +70,82 @@ class OrdersResponse(BaseModel):
     orders: list[OrderResponse] = Field(default_factory=list)
 
 
+class PaperAlertResponse(BaseModel):
+    occurred_at: datetime
+    code: str
+    message: str
+
+
+class PaperPerformancePointResponse(BaseModel):
+    occurred_at: datetime
+    equity: float
+    cash: float
+    position_qty: float
+    mark_price: float
+    realized_pnl: float
+    unrealized_pnl: float
+
+
+class PaperTradeResponse(BaseModel):
+    closed_at: datetime
+    quantity_btc: float
+    entry_price: float
+    exit_price: float
+    gross_pnl: float
+    net_pnl: float
+    fees_paid: float
+    return_pct: float
+
+
+class PaperPerformanceResponse(BaseModel):
+    as_of: datetime
+    starting_cash: float
+    equity: float
+    cash: float
+    position_qty: float
+    mark_price: float
+    realized_pnl: float
+    unrealized_pnl: float
+    net_pnl: float
+    net_pnl_pct: float
+    fees_paid: float
+    turnover_usd: float
+    trade_count: int
+    closed_trade_count: int
+    win_rate: float
+    expectancy_per_trade: float
+    max_drawdown_pct: float
+    exposure_pct: float
+    benchmark_equity: float
+    benchmark_return_pct: float
+    alpha_vs_buy_hold: float
+    last_signal_at: datetime | None = None
+    last_signal_direction: str | None = None
+    signal_confidence: float | None = None
+    last_event_at: datetime | None = None
+
+
+class PaperOrderResponse(BaseModel):
+    order_id: str
+    created_at: datetime
+    filled_at: datetime | None = None
+    side: str
+    quantity_btc: float
+    fill_price: float
+    status: str
+    notional_usd: float
+
+
+class PaperCockpitResponse(BaseModel):
+    portfolio: PortfolioResponse
+    performance: PaperPerformanceResponse
+    latest_signal: SignalResponse | None = None
+    recent_orders: list[PaperOrderResponse] = Field(default_factory=list)
+    recent_alerts: list[PaperAlertResponse] = Field(default_factory=list)
+    equity_curve: list[PaperPerformancePointResponse] = Field(default_factory=list)
+    closed_trades: list[PaperTradeResponse] = Field(default_factory=list)
+
+
 class ControlStateResponse(BaseModel):
     trading_paused: bool
     retrain_requested: bool

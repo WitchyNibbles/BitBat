@@ -47,3 +47,7 @@ def test_runtime_store_round_trips_state_across_reopen(tmp_path) -> None:
     assert orders and orders[0].status == "filled"
     assert control.retrain_requested is True
     assert control.last_acknowledged_alert == "operator cleared ritual alert"
+
+    portfolio_events = reopened.list_events_by_type("portfolio.updated", limit=10)
+    assert portfolio_events
+    assert portfolio_events[-1].event_type == "portfolio.updated"

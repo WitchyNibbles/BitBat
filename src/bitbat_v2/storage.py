@@ -168,12 +168,26 @@ class RuntimeStore:
             stream_key=stream_key,
         )
 
-    def list_events(self, limit: int = 50) -> list[RuntimeEvent]:
-        safe_limit = max(0, min(limit, 100))
+    def list_events(self, limit: int | None = 50) -> list[RuntimeEvent]:
+        safe_limit = None if limit is None else max(0, min(limit, 100))
+        query = select(self.events).order_by(self.events.c.id.desc())
+        if safe_limit is not None:
+            query = query.limit(safe_limit)
         with self.engine.begin() as conn:
-            rows = conn.execute(
-                select(self.events).order_by(self.events.c.id.desc()).limit(safe_limit)
-            ).all()
+            rows = conn.execute(query).all()
+        return [self._event_from_row(row) for row in reversed(rows)]
+
+    def list_events_by_type(self, event_type: str, limit: int | None = 50) -> list[RuntimeEvent]:
+        safe_limit = None if limit is None else max(0, min(limit, 10_000))
+        query = (
+            select(self.events)
+            .where(self.events.c.event_type == event_type)
+            .order_by(self.events.c.id.desc())
+        )
+        if safe_limit is not None:
+            query = query.limit(safe_limit)
+        with self.engine.begin() as conn:
+            rows = conn.execute(query).all()
         return [self._event_from_row(row) for row in reversed(rows)]
 
     def count_events(self) -> int:
@@ -309,11 +323,12 @@ class RuntimeStore:
                     .values(**values)
                 )
 
-    def get_orders(self, limit: int = 20) -> list[PaperOrder]:
+    def get_orders(self, limit: int | None = 20) -> list[PaperOrder]:
+        query = select(self.orders).order_by(self.orders.c.created_at.desc())
+        if limit is not None:
+            query = query.limit(limit)
         with self.engine.begin() as conn:
-            rows = conn.execute(
-                select(self.orders).order_by(self.orders.c.created_at.desc()).limit(limit)
-            ).all()
+            rows = conn.execute(query).all()
         return [self._order_from_row(row) for row in rows]
 
     def clear_orders(self) -> None:
