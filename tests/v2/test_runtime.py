@@ -44,7 +44,8 @@ def test_process_candle_generates_signal_order_and_portfolio(tmp_path) -> None:
     assert outcome.decision.action == "buy"
     assert outcome.order is not None
     assert outcome.order.status == "filled"
-    assert outcome.portfolio.position_qty == runtime.config.order_size_btc
+    assert outcome.portfolio.position_qty >= runtime.config.order_size_btc
+    assert outcome.portfolio.position_qty <= runtime.config.max_position_size_btc
     assert outcome.portfolio.cash < runtime.config.starting_cash_usd
     assert any(reason.startswith("score=") for reason in outcome.signal.reasons)
     assert "confirmed positive trend and score above threshold" in outcome.decision.reason
@@ -256,6 +257,45 @@ def test_sell_signal_without_position_holds(tmp_path) -> None:
     assert outcome.decision.action == "hold"
     assert outcome.order is None
     assert outcome.decision.reason == "no valid spot action"
+
+
+def test_runtime_applies_fees_slippage_and_dynamic_sizing(tmp_path) -> None:
+    now = datetime(2026, 4, 25, 10, 1, tzinfo=UTC)
+    config = BitBatV2Config(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        order_size_btc=0.01,
+        max_position_size_btc=0.05,
+        min_order_size_btc=0.005,
+        signal_threshold=0.001,
+        fee_bps=10.0,
+        slippage_bps=10.0,
+    )
+    runtime = BitBatRuntime(
+        store=RuntimeStore(config.database_url),
+        config=config,
+        now_fn=lambda: now,
+    )
+    runtime.initialize()
+
+    outcome = runtime.process_candle(
+        Candle(
+            product_id="BTC-USD",
+            granularity_seconds=300,
+            start=datetime(2026, 4, 25, 10, 0, tzinfo=UTC),
+            open=100_000.0,
+            high=100_900.0,
+            low=99_800.0,
+            close=100_700.0,
+            volume=12.5,
+        )
+    )
+
+    assert outcome.order is not None
+    assert outcome.order.fill_price > 100_700.0
+    assert outcome.order.quantity_btc > config.order_size_btc
+    assert outcome.portfolio.avg_entry_price >= outcome.order.fill_price
+    assert outcome.portfolio.equity < config.starting_cash_usd
 
 
 def test_filtered_strategy_holds_when_range_and_body_filters_fail(tmp_path) -> None:

@@ -5,7 +5,8 @@ import sys
 from datetime import UTC, datetime
 
 from bitbat_v2.api.app import create_app
-from bitbat_v2.domain import Candle
+from bitbat_v2.domain import Candle, PortfolioSnapshot, PredictionSignal, utc_now
+from bitbat_v2.storage import RuntimeStore
 from tests.api.client import SyncASGIClient
 
 AUTH_HEADERS = {"X-BitBat-Operator-Token": "test-token"}
@@ -63,6 +64,15 @@ def test_v2_api_health_and_simulation_flow(tmp_path) -> None:
     portfolio = client.get("/v1/portfolio", headers=AUTH_HEADERS)
     assert portfolio.status_code == 200
     assert portfolio.json()["equity"] > 0
+
+    paper = client.get("/v1/paper", headers=AUTH_HEADERS)
+    assert paper.status_code == 200
+    assert paper.json()["performance"]["trade_count"] >= 1
+    assert "equity_curve" in paper.json()
+
+    performance = client.get("/v1/performance", headers=AUTH_HEADERS)
+    assert performance.status_code == 200
+    assert "net_pnl" in performance.json()
 
 
 def test_v2_latest_signal_returns_404_before_any_candle(tmp_path) -> None:
@@ -261,3 +271,77 @@ def test_v2_simulate_candle_rejects_invalid_ohlc(tmp_path) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_v2_paper_summary_uses_full_order_history_beyond_recent_table_limit(tmp_path) -> None:
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        operator_token=AUTH_TOKEN,
+    )
+    store = RuntimeStore(app.state.config.database_url)
+    store.save_latest_signal(
+        PredictionSignal(
+            signal_id="sig-many",
+            generated_at=utc_now(),
+            product_id="BTC-USD",
+            venue="coinbase",
+            model_name="ritual-momentum-v1",
+            direction="buy",
+            confidence=0.61,
+            predicted_return=0.003,
+            predicted_price=101_000.0,
+            reasons=["score=0.003000"],
+        )
+    )
+    store.save_portfolio(
+        PortfolioSnapshot(
+            as_of=utc_now(),
+            cash=10_050.0,
+            position_qty=0.0,
+            avg_entry_price=0.0,
+            mark_price=100_900.0,
+            realized_pnl=50.0,
+            unrealized_pnl=0.0,
+            equity=10_050.0,
+            status="paper",
+        )
+    )
+    for idx in range(600):
+        app.state.store.save_order(
+            app.state.runtime._fill_order(  # noqa: SLF001
+                decision=type(
+                    "Decision",
+                    (),
+                    {
+                        "decision_id": f"dec-{idx}",
+                        "signal_id": "sig-many",
+                        "decided_at": utc_now(),
+                        "action": "buy" if idx % 2 == 0 else "sell",
+                        "quantity_btc": 0.01,
+                    },
+                )(),
+                price=100_000.0 + idx,
+            )
+        )
+    app.state.store.append_event(
+        "portfolio.updated",
+        {
+            "equity": 10_050.0,
+            "cash": 10_050.0,
+            "position_qty": 0.0,
+            "mark_price": 100_900.0,
+            "realized_pnl": 50.0,
+            "unrealized_pnl": 0.0,
+        },
+    )
+    client = SyncASGIClient(app)
+
+    paper = client.get("/v1/paper", headers=AUTH_HEADERS)
+    performance = client.get("/v1/performance", headers=AUTH_HEADERS)
+
+    assert paper.status_code == 200
+    assert performance.status_code == 200
+    assert paper.json()["performance"]["trade_count"] == 600
+    assert performance.json()["trade_count"] == 600
+    assert len(paper.json()["recent_orders"]) == 50

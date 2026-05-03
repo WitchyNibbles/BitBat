@@ -322,9 +322,10 @@ class BitBatRuntime:
                 trading_paused=True,
             )
         if signal.direction == "buy":
+            quantity = self._size_order_quantity(signal, side="buy", portfolio=portfolio)
             if (
-                portfolio.position_qty + self.config.order_size_btc
-                > self.config.max_position_size_btc
+                quantity <= 0.0
+                or portfolio.position_qty + quantity > self.config.max_position_size_btc
             ):
                 self._raise_alert("risk_cap", "Position cap prevented a new buy order.")
                 return StrategyDecision(
@@ -340,16 +341,17 @@ class BitBatRuntime:
                 signal_id=signal.signal_id,
                 decided_at=self.now_fn(),
                 action="buy",
-                quantity_btc=self.config.order_size_btc,
+                quantity_btc=quantity,
                 reason="confirmed positive trend and score above threshold",
             )
-        if signal.direction == "sell" and portfolio.position_qty >= self.config.order_size_btc:
+        if signal.direction == "sell" and portfolio.position_qty > 0:
+            quantity = self._size_order_quantity(signal, side="sell", portfolio=portfolio)
             return StrategyDecision(
                 decision_id=f"dec-{uuid4().hex[:12]}",
                 signal_id=signal.signal_id,
                 decided_at=self.now_fn(),
                 action="sell",
-                quantity_btc=self.config.order_size_btc,
+                quantity_btc=quantity,
                 reason="confirmed downside trend and score below sell threshold",
             )
         return StrategyDecision(
@@ -363,6 +365,7 @@ class BitBatRuntime:
 
     def _fill_order(self, decision: StrategyDecision, price: float) -> PaperOrder:
         filled_at = self.now_fn()
+        fill_price = self._execution_price(price, side=decision.action)
         return PaperOrder(
             order_id=f"ord-{uuid4().hex[:12]}",
             decision_id=decision.decision_id,
@@ -370,7 +373,7 @@ class BitBatRuntime:
             created_at=decision.decided_at,
             side=decision.action,
             quantity_btc=decision.quantity_btc,
-            fill_price=price,
+            fill_price=round(fill_price, 2),
             status="filled",
             filled_at=filled_at,
         )
@@ -386,7 +389,8 @@ class BitBatRuntime:
         avg_entry_price = portfolio.avg_entry_price
         realized_pnl = portfolio.realized_pnl
         if order.side == "buy":
-            fill_cost = order.quantity_btc * order.fill_price
+            fee_paid = self._fee_paid(order.quantity_btc, order.fill_price)
+            fill_cost = (order.quantity_btc * order.fill_price) + fee_paid
             new_position = position_qty + order.quantity_btc
             avg_entry_price = (
                 ((position_qty * avg_entry_price) + fill_cost) / new_position
@@ -396,13 +400,18 @@ class BitBatRuntime:
             cash -= fill_cost
             position_qty = new_position
         elif order.side == "sell" and position_qty >= order.quantity_btc:
-            cash += order.quantity_btc * order.fill_price
-            realized_pnl += order.quantity_btc * (order.fill_price - avg_entry_price)
+            fee_paid = self._fee_paid(order.quantity_btc, order.fill_price)
+            net_proceeds = (order.quantity_btc * order.fill_price) - fee_paid
+            cash += net_proceeds
+            realized_pnl += net_proceeds - (order.quantity_btc * avg_entry_price)
             position_qty -= order.quantity_btc
             if position_qty == 0.0:
                 avg_entry_price = 0.0
-        unrealized_pnl = (mark_price - avg_entry_price) * position_qty if position_qty else 0.0
-        equity = cash + (position_qty * mark_price)
+        net_exit_price = self._net_exit_price(mark_price)
+        unrealized_pnl = (
+            ((net_exit_price - avg_entry_price) * position_qty) if position_qty else 0.0
+        )
+        equity = cash + (position_qty * net_exit_price)
         return PortfolioSnapshot(
             as_of=self.now_fn(),
             cash=round(cash, 2),
@@ -416,12 +425,13 @@ class BitBatRuntime:
         )
 
     def _mark_portfolio(self, portfolio: PortfolioSnapshot, mark_price: float) -> PortfolioSnapshot:
+        net_exit_price = self._net_exit_price(mark_price)
         unrealized_pnl = (
-            (mark_price - portfolio.avg_entry_price) * portfolio.position_qty
+            (net_exit_price - portfolio.avg_entry_price) * portfolio.position_qty
             if portfolio.position_qty
             else 0.0
         )
-        equity = portfolio.cash + (portfolio.position_qty * mark_price)
+        equity = portfolio.cash + (portfolio.position_qty * net_exit_price)
         return PortfolioSnapshot(
             as_of=self.now_fn(),
             cash=portfolio.cash,
@@ -468,6 +478,44 @@ class BitBatRuntime:
             int(self.config.trend_lookback_candles),
             int(self.config.short_trend_lookback_candles),
         )
+
+    def _size_order_quantity(
+        self,
+        signal: PredictionSignal,
+        *,
+        side: str,
+        portfolio: PortfolioSnapshot,
+    ) -> float:
+        threshold = (
+            abs(self.config.signal_threshold)
+            if side == "buy"
+            else abs(self.config.sell_signal_threshold)
+        )
+        threshold = max(threshold, 1e-9)
+        strength = abs(signal.predicted_return) / threshold
+        multiplier = min(2.0, max(0.5, strength))
+        quantity = max(self.config.min_order_size_btc, self.config.order_size_btc * multiplier)
+        if side == "buy":
+            remaining = max(self.config.max_position_size_btc - portfolio.position_qty, 0.0)
+            quantity = min(quantity, remaining)
+        else:
+            quantity = min(quantity, portfolio.position_qty)
+        return round(max(quantity, 0.0), 8)
+
+    def _fee_paid(self, quantity_btc: float, fill_price: float) -> float:
+        fee_rate = max(float(self.config.fee_bps), 0.0) / 10_000.0
+        return quantity_btc * fill_price * fee_rate
+
+    def _execution_price(self, mark_price: float, *, side: str) -> float:
+        slippage_rate = max(float(self.config.slippage_bps), 0.0) / 10_000.0
+        if side == "buy":
+            return mark_price * (1.0 + slippage_rate)
+        return mark_price * (1.0 - slippage_rate)
+
+    def _net_exit_price(self, mark_price: float) -> float:
+        sell_fill_price = self._execution_price(mark_price, side="sell")
+        fee_rate = max(float(self.config.fee_bps), 0.0) / 10_000.0
+        return sell_fill_price * (1.0 - fee_rate)
 
 
 def format_sse(event: RuntimeEvent) -> str:

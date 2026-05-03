@@ -20,6 +20,7 @@ review gates.
 10. legacy deprecation prerequisites
 11. autonomous paper execution
 12. deterministic strategy improvement and offline evaluation
+13. profit-first paper trading cockpit
 
 ## Bounded architecture
 
@@ -121,3 +122,18 @@ review gates.
   - local evaluation evidence exists for `data/raw/prices/btcusd_yf_5m.parquet`
   - live-money trading remains blocked
   - legacy services remain untouched
+
+### 13. profit-first paper trading cockpit
+
+- gate state: `complete`
+- purpose:
+  - shift v2 from accuracy-led diagnostics toward profit-seeking paper trading
+  - add an auditable paper ledger and profit-oriented read models
+  - give the operator a dedicated paper trading view for PnL, exposure, fills, and freshness
+- current decision:
+  - scope stays inside `bitbat_v2`
+  - legacy autonomous prediction paths remain diagnostic-only and read-only
+  - paper-only execution remains the hard boundary
+  - success is measured by net paper performance after costs plus operator visibility, not raw hit
+    rate alone
+  - task 13 review gate passed with residual pagination and browser-smoke follow-up risk only
