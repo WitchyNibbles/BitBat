@@ -8,7 +8,7 @@ Session 2 additions: auto-refresh, activity feed, countdown timer.
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from html import escape
 from pathlib import Path
 
@@ -23,6 +23,7 @@ from style import inject_css  # noqa: E402
 from bitbat.gui.presets import DEFAULT_PRESET, get_preset  # noqa: E402
 from bitbat.gui.widgets import (  # noqa: E402
     cadence_minutes,
+    format_local_timestamp,
     format_relative_time,
     get_ingestion_status,
     get_latest_prediction,
@@ -119,6 +120,7 @@ def _render_home() -> None:  # noqa: C901
 
     current_preset = get_preset(_current_preset_name)
     cadence = cadence_minutes(current_preset.freq)
+    forecast_horizon_minutes = cadence_minutes(current_preset.horizon)
     _DB = ROOT / "data" / "autonomous.db"
     _DATA_DIR = ROOT / "data"
 
@@ -179,8 +181,21 @@ def _render_home() -> None:  # noqa: C901
             else:
                 st.markdown(f"**Confidence:** {confidence:.0%}")
             sealed_age = format_relative_time(latest_pred.get("created_at")) or "at an unknown time"
+            signal_time = format_local_timestamp(latest_pred.get("timestamp_utc")) or "unknown"
+            target_time = None
+            raw_signal_time = latest_pred.get("timestamp_utc")
+            if raw_signal_time is not None:
+                try:
+                    signal_dt = datetime.fromisoformat(str(raw_signal_time).replace("Z", "+00:00"))
+                    target_time = format_local_timestamp(
+                        signal_dt + timedelta(minutes=forecast_horizon_minutes)
+                    )
+                except ValueError:
+                    target_time = None
             st.caption(
-                f"Forecast for {latest_pred.get('timestamp_utc', 'unknown')} • "
+                f"Signal at {signal_time}"
+                + (f" • Targets {target_time}" if target_time else "")
+                + " • "
                 f"Model {latest_pred.get('model_version', 'unknown')} • "
                 f"Sealed {sealed_age}"
             )
