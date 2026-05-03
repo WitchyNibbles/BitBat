@@ -153,6 +153,40 @@ class LivePredictor:
         - ``reason``: stable reason code for operator diagnostics
         - ``message``: concise human-readable explanation
         """
+        try:
+            with self.db.session() as session:
+                pending_predictions = self.db.get_unrealized_predictions(
+                    session=session,
+                    freq=self.freq,
+                    horizon=self.horizon,
+                )
+        except Exception as exc:
+            raise classify_monitor_db_error(
+                exc,
+                step="predict.fetch_unrealized_predictions",
+                database_url=self.db.database_url,
+                engine=self.db.engine,
+            ) from exc
+        if pending_predictions:
+            oldest_pending = min(
+                _normalize_timestamp(prediction.timestamp_utc) for prediction in pending_predictions
+            )
+            logger.info(
+                "Skipping prediction for %s/%s because %d prediction(s) remain unrealized",
+                self.freq,
+                self.horizon,
+                len(pending_predictions),
+            )
+            return self._result(
+                status="no_prediction",
+                reason="pending_realization",
+                message="Existing prediction must be realized before starting a new one",
+                details={
+                    "pending_predictions": int(len(pending_predictions)),
+                    "oldest_pending_timestamp": oldest_pending.isoformat(),
+                },
+            )
+
         # Load model
         try:
             booster = self._load_model()

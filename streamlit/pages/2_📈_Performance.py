@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -140,6 +141,10 @@ def _load_prices_for_freq(freq: str) -> pd.DataFrame:
     return frame.dropna(subset=["timestamp_utc", "close"])
 
 
+def _display_timezone() -> object | None:
+    return datetime.now().astimezone().tzinfo
+
+
 # ------------------------------------------------------------------
 # No data guard
 # ------------------------------------------------------------------
@@ -259,11 +264,20 @@ else:
 # ------------------------------------------------------------------
 st.header("Recent Predictions")
 st.caption(
-    "Predicted price is the stored signal target. Actual price is the realized market price "
-    "when the outcome became knowable for that prediction."
+    "Signal Time is when the model made the call. Forecast For is the target time when the "
+    f"`{horizon}` horizon resolves. Price Gap compares the target against the market price known "
+    "for that row: entry price while pending, realized price once completed."
 )
 
-recent_df = format_recent_predictions(prediction_rows, limit=20, prices=price_rows, freq=freq)
+recent_df = format_recent_predictions(
+    prediction_rows,
+    limit=20,
+    prices=price_rows,
+    freq=freq,
+    horizon=horizon,
+    tau=tau,
+    display_timezone=_display_timezone(),
+)
 if not recent_df.empty:
     st.dataframe(recent_df, width="stretch", hide_index=True)
 else:

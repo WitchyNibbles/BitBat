@@ -84,6 +84,21 @@ def _parse_timestamp(value: Any) -> datetime | None:
     return dt
 
 
+def format_local_timestamp(
+    value: Any,
+    *,
+    display_timezone: Any | None = None,
+) -> str | None:
+    """Format a stored UTC timestamp in local time with an explicit zone label."""
+    parsed = _parse_timestamp(value)
+    if parsed is None:
+        return None
+    zone = display_timezone or datetime.now().astimezone().tzinfo
+    if zone is None:
+        return parsed.strftime("%Y-%m-%d %H:%M UTC")
+    return parsed.replace(tzinfo=UTC).astimezone(zone).strftime("%Y-%m-%d %H:%M %Z")
+
+
 def _latest_timestamp(
     db_path: Path,
     table: str,

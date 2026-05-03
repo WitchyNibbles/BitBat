@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 
@@ -51,6 +53,59 @@ def _format_currency(value: Any) -> str:
     if pd.isna(value):
         return "—"
     return f"${float(value):,.2f}"
+
+
+def _format_timestamp_for_display(
+    value: Any,
+    *,
+    display_timezone: Any | None = None,
+) -> Any:
+    """Format timestamps for display, optionally converting from UTC to a local zone."""
+    if pd.isna(value):
+        return value
+    ts = pd.Timestamp(value)
+    if display_timezone is None:
+        return ts
+    zone = display_timezone
+    if isinstance(display_timezone, str):
+        try:
+            zone = ZoneInfo(display_timezone)
+        except ZoneInfoNotFoundError:
+            return ts
+    ts = ts.tz_localize(UTC) if ts.tzinfo is None else ts.tz_convert(UTC)
+    local = ts.tz_convert(zone)
+    return local.strftime("%Y-%m-%d %H:%M %Z")
+
+
+def _derive_display_predicted_price(
+    predicted_direction: pd.Series,
+    entry_price: pd.Series,
+    *,
+    tau: float,
+) -> pd.Series:
+    """Derive a concrete display price for direction-only historical rows."""
+    direction = predicted_direction.astype("string").str.lower()
+    base = entry_price.astype("Float64")
+    derived = base.copy()
+    derived = derived.where(~direction.eq("up"), base * (1.0 + tau))
+    derived = derived.where(~direction.eq("down"), base * (1.0 - tau))
+    return derived.astype("Float64")
+
+
+def _target_timestamps(
+    timestamps: pd.Series,
+    *,
+    horizon: str | None,
+) -> pd.Series:
+    """Return target timestamps for the forecast horizon when parseable."""
+    result = pd.Series(pd.NaT, index=timestamps.index, dtype="datetime64[ns]")
+    if not horizon:
+        return result
+    try:
+        delta = pd.to_timedelta(horizon)
+    except Exception:
+        return result
+    return timestamps + delta
 
 
 def normalize_performance_rows(df: pd.DataFrame) -> pd.DataFrame:
@@ -146,6 +201,7 @@ def attach_price_evidence(
     prices: pd.DataFrame | None,
     *,
     freq: str | None = None,
+    tau: float = 0.01,
 ) -> pd.DataFrame:
     """Attach user-facing price evidence to normalized performance rows."""
     normalized = normalize_performance_rows(predictions)
@@ -203,8 +259,18 @@ def attach_price_evidence(
     actual_price = actual_end.fillna(derived_actual)
 
     enriched["entry_price"] = entry_price
+    derived_predicted = _derive_display_predicted_price(
+        enriched["predicted_direction"],
+        entry_price,
+        tau=tau,
+    )
+    enriched["predicted_price"] = (
+        enriched["predicted_price"].astype("Float64").fillna(derived_predicted)
+    )
     enriched["actual_price"] = actual_price.astype("Float64")
-    gap_denominator = enriched["actual_price"].replace({0.0: pd.NA}).astype("Float64")
+    gap_denominator = (
+        enriched["actual_price"].fillna(entry_price).replace({0.0: pd.NA}).astype("Float64")
+    )
     enriched["price_gap_pct"] = (
         (enriched["predicted_price"].astype("Float64") - gap_denominator) / gap_denominator
     ).astype("Float64")
@@ -311,21 +377,40 @@ def format_recent_predictions(
     limit: int = 20,
     prices: pd.DataFrame | None = None,
     freq: str | None = None,
+    horizon: str | None = None,
+    tau: float = 0.01,
+    display_timezone: str | None = None,
 ) -> pd.DataFrame:
     """Return a user-facing recent-predictions table."""
-    normalized = attach_price_evidence(predictions, prices, freq=freq)
-    recent = normalized[normalized["correct"].notna()].sort_values(
-        "timestamp_utc",
-        ascending=False,
+    normalized = attach_price_evidence(predictions, prices, freq=freq, tau=tau)
+    normalized["target_timestamp"] = _target_timestamps(
+        normalized["timestamp_utc"],
+        horizon=horizon,
     )
-    recent = recent.head(limit)
+    normalized["status"] = "⏳ Pending"
+    normalized.loc[normalized["correct"].eq(True), "status"] = "✅ Correct"
+    normalized.loc[normalized["correct"].eq(False), "status"] = "❌ Missed"
+
+    recent = normalized.sort_values("timestamp_utc", ascending=False).head(limit)
     if recent.empty:
         return pd.DataFrame(
-            columns=["Time", "Prediction", "Confidence %", "Actual Outcome", "Correct?"]
+            columns=[
+                "Signal Time",
+                "Forecast For",
+                "Prediction",
+                "Confidence %",
+                "Predicted Price",
+                "Actual Price",
+                "Price Gap %",
+                "Actual Outcome",
+                "Actual Return",
+                "Status",
+            ]
         )
 
     display = pd.DataFrame({
-        "Time": recent["timestamp_utc"],
+        "Signal Time": recent["timestamp_utc"],
+        "Forecast For": recent["target_timestamp"],
         "Prediction": recent["predicted_direction"].map({
             "up": "📈 UP",
             "down": "📉 DOWN",
@@ -341,6 +426,19 @@ def format_recent_predictions(
             "flat": "➡️ FLAT",
         }),
         "Actual Return": recent["actual_return"].map(_format_percent),
-        "Correct?": recent["correct"].map({True: "✅ Yes", False: "❌ No"}),
+        "Status": recent["status"],
     })
+    if display_timezone is not None:
+        display["Signal Time"] = display["Signal Time"].map(
+            lambda value: _format_timestamp_for_display(
+                value,
+                display_timezone=display_timezone,
+            )
+        )
+        display["Forecast For"] = display["Forecast For"].map(
+            lambda value: _format_timestamp_for_display(
+                value,
+                display_timezone=display_timezone,
+            )
+        )
     return display.fillna("—").reset_index(drop=True)

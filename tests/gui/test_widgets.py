@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime, timedelta  # noqa: F401
+from datetime import UTC, datetime, timedelta, timezone  # noqa: F401
 from pathlib import Path
 
 import pytest
@@ -12,6 +12,7 @@ import pytest
 from bitbat.gui.widgets import (
     cadence_minutes,
     db_query,
+    format_local_timestamp,
     format_relative_time,
     get_cycle_health,
     get_ingestion_status,
@@ -519,6 +520,13 @@ class TestCadenceHelpers:
         label = format_relative_time(timestamp)
         assert label is not None
         assert label.endswith("ago")
+
+    def test_format_local_timestamp_converts_utc_string(self) -> None:
+        label = format_local_timestamp(
+            "2026-05-03T14:25:00Z",
+            display_timezone=timezone(timedelta(hours=2), name="CEST"),
+        )
+        assert label == "2026-05-03 16:25 CEST"
 
 
 class TestGetRuntimeSummary:
