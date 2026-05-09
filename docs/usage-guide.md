@@ -22,23 +22,22 @@ This guide outlines typical workflows using the `bitbat` CLI. All commands are i
   - `--config FILE`: Load a specific config file.
   - `--version`: Print package version and exit.
 
-## Streamlit UI
+## React Dashboard + Autonomous Stack
 
-The Streamlit app provides the same workflow coverage as the CLI (ingest → features → model → predictions → monitor/backtest) and reads the same configuration values: `data_dir`, `freq`, `horizon`, and `tau`.
+The supported operator surface is the React dashboard backed by the API/runtime services.
 
-Run it with:
+Run the full local stack with:
 ```bash
-poetry run streamlit run streamlit/app.py
-# or
-make streamlit
+make autonomous-up
 ```
 
-Outputs are written to the same locations as the CLI:
-- `${data_dir}/raw/` for ingested data
-- `${data_dir}/features/{freq}_{horizon}/` for datasets + metadata
-- `models/{freq}_{horizon}/` for trained models
-- `${data_dir}/predictions/{freq}_{horizon}.parquet` for predictions
-- `metrics/live_{freq}_{horizon}.json` for monitoring snapshots
+Default ports:
+- `3000` → React dashboard
+- `8000` → legacy API
+- `8101` → v2 paper-trading API
+
+The stack bootstraps a compatible runtime model if one is missing, then starts ingestion,
+monitoring, both APIs, and the dashboard. Stop it with `make autonomous-down`.
 
 ## Data Ingestion
 
@@ -68,8 +67,8 @@ poetry run bitbat news pull --from 2024-01-01T00:00:00 --to 2024-01-02T00:00:00
 - `cryptocompare` is the primary historical source for base-training backfills.
 - `gdelt` remains available as a fallback source (historical and often more brittle at scale).
 - Default throttling/retry values are `news_throttle_seconds: 10.0` and `news_retry_limit: 30` from `src/bitbat/config/default.yaml`.
-- Recommended realtime approach is price-only: disable sentiment **before** running `bitbat features build`, `bitbat model train`, and downstream steps by setting `enable_sentiment: false` in `src/bitbat/config/default.yaml` or unchecking the Streamlit "Enable sentiment" checkbox.
-- The CLI reads `enable_sentiment` from config for `bitbat features build`, `bitbat model cv`, `bitbat model train`, `bitbat model infer`, and `bitbat batch run` (feature contract expectations follow the same toggle). The Streamlit ingest page also follows `news_source`.
+- Recommended realtime approach is price-only: disable sentiment **before** running `bitbat features build`, `bitbat model train`, and downstream steps by setting `enable_sentiment: false` in `src/bitbat/config/default.yaml`.
+- The CLI reads `enable_sentiment` from config for `bitbat features build`, `bitbat model cv`, `bitbat model train`, `bitbat model infer`, and `bitbat batch run` (feature contract expectations follow the same toggle).
 
 ## Feature Engineering
 ```bash

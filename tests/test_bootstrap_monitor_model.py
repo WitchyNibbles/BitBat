@@ -12,7 +12,7 @@ pytestmark = pytest.mark.integration
 
 def test_bootstrap_runtime_model_runs_expected_cli_sequence(tmp_path: Path) -> None:
     config_path = tmp_path / "runtime.yaml"
-    config_path.write_text('freq: "5m"\nhorizon: "30m"\n', encoding="utf-8")
+    config_path.write_text('preset: "balanced"\nfreq: "5m"\nhorizon: "30m"\n', encoding="utf-8")
 
     calls: list[tuple[list[str], Path, dict[str, str]]] = []
 
@@ -70,7 +70,7 @@ def test_bootstrap_runtime_model_runs_expected_cli_sequence(tmp_path: Path) -> N
 
 def test_bootstrap_runtime_model_raises_if_training_did_not_create_artifact(tmp_path: Path) -> None:
     config_path = tmp_path / "runtime.yaml"
-    config_path.write_text('freq: "5m"\nhorizon: "30m"\n', encoding="utf-8")
+    config_path.write_text('preset: "balanced"\nfreq: "5m"\nhorizon: "30m"\n', encoding="utf-8")
 
     def _runner(
         cmd: list[str],
@@ -92,3 +92,34 @@ def test_bootstrap_runtime_model_raises_if_training_did_not_create_artifact(tmp_
             root_dir=tmp_path,
             runner=_runner,
         )
+
+
+def test_bootstrap_runtime_model_accepts_random_forest_artifact(tmp_path: Path) -> None:
+    config_path = tmp_path / "runtime.yaml"
+    config_path.write_text('preset: "conservative"\nfreq: "1h"\nhorizon: "24h"\n', encoding="utf-8")
+
+    def _runner(
+        cmd: list[str],
+        *,
+        cwd: Path,
+        env: dict[str, str],
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        del env, capture_output, text, check
+        if cmd[3:] == ["model", "train", "--freq", "1h", "--horizon", "24h"]:
+            model_dir = cwd / "models" / "1h_24h"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            (model_dir / "random_forest.pkl").write_text("rf", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, "ok", "")
+
+    artifact = bootstrap_monitor_model.bootstrap_runtime_model(
+        config_path=config_path,
+        start_date="2026-01-01",
+        symbol="BTC-USD",
+        root_dir=tmp_path,
+        runner=_runner,
+    )
+
+    assert artifact == tmp_path / "models" / "1h_24h" / "random_forest.pkl"

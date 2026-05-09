@@ -14,7 +14,8 @@ from pathlib import Path
 # Allow direct script execution without package installation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from bitbat.config.loader import load_config
+from bitbat.config.loader import load_config, resolve_models_dir
+from bitbat.model.mode_profiles import get_mode_model_profile
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -59,6 +60,26 @@ def _run_bitbat(
         raise RuntimeError(f"Command failed: {' '.join(args)}\n{details}".strip())
 
 
+def _resolve_preset(config: dict[str, object]) -> str:
+    resolved = str(config.get("preset", "balanced")).strip().lower()
+    return resolved or "balanced"
+
+
+def _candidate_artifacts(*, config: dict[str, object], root_dir: Path) -> list[Path]:
+    preset_name = _resolve_preset(config)
+    profile = get_mode_model_profile(preset_name)
+    freq = str(config.get("freq", profile.freq))
+    horizon = str(config.get("horizon", profile.horizon))
+    pair_dir = root_dir / resolve_models_dir(config) / f"{freq}_{horizon}"
+    candidates: list[Path] = []
+    for family in profile.candidate_families or (profile.family,):
+        if family == "xgb":
+            candidates.append(pair_dir / "xgb.json")
+        elif family == "random_forest":
+            candidates.append(pair_dir / "random_forest.pkl")
+    return candidates
+
+
 def bootstrap_runtime_model(
     *,
     config_path: Path,
@@ -100,11 +121,12 @@ def bootstrap_runtime_model(
         runner=runner,
     )
 
-    artifact = root_dir / "models" / f"{freq}_{horizon}" / "xgb.json"
-    if not artifact.exists():
+    artifacts = _candidate_artifacts(config=cfg, root_dir=root_dir)
+    artifact = next((path for path in artifacts if path.exists()), None)
+    if artifact is None:
         raise FileNotFoundError(
-            "Bootstrap completed, but model artifact was not created: "
-            f"{artifact.relative_to(root_dir)}"
+            "Bootstrap completed, but no compatible model artifact was created for "
+            f"{freq}_{horizon}: {', '.join(str(path.relative_to(root_dir)) for path in artifacts)}"
         )
     return artifact
 

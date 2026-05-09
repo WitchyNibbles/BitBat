@@ -1,9 +1,4 @@
-"""
-Reusable Streamlit UI widgets for the BitBat dashboard.
-
-All widgets accept a Streamlit container (or None to render in the main area)
-and render consistently across pages.
-"""
+"""Reusable UI-facing data helpers for BitBat runtime views."""
 
 from __future__ import annotations
 
@@ -31,7 +26,7 @@ _FREQ_TO_MINUTES = {
 }
 
 # ---------------------------------------------------------------------------
-# Data helpers (no Streamlit dependency — pure Python)
+# Data helpers (pure Python, UI-agnostic)
 # ---------------------------------------------------------------------------
 
 
@@ -703,69 +698,3 @@ def get_runtime_summary(
         "countdown_minutes": countdown,
         "cycle_health": cycle_health,
     })
-
-
-# ---------------------------------------------------------------------------
-# Streamlit render helpers (import st lazily to keep module importable in tests)
-# ---------------------------------------------------------------------------
-
-
-def render_status_card(db_path: Path) -> None:
-    """Render a compact status card (active/idle/not started)."""
-    import streamlit as st  # noqa: PLC0415
-
-    info = get_system_status(db_path)
-    st.metric("System Status", info["label"])
-    if info["hours_ago"] is not None:
-        st.caption(f"Last snapshot {info['hours_ago']:.1f}h ago")
-
-
-def render_prediction_card(pred: dict[str, Any]) -> None:
-    """Render a compact prediction result card."""
-    import streamlit as st  # noqa: PLC0415
-
-    direction = pred["direction"]
-    predicted_return = pred.get("predicted_return", 0.0)
-    predicted_price = pred.get("predicted_price")
-
-    price_str = f"${predicted_price:,.0f} " if predicted_price is not None else ""
-    sign = "+" if predicted_return >= 0 else ""
-    ret_str = f"({sign}{predicted_return:.2%})"
-
-    if direction == "up":
-        st.success(f"Predicted: {price_str}{ret_str}")
-    elif direction == "down":
-        st.error(f"Predicted: {price_str}{ret_str}")
-    else:
-        st.info(f"Predicted: {price_str}{ret_str}")
-
-
-def render_countdown(minutes: int | None) -> None:
-    """Render a 'Next prediction in X minutes' widget."""
-    import streamlit as st  # noqa: PLC0415
-
-    if minutes is None:
-        st.caption("Next prediction: unknown")
-    elif minutes == 0:
-        st.caption("Next prediction: imminent")
-    else:
-        hrs, mins = divmod(minutes, 60)
-        if hrs > 0:
-            st.caption(f"Next prediction in: {hrs}h {mins}m")
-        else:
-            st.caption(f"Next prediction in: {mins}m")
-
-
-def render_activity_feed(db_path: Path, limit: int = 10) -> None:
-    """Render a list of recent system events."""
-    import streamlit as st  # noqa: PLC0415
-
-    events = get_recent_events(db_path, limit=limit)
-    if not events:
-        st.info("No recent activity recorded yet.")
-        return
-
-    level_icons = {"INFO": "ℹ️", "WARNING": "⚠️", "ERROR": "❌", "DEBUG": "🔍"}
-    for ev in events:
-        icon = level_icons.get(str(ev["level"]).upper(), "•")
-        st.markdown(f"{icon} `{ev['time']}` — {ev['message']}")

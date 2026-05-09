@@ -38,9 +38,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application source
 COPY src/ src/
-COPY streamlit/ streamlit/
 COPY scripts/ scripts/
-COPY .streamlit/ .streamlit/
 COPY web/ web/
 
 # Default data & model directories (mount as volumes in production)
@@ -51,7 +49,7 @@ COPY src/bitbat/config/default.yaml config/default.yaml
 
 RUN chmod +x scripts/start.sh
 
-EXPOSE 8000 8100 8501
+EXPOSE 8000 8100
 
-# Run the primary API surface
+# Run the API and background autonomous monitoring agents
 CMD ["/app/scripts/start.sh"]

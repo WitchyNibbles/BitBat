@@ -11,7 +11,7 @@ The repository is organized into the following key directories and modules:
 ├── models/                 # Persisted model checkpoints per (freq, horizon)
 ├── predictions/            # Legacy sample predictions (runtime uses data/predictions/)
 ├── src/                    # Source code packages
-├── streamlit/              # Streamlit web UI
+├── dashboard/              # React web UI
 ├── tests/                  # Pytest suites covering contracts, ingestion, features, models, CLI, etc.
 ├── pyproject.toml          # Poetry configuration (deps, linting, typing, pytest)
 └── poetry.lock             # Locked dependency versions
@@ -22,7 +22,7 @@ Runtime output locations are configuration-driven via `data_dir` (default `data/
 - `${data_dir}/raw/` for ingested prices/news
 - `${data_dir}/features/{freq}_{horizon}/` for `dataset.parquet` and `meta.json`
 - `${data_dir}/predictions/{freq}_{horizon}.parquet` for live predictions
-- `models/{freq}_{horizon}/xgb.json` for model artifacts
+- `models/{freq}_{horizon}/` for model artifacts
 - `metrics/` for evaluation and monitoring snapshots
 
 ## Source Packages (`src/bitbat`)

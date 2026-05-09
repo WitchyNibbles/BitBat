@@ -119,7 +119,7 @@ When the monitoring loop is running (either from Quick Start or via `scripts/run
   - trains and saves a new model under `models/{freq}_{horizon}/`,
   - records a new `model_versions` row and optionally marks it active.
 
-Because all of these operations are file- and DB-based, **restarting Streamlit or the monitoring process does not lose history** as long as `data/` and `models/` remain on disk.
+Because all of these operations are file- and DB-based, **restarting the dashboard or monitoring process does not lose history** as long as `data/` and `models/` remain on disk.
 
 ---
 
@@ -127,15 +127,12 @@ Because all of these operations are file- and DB-based, **restarting Streamlit o
 
 After restarting your machine or app:
 
-1. Start Streamlit: `streamlit run streamlit/app.py`.
-2. Go to **Quick Start**:
-   - It will detect any existing model under `models/{freq}_{horizon}` and mark the system as running if you choose to start monitoring.
-3. Visit **Performance** and **History** pages:
-   - They read directly from `data/autonomous.db` and should show the same predictions, accuracy, and retraining history as before the restart.
+1. Start the stack: `make autonomous-up`.
+2. Open the React dashboard and inspect runtime or Oracle views.
+3. Confirm predictions and runtime state still appear from `data/autonomous.db` and the persisted model directory.
 
 If these pages show “no data” after a restart, check that:
 
 - the `data/` directory (especially `data/autonomous.db`) is present,
 - your configuration still points to `sqlite:///data/autonomous.db`,
-- your working directory when launching Streamlit is the project root.
-
+- your working directory when launching the stack is the project root.

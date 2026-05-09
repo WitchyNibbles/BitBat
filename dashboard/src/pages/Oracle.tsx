@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MoonStar, Sparkles, ShieldAlert, Waves } from 'lucide-react';
-import {
-  v2Api,
-  type V2EventMessage,
-  type V2HealthResponse,
-  type V2OrdersResponse,
-  type V2PaperResponse,
-  type V2PortfolioResponse,
-  type V2SignalResponse,
-} from '../api/v2Client.ts';
+import { v2Api, type V2EventMessage, type V2HealthResponse, type V2OrdersResponse, type V2PortfolioResponse, type V2SignalResponse } from '../api/v2Client.ts';
 import styles from './Oracle.module.css';
 
 function fmtUsd(value: number): string {
@@ -23,16 +15,12 @@ function fmtPct(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
 }
 
-function fmtMaybePct(value: number | null | undefined): string {
-  return typeof value === 'number' ? fmtPct(value) : 'n/a';
-}
-
 function describeEvent(event: V2EventMessage): string {
   switch (event.type) {
     case 'candle.closed':
       return `Closed candle at ${String(event.data.close ?? '?')} with volume ${String(event.data.volume ?? '?')}.`;
     case 'signal.generated':
-      return `Signal ${String(event.data.direction ?? 'hold')} with expected value ${String(event.data.expected_value_return ?? '?')} after costs.`;
+      return `Signal ${String(event.data.direction ?? 'hold')} with projected move ${String(event.data.predicted_return ?? '?')}.`;
     case 'decision.made':
       return `Decision ${String(event.data.action ?? 'hold')} because ${String(event.data.reason ?? 'n/a')}.`;
     case 'order.paper_filled':
@@ -46,96 +34,28 @@ function describeEvent(event: V2EventMessage): string {
   }
 }
 
-function buildLedgerEvents(
-  health: V2HealthResponse | null,
-  signal: V2SignalResponse | null,
-  paper: V2PaperResponse | null,
-  orders: V2OrdersResponse['orders'],
-): V2EventMessage[] {
-  const ledgerEvents: V2EventMessage[] = [];
-  if (health !== null) {
-    ledgerEvents.push({
-      type: 'runtime.snapshot',
-      data: {
-        status: health.status,
-        signal_source: health.signal_source,
-        event_count: health.event_count,
-        promotion_verdict: health.promotion?.verdict ?? 'missing',
-      },
-    });
-  }
-  if (signal !== null) {
-    ledgerEvents.push({
-      id: signal.signal_id,
-      type: 'signal.generated',
-      data: {
-        direction: signal.direction,
-        predicted_return: signal.predicted_return,
-        expected_value_return: signal.expected_value_return,
-        expected_cost_return: signal.expected_cost_return,
-        model_name: signal.model_name,
-      },
-    });
-  }
-  if (paper !== null) {
-    ledgerEvents.push({
-      type: 'paper.snapshot',
-      data: {
-        hold_rate: paper.performance.hold_rate,
-        action_rate: paper.performance.action_rate,
-        promotion_verdict: paper.promotion?.verdict ?? 'missing',
-      },
-    });
-  }
-  orders.slice(0, 5).forEach((order) => {
-    ledgerEvents.push({
-      id: order.order_id,
-      type: order.status === 'filled' ? 'order.paper_filled' : 'order.paper_pending',
-      data: {
-        side: order.side,
-        fill_price: order.fill_price,
-        quantity_btc: order.quantity_btc,
-        status: order.status,
-      },
-    });
-  });
-  return ledgerEvents;
-}
-
 export function Oracle() {
-  const [tokenDraft, setTokenDraft] = useState(v2Api.getOperatorToken());
-  const [tokenConfigured, setTokenConfigured] = useState(v2Api.hasOperatorToken());
   const [health, setHealth] = useState<V2HealthResponse | null>(null);
   const [signal, setSignal] = useState<V2SignalResponse | null>(null);
   const [portfolio, setPortfolio] = useState<V2PortfolioResponse | null>(null);
-  const [paper, setPaper] = useState<V2PaperResponse | null>(null);
   const [orders, setOrders] = useState<V2OrdersResponse['orders']>([]);
   const [events, setEvents] = useState<V2EventMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>(v2Api.baseUrlHint);
 
   useEffect(() => {
-    if (!tokenConfigured) {
-      setHealth(null);
-      setSignal(null);
-      setPortfolio(null);
-      setPaper(null);
-      setOrders([]);
-      setEvents([]);
-      return;
-    }
-
-    let cancelled = false;
+    let closed = false;
+    let source: EventSource | null = null;
 
     const load = async () => {
-      const [healthResult, signalResult, portfolioResult, paperResult, ordersResult] = await Promise.allSettled([
+      const [healthResult, signalResult, portfolioResult, ordersResult] = await Promise.allSettled([
         v2Api.health(),
         v2Api.latestSignal(),
         v2Api.portfolio(),
-        v2Api.paper(),
         v2Api.orders(),
       ]);
-      if (cancelled) return;
+      if (closed) return;
 
       if (healthResult.status === 'fulfilled') {
         setHealth(healthResult.value);
@@ -165,55 +85,106 @@ export function Oracle() {
         setPortfolio(portfolioResult.value);
       }
 
-      if (paperResult.status === 'fulfilled') {
-        setPaper(paperResult.value);
-      } else {
-        setPaper(null);
-      }
-
       if (ordersResult.status === 'fulfilled') {
         setOrders(ordersResult.value.orders);
       } else {
         setOrders([]);
       }
-
-      const nextHealth = healthResult.status === 'fulfilled' ? healthResult.value : null;
-      const nextSignal = signalResult.status === 'fulfilled' ? signalResult.value : null;
-      const nextPaper = paperResult.status === 'fulfilled' ? paperResult.value : null;
-      const nextOrders =
-        ordersResult.status === 'fulfilled' ? ordersResult.value.orders : [];
-      setEvents(buildLedgerEvents(nextHealth, nextSignal, nextPaper, nextOrders));
     };
 
-    void load();
-    const poller = window.setInterval(() => {
-      void load();
-    }, 10_000);
+    const eventTypes = [
+      'candle.closed',
+      'features.computed',
+      'signal.generated',
+      'decision.made',
+      'order.paper_filled',
+      'portfolio.updated',
+      'alert.raised',
+    ] as const;
+
+    const init = async () => {
+      try {
+        const resolvedBaseUrl = await v2Api.resolveBaseUrl();
+        if (closed) return;
+        setApiBaseUrl(resolvedBaseUrl);
+        await load();
+
+        const streamUrl = await v2Api.streamUrl();
+        if (closed) return;
+        source = new EventSource(streamUrl);
+        source.onmessage = (message) => {
+          const type = message.type || 'message';
+          try {
+            const data = JSON.parse(message.data) as Record<string, unknown>;
+            setEvents((current) =>
+              [{ id: message.lastEventId, type, data }, ...current].slice(0, 18),
+            );
+          } catch {
+            setEvents((current) =>
+              [{ id: message.lastEventId, type, data: { raw: message.data } }, ...current].slice(
+                0,
+                18,
+              ),
+            );
+          }
+          void load();
+        };
+        eventTypes.forEach((eventType) => {
+          source?.addEventListener(eventType, (message) => {
+            const payload = 'data' in message ? String(message.data) : '{}';
+            try {
+              const data = JSON.parse(payload) as Record<string, unknown>;
+              setEvents((current) =>
+                [{ id: message.lastEventId, type: eventType, data }, ...current].slice(0, 18),
+              );
+            } catch {
+              setEvents((current) =>
+                [{ id: message.lastEventId, type: eventType, data: { raw: payload } }, ...current]
+                  .slice(0, 18),
+              );
+            }
+            void load();
+          });
+        });
+        source.onerror = () => {
+          if (!closed) {
+            setError(
+              `The ritual stream is unavailable. The dashboard resolved the v2 API to ${resolvedBaseUrl}. Check that service or set VITE_V2_API_URL.`,
+            );
+          }
+        };
+      } catch (err: unknown) {
+        if (!closed) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    };
+
+    void init();
 
     return () => {
-      cancelled = true;
-      window.clearInterval(poller);
+      closed = true;
+      source?.close();
     };
-  }, [tokenConfigured]);
+  }, []);
 
   const runAction = async (label: string, action: () => Promise<unknown>) => {
     setBusy(label);
     setError(null);
     try {
+      const resolvedBaseUrl = await v2Api.resolveBaseUrl();
+      setApiBaseUrl(resolvedBaseUrl);
       await action();
-      const [nextHealth, nextSignal, nextPortfolio, nextPaper, nextOrders] = await Promise.all([
+      const [nextHealth, nextSignal, nextPortfolio, nextOrders] = await Promise.all([
         v2Api.health(),
         v2Api.latestSignal(),
         v2Api.portfolio(),
-        v2Api.paper(),
         v2Api.orders(),
       ]);
       setHealth(nextHealth);
       setSignal(nextSignal);
       setPortfolio(nextPortfolio);
-      setPaper(nextPaper);
       setOrders(nextOrders.orders);
-      setEvents(buildLedgerEvents(nextHealth, nextSignal, nextPaper, nextOrders.orders));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -223,27 +194,6 @@ export function Oracle() {
 
   const directionClass =
     signal?.direction === 'buy' ? styles.good : signal?.direction === 'sell' ? styles.bad : styles.neutral;
-  const promotion = paper?.promotion ?? health?.promotion ?? null;
-  const promotionClass =
-    promotion?.verdict === 'promotable'
-      ? styles.good
-      : promotion?.verdict === 'blocked'
-        ? styles.bad
-        : styles.neutral;
-
-  const saveOperatorToken = () => {
-    const savedToken = v2Api.setOperatorToken(tokenDraft);
-    setTokenDraft(savedToken);
-    setTokenConfigured(Boolean(savedToken));
-    setError(null);
-  };
-
-  const clearOperatorToken = () => {
-    v2Api.clearOperatorToken();
-    setTokenDraft('');
-    setTokenConfigured(false);
-    setError(null);
-  };
 
   return (
     <div className={styles.page}>
@@ -257,9 +207,9 @@ export function Oracle() {
             <h2 className={styles.title}>The Oracle Chamber</h2>
             <p className={styles.lede}>
               BitBat v2 watches BTC-USD, casts a deterministic signal, papers the trade, and records
-              the outcome in a live ledger you can interrupt at any time. Enter an operator token
-              to unlock the controls for this session.
+              the outcome in a live ledger you can interrupt at any time.
             </p>
+            <p className={styles.lede}>Resolved v2 API: {apiBaseUrl}</p>
           </div>
 
           <div className={styles.signalBadge}>
@@ -268,43 +218,15 @@ export function Oracle() {
               {signal?.direction ?? 'loading'}
             </div>
             <div className={styles.signalMeta}>
-              {signal ? `${fmtPct(signal.expected_value_return)} EV after costs` : 'Waiting for a signal'}
+              {signal ? `${fmtPct(signal.predicted_return)} projected move` : 'Waiting for a signal'}
             </div>
           </div>
-        </div>
-
-        <div className={styles.authRow}>
-          <label className={styles.authLabel} htmlFor="oracle-operator-token">
-            Operator token
-          </label>
-          <input
-            id="oracle-operator-token"
-            className={styles.authInput}
-            type="password"
-            autoComplete="off"
-            value={tokenDraft}
-            onChange={(event) => setTokenDraft(event.target.value)}
-            placeholder="Set the v2 operator token"
-          />
-          <button className={styles.button} type="button" onClick={saveOperatorToken}>
-            Use Token
-          </button>
-          <button
-            className={styles.button}
-            type="button"
-            onClick={clearOperatorToken}
-          >
-            Clear Token
-          </button>
-          <span className={styles.authHint}>
-            Stored in this browser session only.
-          </span>
         </div>
 
         <div className={styles.controls}>
           <button
             className={styles.button}
-            disabled={busy !== null || !tokenConfigured}
+            disabled={busy !== null}
             onClick={() =>
               runAction('simulate', () =>
                 v2Api.simulateCandle((portfolio?.mark_price ?? 100_000) + 250),
@@ -315,7 +237,7 @@ export function Oracle() {
           </button>
           <button
             className={styles.button}
-            disabled={busy !== null || !tokenConfigured}
+            disabled={busy !== null}
             onClick={() => runAction('sync-market', () => v2Api.syncMarket())}
           >
             Pull Live Coinbase Candle
@@ -323,7 +245,7 @@ export function Oracle() {
           {health?.trading_paused ? (
             <button
               className={styles.button}
-              disabled={busy !== null || !tokenConfigured}
+              disabled={busy !== null}
               onClick={() => runAction('resume', () => v2Api.resume())}
             >
               <Waves size={16} /> Resume Trading
@@ -331,7 +253,7 @@ export function Oracle() {
           ) : (
             <button
               className={`${styles.button} ${styles.buttonDanger}`}
-              disabled={busy !== null || !tokenConfigured}
+              disabled={busy !== null}
               onClick={() => runAction('pause', () => v2Api.pause())}
             >
               <ShieldAlert size={16} /> Pause Trading
@@ -339,7 +261,7 @@ export function Oracle() {
           )}
           <button
             className={`${styles.button} ${styles.buttonDanger}`}
-            disabled={busy !== null || !tokenConfigured}
+            disabled={busy !== null}
             onClick={() => {
               if (!window.confirm('Reset the paper account and clear the current paper orders?')) {
                 return;
@@ -351,7 +273,14 @@ export function Oracle() {
           </button>
           <button
             className={styles.button}
-            disabled={busy !== null || !tokenConfigured}
+            disabled={busy !== null}
+            onClick={() => runAction('retrain', () => v2Api.retrain())}
+          >
+            Request Retrain
+          </button>
+          <button
+            className={styles.button}
+            disabled={busy !== null}
             onClick={() =>
               runAction('acknowledge', () =>
                 v2Api.acknowledge('operator acknowledged oracle alert'),
@@ -363,11 +292,8 @@ export function Oracle() {
         </div>
 
         <div className={styles.statusLine}>
-          <span><span className={styles.dot} /> {health?.status ?? 'locked'} runtime</span>
+          <span><span className={styles.dot} /> {health?.status ?? 'unknown'} runtime</span>
           <span>{health?.venue ?? 'coinbase'} / {health?.product_id ?? 'BTC-USD'}</span>
-          <span>signal source {health?.signal_source ?? 'unknown'}</span>
-          <span>model {health?.signal_model_name ?? signal?.model_name ?? 'waiting'}</span>
-          <span>promotion {promotion?.verdict ?? 'missing'}</span>
           <span>{health?.trading_paused ? 'trading paused' : 'trading armed for paper mode'}</span>
           <span>{health ? `${health.event_count} recorded events` : 'connecting...'}</span>
           {busy ? <span>running {busy}...</span> : null}
@@ -388,16 +314,7 @@ export function Oracle() {
           </div>
         </article>
 
-        <article className={`${styles.card} ${styles.span3}`}>
-          <div className={styles.cardTitle}>Signal Edge</div>
-          <div className={styles.metric}>{signal ? fmtPct(signal.expected_value_return) : '...'}</div>
-          <div className={styles.subline}>
-            Move {signal ? fmtPct(signal.expected_move_return) : '...'} · Costs{' '}
-            {signal ? fmtPct(signal.expected_cost_return) : '...'}
-          </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span3}`}>
+        <article className={`${styles.card} ${styles.span4}`}>
           <div className={styles.cardTitle}>Projected Price</div>
           <div className={styles.metric}>{signal ? fmtUsd(signal.predicted_price) : '...'}</div>
           <div className={styles.subline}>
@@ -405,51 +322,18 @@ export function Oracle() {
           </div>
         </article>
 
-        <article className={`${styles.card} ${styles.span3}`}>
+        <article className={`${styles.card} ${styles.span4}`}>
           <div className={styles.cardTitle}>PnL</div>
           <div className={styles.metric}>
-            {paper ? fmtUsd(paper.performance.net_pnl) : portfolio ? fmtUsd(portfolio.realized_pnl + portfolio.unrealized_pnl) : '...'}
+            {portfolio ? fmtUsd(portfolio.realized_pnl + portfolio.unrealized_pnl) : '...'}
           </div>
           <div className={styles.subline}>
-            Net {paper ? fmtMaybePct(paper.performance.net_pnl_pct) : '...'} · Trades{' '}
-            {paper?.performance.trade_count ?? 0}
+            Realized {portfolio ? fmtUsd(portfolio.realized_pnl) : '...'} · Unrealized{' '}
+            {portfolio ? fmtUsd(portfolio.unrealized_pnl) : '...'}
           </div>
         </article>
 
-        <article className={`${styles.card} ${styles.span3}`}>
-          <div className={styles.cardTitle}>Promotion Gate</div>
-          <div className={`${styles.metric} ${promotionClass}`}>{promotion?.verdict ?? 'missing'}</div>
-          <div className={styles.subline}>
-            {promotion?.label_mode ?? 'n/a'} · {promotion?.model_version ?? promotion?.winner ?? 'waiting'}
-          </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span6}`}>
-          <div className={styles.cardTitle}>Probability Split</div>
-          <div className={styles.list}>
-            {signal ? (
-              [
-                ['Up', signal.p_up],
-                ['Down', signal.p_down],
-                ['Flat', signal.p_flat],
-                ['Hold Rate', paper?.performance.hold_rate ?? 0],
-                ['Action Rate', paper?.performance.action_rate ?? 0],
-              ].map(([label, value]) => (
-                <div key={String(label)} className={styles.row}>
-                  <div>
-                    <div className={styles.rowTitle}>{label}</div>
-                    <div className={styles.rowMeta}>Live probability and runtime act/pass split.</div>
-                  </div>
-                  <div className={styles.rowValue}>{fmtPct(Number(value))}</div>
-                </div>
-              ))
-            ) : (
-              <p className={styles.empty}>No probability contract yet.</p>
-            )}
-          </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span6}`}>
+        <article className={`${styles.card} ${styles.span5}`}>
           <div className={styles.cardTitle}>Signal Reasoning</div>
           <div className={styles.list}>
             {signal?.reasons?.length ? (
@@ -468,32 +352,7 @@ export function Oracle() {
           </div>
         </article>
 
-        <article className={`${styles.card} ${styles.span6}`}>
-          <div className={styles.cardTitle}>Replay Gate Evidence</div>
-          <div className={styles.list}>
-            {promotion ? (
-              [
-                ['Replay Trades', String(promotion.replay_trade_count ?? 0)],
-                ['Replay Hold Rate', fmtMaybePct(promotion.replay_hold_rate)],
-                ['Replay EV', fmtMaybePct(promotion.replay_mean_expected_value_return)],
-                ['Replay Net PnL', fmtMaybePct(promotion.replay_net_pnl_pct)],
-                ['Calibration', promotion.replay_calibration_brier?.toFixed(3) ?? 'n/a'],
-              ].map(([label, value]) => (
-                <div key={String(label)} className={styles.row}>
-                  <div>
-                    <div className={styles.rowTitle}>{label}</div>
-                    <div className={styles.rowMeta}>Most recent promotion replay evidence.</div>
-                  </div>
-                  <div className={styles.rowValue}>{String(value)}</div>
-                </div>
-              ))
-            ) : (
-              <p className={styles.empty}>No replay gate evidence persisted yet.</p>
-            )}
-          </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span6}`}>
+        <article className={`${styles.card} ${styles.span7}`}>
           <div className={styles.cardTitle}>Recent Paper Orders</div>
           <div className={styles.list}>
             {orders.length ? (
@@ -512,25 +371,6 @@ export function Oracle() {
               ))
             ) : (
               <p className={styles.empty}>No paper fills yet.</p>
-            )}
-          </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span12}`}>
-          <div className={styles.cardTitle}>Abstain Breakdown</div>
-          <div className={styles.list}>
-            {paper && Object.keys(paper.performance.abstain_breakdown).length ? (
-              Object.entries(paper.performance.abstain_breakdown).map(([reason, count]) => (
-                <div key={reason} className={styles.row}>
-                  <div>
-                    <div className={styles.rowTitle}>{reason}</div>
-                    <div className={styles.rowMeta}>Why the runtime chose not to act.</div>
-                  </div>
-                  <div className={styles.rowValue}>{count}</div>
-                </div>
-              ))
-            ) : (
-              <p className={styles.empty}>No abstain reasons recorded yet.</p>
             )}
           </div>
         </article>

@@ -1,5 +1,5 @@
 """
-Ingestion status helper — pure Python, no Streamlit dependency.
+Ingestion status helper — pure Python, UI-agnostic.
 
 Canonical implementation — re-exported by bitbat.gui.widgets for
 backward compatibility with GUI-layer callers.
