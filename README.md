@@ -120,7 +120,7 @@ That image includes:
 - the `bitbat` CLI
 - the FastAPI app
 - the ingestion and monitoring scripts
-- the static web assets under `web/`
+- the legacy static web assets under `web/` for demo/archive use
 
 ### Run BitBat From The Docker Image
 

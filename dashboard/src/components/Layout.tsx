@@ -1,47 +1,33 @@
 import type { ReactNode } from 'react';
+import { PAGE_META } from '../navigation';
+import type { AppPageKey } from '../navigation';
 import { Sidebar } from './Sidebar';
-import type { Page } from './Sidebar';
 import styles from './Layout.module.css';
 
-const PAGE_TITLES: Record<Page, string> = {
-  oracle: 'Oracle Chamber',
-  home: 'Dashboard',
-  quickstart: 'Quick Start',
-  performance: 'Performance',
-  settings: 'Settings',
-  system: 'System Health',
-};
-
 interface LayoutProps {
-  activePage: Page;
-  onNavigate: (page: Page) => void;
-  showLegacyPages: boolean;
-  statusColor?: 'success' | 'amber' | 'danger';
+  activePage: AppPageKey;
   children: ReactNode;
 }
 
-export function Layout({
-  activePage,
-  onNavigate,
-  showLegacyPages,
-  statusColor = 'amber',
-  children,
-}: LayoutProps) {
+export function Layout({ activePage, children }: LayoutProps) {
+  const meta = PAGE_META[activePage];
+
   return (
     <div className={styles.layout}>
-      <Sidebar
-        activePage={activePage}
-        showLegacyPages={showLegacyPages}
-        onNavigate={onNavigate}
-      />
+      <Sidebar activePage={activePage} />
       <main className={styles.main}>
         <header className={styles.header}>
-          <h1>{PAGE_TITLES[activePage]}</h1>
-          <span className={`${styles.statusDot} ${styles[statusColor]}`} />
+          <div>
+            <div className={styles.eyebrow}>{meta.eyebrow}</div>
+            <h1>{meta.label}</h1>
+            <p className={styles.cue}>{meta.cue}</p>
+          </div>
+          <div className={styles.headerMeta}>
+            <span className={styles.paperBadge}>paper only</span>
+            <span className={styles.statusDot} aria-hidden="true" />
+          </div>
         </header>
-        <div className={styles.content}>
-          {children}
-        </div>
+        <div className={styles.content}>{children}</div>
       </main>
     </div>
   );

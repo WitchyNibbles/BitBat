@@ -55,7 +55,6 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
   padding: 8px 12px;
-  outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 

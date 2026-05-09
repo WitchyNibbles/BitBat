@@ -1,0 +1,36 @@
+.card {
+  display: grid;
+  gap: 14px;
+}
+
+.header p {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.chartWrap {
+  height: 280px;
+}
+
+.tooltip {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(14, 21, 19, 0.96);
+  box-shadow: var(--surface-shadow);
+}
+
+.tooltipTime {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.tooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+}

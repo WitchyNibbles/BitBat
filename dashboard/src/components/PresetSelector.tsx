@@ -1,5 +1,7 @@
+import type { CSSProperties } from 'react';
 import { Shield, Scale, Rocket, Zap, TrendingUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { formatFreqHorizon } from './presetUtils.ts';
 import styles from './PresetSelector.module.css';
 
 interface PresetDef {
@@ -16,20 +18,6 @@ interface PresetSelectorProps {
   selected: string;
   onSelect: (id: string) => void;
   onPresetData?: (freq: string, horizon: string) => void;
-}
-
-const FREQ_HORIZON_LABELS: Record<string, string> = {
-  '5m': '5 min',
-  '15m': '15 min',
-  '30m': '30 min',
-  '1h': '1 hour',
-  '4h': '4 hours',
-  '1d': '1 day',
-  '24h': '24 hours',
-};
-
-export function formatFreqHorizon(value: string): string {
-  return FREQ_HORIZON_LABELS[value] ?? value;
 }
 
 const PRESETS: PresetDef[] = [
@@ -90,7 +78,7 @@ export function PresetSelector({ selected, onSelect, onPresetData }: PresetSelec
           <button
             key={preset.id}
             className={`${styles.card} ${isActive ? styles.active : ''}`}
-            style={{ '--preset-color': preset.color } as React.CSSProperties}
+            style={{ '--preset-color': preset.color } as CSSProperties}
             onClick={() => {
               onSelect(preset.id);
               onPresetData?.(preset.freq, preset.horizon);

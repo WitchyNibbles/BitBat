@@ -1,190 +1,201 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
-import { StatusCard } from '../components/StatusCard.tsx';
-import { DataTable } from '../components/DataTable.tsx';
-import { LogFeed } from '../components/LogFeed.tsx';
+import type {
+  DetailedHealthResponse,
+  IngestionStatus,
+  RetrainingEventsResponse,
+  SystemLogsResponse,
+  SystemStatusResponse,
+} from '../api/client.ts';
+import { api } from '../api/client.ts';
+import { formatTimestamp } from '../api/paperViewModel.ts';
+import type { V2HealthResponse } from '../api/v2Client.ts';
+import { v2Api } from '../api/v2Client.ts';
 import { useApi } from '../hooks/useApi.ts';
 import { usePolling } from '../hooks/usePolling.ts';
-import { api } from '../api/client.ts';
 import styles from './System.module.css';
 
-const LOG_REFRESH_MS = 10_000;
+const REFRESH_MS = 15_000;
 
-const SNAPSHOT_COLUMNS = [
-  { key: 'time', label: 'Time' },
-  { key: 'model', label: 'Model' },
-  { key: 'accuracy', label: 'Accuracy', align: 'right' as const },
-  { key: 'predictions', label: 'Predictions', align: 'right' as const },
-  { key: 'sharpe', label: 'Sharpe', align: 'right' as const },
-  { key: 'maxDD', label: 'Max DD', align: 'right' as const },
-];
+interface SystemPageData {
+  status: SystemStatusResponse;
+  health: DetailedHealthResponse;
+  ingestion: IngestionStatus;
+  logs: SystemLogsResponse;
+  retraining: RetrainingEventsResponse;
+  v2Health: V2HealthResponse | null;
+}
 
-const RETRAIN_COLUMNS = [
-  { key: 'time', label: 'Time' },
-  { key: 'trigger', label: 'Trigger' },
-  { key: 'status', label: 'Status' },
-  { key: 'oldModel', label: 'Old Model' },
-  { key: 'newModel', label: 'New Model' },
-  { key: 'cvGain', label: 'CV Gain', align: 'right' as const },
-  { key: 'duration', label: 'Duration', align: 'right' as const },
-];
+async function loadSystemPage(): Promise<SystemPageData> {
+  const [status, health, ingestion, logs, retraining, v2Health] = await Promise.all([
+    api.systemStatus(),
+    api.healthDetailed(),
+    api.ingestionStatus(),
+    api.systemLogs(10),
+    api.retrainingEvents(6),
+    v2Api.health().catch(() => null),
+  ]);
+
+  return { status, health, ingestion, logs, retraining, v2Health };
+}
 
 export function System() {
-  const [logLimit, setLogLimit] = useState(20);
-
-  const status = useApi(() => api.systemStatus(), []);
-  const health = useApi(() => api.healthDetailed(), []);
-  const logs = useApi(() => api.systemLogs(logLimit), [logLimit]);
-  const snapshots = useApi(() => api.performanceSnapshots(20), []);
-  const retraining = useApi(() => api.retrainingEvents(10), []);
-  const ingestion = useApi(() => api.ingestionStatus(), []);
+  const system = useApi(loadSystemPage, []);
 
   usePolling(() => {
-    status.refetch();
-    health.refetch();
-    logs.refetch();
-    snapshots.refetch();
-    retraining.refetch();
-    ingestion.refetch();
-  }, LOG_REFRESH_MS);
+    system.refetch();
+  }, REFRESH_MS);
 
-  // Derive status card values
-  const dbStatus = status.data
-    ? status.data.database_ok
-      ? 'OK'
-      : status.data.database_present
-        ? 'Degraded'
-        : 'Missing'
-    : 'Loading...';
-  const dbColor: 'success' | 'amber' | 'danger' | 'muted' =
-    dbStatus === 'OK' ? 'success' : dbStatus === 'Degraded' ? 'amber' : dbStatus === 'Missing' ? 'danger' : 'muted';
+  if (system.loading && !system.data) {
+    return <div className="emptyState">Resolving system diagnostics...</div>;
+  }
 
-  const schemaStatus = health.data?.schema_readiness
-    ? health.data.schema_readiness.is_compatible
-      ? 'Compatible'
-      : 'Incompatible'
-    : 'Unknown';
-  const schemaColor: 'success' | 'danger' | 'muted' =
-    schemaStatus === 'Compatible' ? 'success' : schemaStatus === 'Incompatible' ? 'danger' : 'muted';
+  if (system.error && !system.data) {
+    return <div className="errorState">{system.error}</div>;
+  }
 
-  const modelStatus = status.data
-    ? status.data.model_exists
-      ? 'Available'
-      : 'Missing'
-    : 'Loading...';
-  const modelColor: 'success' | 'danger' | 'muted' =
-    modelStatus === 'Available' ? 'success' : modelStatus === 'Missing' ? 'danger' : 'muted';
+  if (!system.data) {
+    return <div className="emptyState">System diagnostics are unavailable.</div>;
+  }
 
-  const ingestionLabel = ingestion.data ? 'Active' : 'Unknown';
-  const ingestionSublabel = ingestion.data
-    ? `Prices: ${ingestion.data.prices} / News: ${ingestion.data.news}`
-    : undefined;
-
-  // Build snapshot rows
-  const snapshotRows: Record<string, ReactNode>[] = snapshots.data
-    ? snapshots.data.snapshots.map((s) => ({
-        time: s.snapshot_time,
-        model: s.model_version,
-        accuracy:
-          s.hit_rate != null ? `${(s.hit_rate * 100).toFixed(1)}%` : '--',
-        predictions: String(s.total_predictions),
-        sharpe: s.sharpe_ratio != null ? s.sharpe_ratio.toFixed(2) : '--',
-        maxDD:
-          s.max_drawdown != null
-            ? `${(s.max_drawdown * 100).toFixed(1)}%`
-            : '--',
-      }))
-    : [];
-
-  // Build retraining rows
-  const retrainRows: Record<string, ReactNode>[] = retraining.data
-    ? retraining.data.events.map((e) => ({
-        time: e.started_at,
-        trigger: e.trigger_reason,
-        status: e.status,
-        oldModel: e.old_model_version ?? '--',
-        newModel: e.new_model_version ?? '--',
-        cvGain:
-          e.cv_improvement != null
-            ? `${(e.cv_improvement * 100).toFixed(2)}%`
-            : '--',
-        duration:
-          e.training_duration_seconds != null
-            ? `${e.training_duration_seconds.toFixed(0)}s`
-            : '--',
-      }))
-    : [];
+  const { status, health, ingestion, logs, retraining, v2Health } = system.data;
 
   return (
-    <div className={styles.page}>
-      <h2>Legacy System Diagnostics</h2>
-      <p className={styles.empty}>
-        This view reports the legacy monitor stack. It is diagnostic-only while `bitbat_v2` is the
-        primary paper-trading runtime.
-      </p>
-
-      <div className={styles.statusGrid}>
-        <StatusCard label="Database" value={dbStatus} status={dbColor} />
-        <StatusCard label="Schema" value={schemaStatus} status={schemaColor} />
-        <StatusCard
-          label="Model"
-          value={modelStatus}
-          status={modelColor}
-          sublabel={status.data?.active_model_version ?? undefined}
-        />
-        <StatusCard
-          label="Ingestion"
-          value={ingestionLabel}
-          status={ingestion.data ? 'success' : 'muted'}
-          sublabel={ingestionSublabel}
-        />
-      </div>
-
-      <div className="divider">&#x2726;</div>
-
-      <section>
-        <h3>Legacy Performance Snapshots</h3>
-        {snapshotRows.length > 0 ? (
-          <DataTable columns={SNAPSHOT_COLUMNS} rows={snapshotRows} />
-        ) : (
-          <p className={styles.empty}>No performance snapshots recorded.</p>
-        )}
-      </section>
-
-      <div className="divider">&#x2726;</div>
-
-      <section>
-        <div className={styles.sectionHeader}>
-          <h3>Legacy System Logs</h3>
-          <select
-            className={styles.logSelect}
-            value={logLimit}
-            onChange={(e) => setLogLimit(parseInt(e.target.value, 10))}
-          >
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
+    <div className={`pageStack ${styles.page}`}>
+      <section className="pageHero">
+        <span className="eyebrowLabel">diagnostics and safeguards</span>
+        <div className="heroTitleRow">
+          <div>
+            <h2>System health</h2>
+            <p className="lede">
+              This route is for environment truth: schema readiness, ingestion freshness, model
+              presence, and log evidence. It does not make trading claims on behalf of the paper
+              cockpit.
+            </p>
+          </div>
         </div>
-        {logs.data ? (
-          <LogFeed
-            logs={logs.data.logs}
-            lastUpdatedAt={logs.lastUpdatedAt}
-            pollingLabel={`Polling every ${LOG_REFRESH_MS / 1000}s`}
-          />
-        ) : (
-          <p className={styles.empty}>Loading logs...</p>
-        )}
       </section>
 
-      <div className="divider">&#x2726;</div>
+      <section className="metricGrid">
+        <article className="metricCard">
+          <span className="metricLabel">Database</span>
+          <span className="metricValue">{status.database_ok ? 'Healthy' : 'Degraded'}</span>
+          <span className="metricDetail">
+            {status.database_present ? 'Database file present' : 'Database file missing'}
+          </span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Schema readiness</span>
+          <span className="metricValue">
+            {health.schema_readiness?.is_compatible ? 'Compatible' : 'Needs review'}
+          </span>
+          <span className="metricDetail">
+            {health.schema_readiness?.compatibility_state ?? 'Unknown'}
+          </span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Ingestion</span>
+          <span className="metricValue">{ingestion.prices}</span>
+          <span className="metricDetail">News {ingestion.news}</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">v2 runtime</span>
+          <span className="metricValue">{v2Health ? v2Health.status : 'Offline'}</span>
+          <span className="metricDetail">
+            {v2Health ? formatTimestamp(v2Health.last_event_at) : 'No operator auth or runtime'}
+          </span>
+        </article>
+      </section>
 
-      <section>
-        <h3>Legacy Retraining History</h3>
-        {retrainRows.length > 0 ? (
-          <DataTable columns={RETRAIN_COLUMNS} rows={retrainRows} />
+      <section className="panelGrid">
+        <article className="surfaceCard">
+          <div className="surfaceHeader">
+            <div>
+              <h3>Compatibility and assets</h3>
+              <p>Diagnostics stay literal and avoid leaking secret values.</p>
+            </div>
+          </div>
+          <div className="kvGrid">
+            <div className="kvItem">
+              <span className="kvLabel">Model artifact</span>
+              <span className="kvValue">{status.model_exists ? 'Present' : 'Missing'}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Dataset artifact</span>
+              <span className="kvValue">{status.dataset_exists ? 'Present' : 'Missing'}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Predictions stored</span>
+              <span className="kvValue">{status.total_predictions}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Latest prediction</span>
+              <span className="kvValue">
+                {status.last_prediction_time ? formatTimestamp(status.last_prediction_time) : 'None'}
+              </span>
+            </div>
+          </div>
+        </article>
+
+        <article className="surfaceCard">
+          <div className="surfaceHeader">
+            <div>
+              <h3>Retraining ledger</h3>
+              <p>Last runs, triggers, and declared result.</p>
+            </div>
+          </div>
+          {retraining.events.length > 0 ? (
+            <div className="tableScroll">
+              <table className="ledgerTable">
+                <thead>
+                  <tr>
+                    <th>Started</th>
+                    <th>Trigger</th>
+                    <th>Status</th>
+                    <th>New model</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retraining.events.map((event) => (
+                    <tr key={`${event.started_at}-${event.trigger_reason}`}>
+                      <td>{formatTimestamp(event.started_at)}</td>
+                      <td>{event.trigger_reason}</td>
+                      <td>{event.status}</td>
+                      <td>{event.new_model_version ?? '--'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="emptyState">No retraining events recorded yet.</div>
+          )}
+        </article>
+      </section>
+
+      <section className="surfaceCard">
+        <div className="surfaceHeader">
+          <div>
+            <h3>System logs</h3>
+            <p>Recent diagnostic output from the legacy runtime surface.</p>
+          </div>
+        </div>
+        {logs.logs.length > 0 ? (
+          <div className="logList" role="log" aria-live="polite">
+            {logs.logs.map((log) => (
+              <div
+                key={`${log.timestamp}-${log.level}-${log.service ?? 'system'}-${log.message}`}
+                className="logEntry"
+              >
+                <div className="logMeta">
+                  <span>{log.level}</span>
+                  <span>{log.timestamp}</span>
+                  {log.service ? <span>{log.service}</span> : null}
+                </div>
+                <div>{log.message}</div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <p className={styles.empty}>No retraining events recorded.</p>
+          <div className="emptyState">No system logs returned.</div>
         )}
       </section>
     </div>

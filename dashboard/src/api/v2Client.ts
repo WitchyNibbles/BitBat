@@ -2,7 +2,9 @@ const EXPLICIT_V2_BASE_URL = (import.meta.env.VITE_V2_API_URL as string | undefi
 const V2_OPERATOR_TOKEN =
   (import.meta.env.VITE_V2_OPERATOR_TOKEN as string | undefined) ?? '';
 const V2_BASE_URL_CACHE_KEY = 'bitbat.v2ApiBaseUrl';
+const V2_OPERATOR_TOKEN_CACHE_KEY = 'bitbat.v2OperatorToken';
 const DEFAULT_V2_BASE_URL = 'http://localhost:8100';
+const DEFAULT_LOCAL_DEV_OPERATOR_TOKEN = 'bitbat-local-dev-token';
 
 function normalizeBaseUrl(value: string | undefined | null): string | null {
   const resolved = String(value ?? '').trim().replace(/\/+$/, '');
@@ -36,10 +38,53 @@ function candidateBaseUrls(): string[] {
   return Array.from(new Set(candidates.map((value) => value.replace(/\/+$/, '')))).filter(Boolean);
 }
 
+function localTokenFallback(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const hostname = window.location.hostname.trim().toLowerCase();
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return DEFAULT_LOCAL_DEV_OPERATOR_TOKEN;
+  }
+
+  return '';
+}
+
+export function resolveV2OperatorToken(): string {
+  const explicit = String(V2_OPERATOR_TOKEN).trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  if (typeof window !== 'undefined') {
+    const cached = String(window.sessionStorage.getItem(V2_OPERATOR_TOKEN_CACHE_KEY) ?? '').trim();
+    if (cached) {
+      return cached;
+    }
+  }
+
+  return localTokenFallback();
+}
+
+export function setV2OperatorToken(token: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const normalized = token.trim();
+  if (normalized) {
+    window.sessionStorage.setItem(V2_OPERATOR_TOKEN_CACHE_KEY, normalized);
+  } else {
+    window.sessionStorage.removeItem(V2_OPERATOR_TOKEN_CACHE_KEY);
+  }
+}
+
 function requestHeaders(init?: RequestInit): HeadersInit {
+  const operatorToken = resolveV2OperatorToken();
   return {
     ...(init?.headers ?? {}),
-    ...(V2_OPERATOR_TOKEN ? { 'X-BitBat-Operator-Token': V2_OPERATOR_TOKEN } : {}),
+    ...(operatorToken ? { 'X-BitBat-Operator-Token': operatorToken } : {}),
   };
 }
 
@@ -53,7 +98,20 @@ async function probeBaseUrl(baseUrl: string): Promise<boolean> {
       signal: controller.signal,
     });
     window.clearTimeout(timeout);
-    return response.status === 200 || response.status === 401 || response.status === 403;
+    if (response.status === 401 || response.status === 403) {
+      return true;
+    }
+    if (response.status !== 200) {
+      return false;
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) {
+      return false;
+    }
+
+    const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    return body != null && typeof body.status === 'string';
   } catch {
     return false;
   }
@@ -65,6 +123,7 @@ export async function resolveV2BaseUrl(): Promise<string> {
   if (resolvedBaseUrlPromise) {
     return resolvedBaseUrlPromise;
   }
+
   resolvedBaseUrlPromise = (async () => {
     const candidates = candidateBaseUrls();
     for (const candidate of candidates) {
@@ -77,7 +136,15 @@ export async function resolveV2BaseUrl(): Promise<string> {
     }
     return candidates[0] ?? DEFAULT_V2_BASE_URL;
   })();
+
   return resolvedBaseUrlPromise;
+}
+
+export function resetV2BaseUrlResolution(): void {
+  resolvedBaseUrlPromise = null;
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem(V2_BASE_URL_CACHE_KEY);
+  }
 }
 
 export interface V2HealthResponse {
@@ -87,6 +154,17 @@ export interface V2HealthResponse {
   trading_paused: boolean;
   event_count: number;
   last_event_at?: string | null;
+  autorun: {
+    enabled: boolean;
+    interval_seconds: number;
+    running: boolean;
+    last_cycle_status?: string | null;
+    last_cycle_started_at?: string | null;
+    last_cycle_completed_at?: string | null;
+    last_error?: string | null;
+    last_processed_candle_start?: string | null;
+    last_action?: string | null;
+  };
 }
 
 export interface V2SignalResponse {
@@ -130,6 +208,82 @@ export interface V2OrdersResponse {
   orders: V2OrderResponse[];
 }
 
+export interface V2PaperAlertResponse {
+  occurred_at: string;
+  code: string;
+  message: string;
+}
+
+export interface V2PaperPerformancePointResponse {
+  occurred_at: string;
+  equity: number;
+  cash: number;
+  position_qty: number;
+  mark_price: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+}
+
+export interface V2PaperTradeResponse {
+  closed_at: string;
+  quantity_btc: number;
+  entry_price: number;
+  exit_price: number;
+  gross_pnl: number;
+  net_pnl: number;
+  fees_paid: number;
+  return_pct: number;
+}
+
+export interface V2PaperPerformanceResponse {
+  as_of: string;
+  starting_cash: number;
+  equity: number;
+  cash: number;
+  position_qty: number;
+  mark_price: number;
+  realized_pnl: number;
+  unrealized_pnl: number;
+  net_pnl: number;
+  net_pnl_pct: number;
+  fees_paid: number;
+  turnover_usd: number;
+  trade_count: number;
+  closed_trade_count: number;
+  win_rate: number;
+  expectancy_per_trade: number;
+  max_drawdown_pct: number;
+  exposure_pct: number;
+  benchmark_equity: number;
+  benchmark_return_pct: number;
+  alpha_vs_buy_hold: number;
+  last_signal_at?: string | null;
+  last_signal_direction?: string | null;
+  signal_confidence?: number | null;
+  last_event_at?: string | null;
+}
+
+export interface V2PaperOrderResponse {
+  order_id: string;
+  created_at: string;
+  filled_at?: string | null;
+  side: string;
+  quantity_btc: number;
+  fill_price: number;
+  status: string;
+  notional_usd: number;
+}
+
+export interface V2PaperCockpitResponse {
+  portfolio: V2PortfolioResponse;
+  performance: V2PaperPerformanceResponse;
+  latest_signal?: V2SignalResponse | null;
+  recent_orders: V2PaperOrderResponse[];
+  recent_alerts: V2PaperAlertResponse[];
+  equity_curve: V2PaperPerformancePointResponse[];
+  closed_trades: V2PaperTradeResponse[];
+}
+
 export interface V2ControlResponse {
   status: string;
   control: {
@@ -162,7 +316,7 @@ export interface V2EventMessage {
   data: Record<string, unknown>;
 }
 
-class V2ApiError extends Error {
+export class V2ApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -175,7 +329,9 @@ class V2ApiError extends Error {
 function formatApiError(body: string, status: number): string {
   try {
     const parsed = JSON.parse(body) as { detail?: string };
-    if (parsed.detail) return parsed.detail;
+    if (parsed.detail) {
+      return parsed.detail;
+    }
   } catch {
     // Ignore parse errors and fall back to a compact text string.
   }
@@ -203,6 +359,8 @@ export const v2Api = {
   portfolio: () => v2Fetch<V2PortfolioResponse>('/v1/portfolio'),
   latestSignal: () => v2Fetch<V2SignalResponse>('/v1/signals/latest'),
   orders: (limit = 12) => v2Fetch<V2OrdersResponse>(`/v1/orders?limit=${limit}`),
+  paper: () => v2Fetch<V2PaperCockpitResponse>('/v1/paper'),
+  performance: () => v2Fetch<V2PaperPerformanceResponse>('/v1/performance'),
   pause: () => v2Fetch<V2ControlResponse>('/v1/control/pause', { method: 'POST' }),
   resume: () => v2Fetch<V2ControlResponse>('/v1/control/resume', { method: 'POST' }),
   retrain: () => v2Fetch<V2ControlResponse>('/v1/control/retrain', { method: 'POST' }),
@@ -234,6 +392,6 @@ export const v2Api = {
     }),
   streamUrl: async () => {
     const baseUrl = await resolveV2BaseUrl();
-    return `${baseUrl}/v1/stream/events?token=${encodeURIComponent(V2_OPERATOR_TOKEN)}`;
+    return `${baseUrl}/v1/stream/events?token=${encodeURIComponent(resolveV2OperatorToken())}`;
   },
 } as const;

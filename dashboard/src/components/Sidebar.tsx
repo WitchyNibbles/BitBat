@@ -1,59 +1,46 @@
-import { Home, Zap, BarChart3, Settings, Activity, MoonStar } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { NAV_ITEMS } from '../navigation';
+import type { AppPageKey } from '../navigation';
 import styles from './Sidebar.module.css';
 
-export type Page = 'oracle' | 'home' | 'quickstart' | 'performance' | 'settings' | 'system';
-
-interface NavItem {
-  page: Page;
-  label: string;
-  icon: LucideIcon;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { page: 'oracle', label: 'Oracle', icon: MoonStar },
-  { page: 'home', label: 'Dashboard', icon: Home },
-  { page: 'quickstart', label: 'Legacy Quick Start', icon: Zap },
-  { page: 'performance', label: 'Legacy Performance', icon: BarChart3 },
-  { page: 'settings', label: 'Settings', icon: Settings },
-  { page: 'system', label: 'Legacy System', icon: Activity },
-];
-
 interface SidebarProps {
-  activePage: Page;
-  showLegacyPages: boolean;
-  onNavigate: (page: Page) => void;
+  activePage: AppPageKey;
 }
 
-export function Sidebar({ activePage, onNavigate, showLegacyPages }: SidebarProps) {
-  const visibleNavItems = showLegacyPages
-    ? NAV_ITEMS
-    : NAV_ITEMS.filter(({ page }) => page === 'oracle');
-
+export function Sidebar({ activePage }: SidebarProps) {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <span className={styles.sigil}>&#x2B21;</span>
-        <span className={styles.title}>BitBat</span>
+        <div>
+          <span className={styles.title}>BitBat</span>
+          <span className={styles.subtitle}>witchy-tech operator console</span>
+        </div>
       </div>
 
       <div className="divider">&#x2726;</div>
 
-      <nav className={styles.nav}>
-        {visibleNavItems.map(({ page, label, icon: Icon }) => (
-          <button
-            key={page}
-            className={`${styles.navItem} ${activePage === page ? styles.active : ''}`}
-            onClick={() => onNavigate(page)}
+      <nav className={styles.nav} aria-label="Primary">
+        {NAV_ITEMS.map(({ key, path, label, cue, icon: Icon }) => (
+          <NavLink
+            key={key}
+            to={path}
+            className={({ isActive }) =>
+              `${styles.navItem} ${isActive || activePage === key ? styles.active : ''}`
+            }
           >
             <Icon size={16} />
-            <span>{label}</span>
-          </button>
+            <span className={styles.navText}>
+              <span>{label}</span>
+              <span className={styles.navCue}>{cue}</span>
+            </span>
+          </NavLink>
         ))}
       </nav>
 
       <div className={styles.footer}>
         <span className={styles.version}>v0.2.0 / clean-room</span>
+        <span className={styles.version}>authoritative surface: React dashboard</span>
       </div>
     </aside>
   );

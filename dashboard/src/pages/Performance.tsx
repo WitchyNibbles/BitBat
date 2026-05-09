@@ -1,118 +1,172 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
-import { MetricCard } from '../components/MetricCard.tsx';
-import { AccuracyChart } from '../components/AccuracyChart.tsx';
-import { StreakBar } from '../components/StreakBar.tsx';
-import { DataTable } from '../components/DataTable.tsx';
+import { BarChart3, GaugeCircle, Trophy } from 'lucide-react';
+import { EquityCurveChart } from '../components/EquityCurveChart.tsx';
+import {
+  formatPct,
+  formatTimestamp,
+  formatUsd,
+  toPaperCockpitViewModel,
+} from '../api/paperViewModel.ts';
+import type { V2PaperCockpitResponse, V2PaperPerformanceResponse } from '../api/v2Client.ts';
+import { v2Api } from '../api/v2Client.ts';
 import { useApi } from '../hooks/useApi.ts';
-import { api } from '../api/client.ts';
+import { usePolling } from '../hooks/usePolling.ts';
 import styles from './Performance.module.css';
 
-const WINDOWS = [7, 30, 90] as const;
-const FREQ = '1h';
-const HORIZON = '4h';
+const REFRESH_MS = 12_000;
 
-const PRED_COLUMNS = [
-  { key: 'time', label: 'Time' },
-  { key: 'direction', label: 'Direction' },
-  { key: 'confidence', label: 'Model Conviction', align: 'right' as const },
-  { key: 'outcome', label: 'Outcome' },
-  { key: 'correct', label: 'Correct', align: 'center' as const },
-];
+interface PerformanceData {
+  paper: V2PaperCockpitResponse;
+  performance: V2PaperPerformanceResponse;
+}
+
+async function loadPerformance(): Promise<PerformanceData> {
+  const [paper, performance] = await Promise.all([v2Api.paper(), v2Api.performance()]);
+  return { paper, performance };
+}
 
 export function Performance() {
-  const [days, setDays] = useState<number>(30);
+  const summary = useApi(loadPerformance, []);
 
-  const perf = useApi(() => api.performance(FREQ, HORIZON, days), [days]);
-  const history = useApi(
-    () => api.predictionHistory(FREQ, HORIZON, days, 20),
-    [days],
-  );
-  const snapshots = useApi(() => api.performanceSnapshots(20), []);
+  usePolling(() => {
+    summary.refetch();
+  }, REFRESH_MS);
 
-  const hitRateStr =
-    perf.data?.hit_rate != null
-      ? (perf.data.hit_rate * 100).toFixed(1)
-      : '--';
-  const avgReturnStr =
-    perf.data?.avg_return != null
-      ? (perf.data.avg_return * 100).toFixed(2)
-      : '--';
+  if (summary.loading && !summary.data) {
+    return <div className="emptyState">Resolving paper performance from the v2 API...</div>;
+  }
 
-  // Build streak from last 10 realized predictions
-  const streakResults: boolean[] = history.data
-    ? history.data.predictions
-        .filter((p) => p.correct != null)
-        .slice(0, 10)
-        .map((p) => p.correct === true)
-    : [];
+  if (summary.error && !summary.data) {
+    return <div className="errorState">{summary.error}</div>;
+  }
 
-  // Build table rows
-  const rows: Record<string, ReactNode>[] = history.data
-    ? history.data.predictions.map((p) => ({
-        time: p.timestamp_utc,
-        direction: p.predicted_direction.toUpperCase(),
-        confidence:
-          p.confidence != null
-            ? `${(p.confidence * 100).toFixed(1)}%`
-            : '--',
-        outcome: p.actual_direction ?? '--',
-        correct:
-          p.correct != null ? (p.correct ? 'Yes' : 'No') : '--',
-      }))
-    : [];
+  if (!summary.data) {
+    return <div className="emptyState">Performance data is unavailable.</div>;
+  }
+
+  const { paper, performance } = summary.data;
+  const model = toPaperCockpitViewModel(paper, performance);
 
   return (
-    <div className={styles.page}>
-      <h2>Performance</h2>
-
-      <div className={styles.windowRow}>
-        {WINDOWS.map((w) => (
-          <button
-            key={w}
-            className={`${styles.windowBtn} ${days === w ? styles.windowBtnActive : ''}`}
-            onClick={() => setDays(w)}
-          >
-            {w}d
-          </button>
-        ))}
-      </div>
-
-      <div className={styles.metrics}>
-        <MetricCard
-          label="Total Predictions"
-          value={perf.data?.total_predictions ?? '--'}
-        />
-        <MetricCard
-          label="Realized"
-          value={perf.data?.realized_predictions ?? '--'}
-        />
-        <MetricCard label="Hit Rate" value={hitRateStr} unit="%" />
-        <MetricCard label="Avg Return" value={avgReturnStr} unit="%" />
-      </div>
-
-      <div className="divider">&#x2726;</div>
-
-      {snapshots.data && snapshots.data.snapshots.length > 0 ? (
-        <AccuracyChart snapshots={snapshots.data.snapshots} />
-      ) : (
-        <p className={styles.empty}>No accuracy snapshots available yet.</p>
-      )}
-
-      {streakResults.length > 0 && (
-        <div className={styles.streakSection}>
-          <span className={styles.streakLabel}>Last 10 realized calls</span>
-          <StreakBar results={streakResults} />
+    <div className={`pageStack ${styles.page}`}>
+      <section className="pageHero">
+        <span className="eyebrowLabel">outcome analysis</span>
+        <div className="heroTitleRow">
+          <div>
+            <h2>Performance ledger</h2>
+            <p className="lede">
+              This page answers one question: did paper trading actually create value versus just
+              owning BTC? The chart and the scorecards reinforce that message in text.
+            </p>
+          </div>
         </div>
-      )}
+        <div className="statusStrip" role="status" aria-live="polite">
+          <span className="statusPill" data-tone={model.benchmarkTone}>
+            <Trophy size={14} />
+            {model.benchmarkLabel}
+          </span>
+          <span className="statusPill" data-tone={model.freshness.tone}>
+            <GaugeCircle size={14} />
+            {model.freshness.detail}
+          </span>
+          <span className="statusPill" data-tone="neutral">
+            <BarChart3 size={14} />
+            {model.tradeOutcomeLabel}
+          </span>
+        </div>
+      </section>
 
-      <div className="divider">&#x2726;</div>
+      <section className="metricGrid">
+        <article className="metricCard">
+          <span className="metricLabel">Net PnL</span>
+          <span className="metricValue">{formatUsd(performance.net_pnl)}</span>
+          <span className="metricDetail">{formatPct(performance.net_pnl_pct)}</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Win rate</span>
+          <span className="metricValue">{formatPct(performance.win_rate)}</span>
+          <span className="metricDetail">{performance.closed_trade_count} closed trades</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Expectancy per trade</span>
+          <span className="metricValue">{formatUsd(performance.expectancy_per_trade)}</span>
+          <span className="metricDetail">{formatUsd(performance.turnover_usd)} turnover</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Max drawdown</span>
+          <span className="metricValue">{formatPct(performance.max_drawdown_pct)}</span>
+          <span className="metricDetail">{formatPct(performance.exposure_pct)} exposure</span>
+        </article>
+      </section>
 
-      {rows.length > 0 ? (
-        <DataTable columns={PRED_COLUMNS} rows={rows} />
-      ) : (
-        <p className={styles.empty}>No prediction history for this window.</p>
-      )}
+      <section className="surfaceCard">
+        <EquityCurveChart
+          points={paper.equity_curve}
+          title="Paper equity over time"
+          message={`Key message: the paper account is ${model.benchmarkLabel.toLowerCase()} and closed ${formatTimestamp(performance.as_of)} at ${formatUsd(performance.equity)}.`}
+        />
+      </section>
+
+      <section className="panelGrid">
+        <article className="surfaceCard">
+          <div className="surfaceHeader">
+            <div>
+              <h3>Benchmark and risk</h3>
+              <p>Every performance claim remains grounded in a comparable baseline.</p>
+            </div>
+          </div>
+          <div className="kvGrid">
+            <div className="kvItem">
+              <span className="kvLabel">Benchmark equity</span>
+              <span className="kvValue">{formatUsd(performance.benchmark_equity)}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Benchmark return</span>
+              <span className="kvValue">{formatPct(performance.benchmark_return_pct)}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Fees paid</span>
+              <span className="kvValue">{formatUsd(performance.fees_paid)}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Trade count</span>
+              <span className="kvValue">{performance.trade_count}</span>
+            </div>
+          </div>
+        </article>
+
+        <article className="surfaceCard">
+          <div className="surfaceHeader">
+            <div>
+              <h3>Closed trade outcomes</h3>
+              <p>Text table for accessible review; the chart is not the only source.</p>
+            </div>
+          </div>
+          {paper.closed_trades.length > 0 ? (
+            <div className="tableScroll">
+              <table className="ledgerTable">
+                <thead>
+                  <tr>
+                    <th>Closed</th>
+                    <th>Net PnL</th>
+                    <th>Return</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paper.closed_trades.map((trade) => (
+                    <tr key={`${trade.closed_at}-${trade.exit_price}`}>
+                      <td>{formatTimestamp(trade.closed_at)}</td>
+                      <td>{formatUsd(trade.net_pnl)}</td>
+                      <td>{formatPct(trade.return_pct)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="emptyState">No closed paper trades are available yet.</div>
+          )}
+        </article>
+      </section>
     </div>
   );
 }

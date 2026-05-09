@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { PresetSelector, formatFreqHorizon } from '../components/PresetSelector.tsx';
+import { PresetSelector } from '../components/PresetSelector.tsx';
+import { formatFreqHorizon } from '../components/presetUtils.ts';
 import { useApi } from '../hooks/useApi.ts';
 import { api } from '../api/client.ts';
 import styles from './Settings.module.css';

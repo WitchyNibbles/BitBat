@@ -1,18 +1,33 @@
-import { useEffect, useState } from 'react';
-import { MoonStar, Sparkles, ShieldAlert, Waves } from 'lucide-react';
-import { v2Api, type V2EventMessage, type V2HealthResponse, type V2OrdersResponse, type V2PortfolioResponse, type V2SignalResponse } from '../api/v2Client.ts';
+import { MoonStar, RefreshCcw, ShieldAlert, Sparkles, Waves } from 'lucide-react';
+import { useEffect, useEffectEvent, useState } from 'react';
+import {
+  formatBtc,
+  formatPct,
+  formatTimestamp,
+  formatUsd,
+  toPaperCockpitViewModel,
+} from '../api/paperViewModel.ts';
+import type {
+  V2EventMessage,
+  V2HealthResponse,
+  V2PaperCockpitResponse,
+  V2SignalResponse,
+} from '../api/v2Client.ts';
+import { V2ApiError, v2Api } from '../api/v2Client.ts';
+import { useApi } from '../hooks/useApi.ts';
 import styles from './Oracle.module.css';
 
-function fmtUsd(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value);
+interface OracleSnapshot {
+  health: V2HealthResponse;
+  paper: V2PaperCockpitResponse;
+  signal: V2SignalResponse | null;
 }
 
-function fmtPct(value: number): string {
-  return `${(value * 100).toFixed(2)}%`;
+function toMessage(error: unknown): string {
+  if (error instanceof V2ApiError && error.status === 401) {
+    return 'Invalid operator token. Set VITE_V2_OPERATOR_TOKEN for the React dashboard.';
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 function describeEvent(event: V2EventMessage): string {
@@ -34,63 +49,39 @@ function describeEvent(event: V2EventMessage): string {
   }
 }
 
+async function loadOracleSnapshot(): Promise<OracleSnapshot> {
+  const [health, paper, signalResult] = await Promise.all([
+    v2Api.health(),
+    v2Api.paper(),
+    v2Api.latestSignal().catch((error: unknown) => {
+      const message = toMessage(error);
+      if (message.includes('No v2 signal')) {
+        return null;
+      }
+      throw error;
+    }),
+  ]);
+
+  return {
+    health,
+    paper,
+    signal: signalResult,
+  };
+}
+
 export function Oracle() {
-  const [health, setHealth] = useState<V2HealthResponse | null>(null);
-  const [signal, setSignal] = useState<V2SignalResponse | null>(null);
-  const [portfolio, setPortfolio] = useState<V2PortfolioResponse | null>(null);
-  const [orders, setOrders] = useState<V2OrdersResponse['orders']>([]);
+  const snapshot = useApi(loadOracleSnapshot, []);
   const [events, setEvents] = useState<V2EventMessage[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [apiBaseUrl, setApiBaseUrl] = useState<string>(v2Api.baseUrlHint);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState(v2Api.baseUrlHint);
+  const refetchSnapshot = useEffectEvent(() => {
+    snapshot.refetch();
+  });
 
   useEffect(() => {
     let closed = false;
     let source: EventSource | null = null;
-
-    const load = async () => {
-      const [healthResult, signalResult, portfolioResult, ordersResult] = await Promise.allSettled([
-        v2Api.health(),
-        v2Api.latestSignal(),
-        v2Api.portfolio(),
-        v2Api.orders(),
-      ]);
-      if (closed) return;
-
-      if (healthResult.status === 'fulfilled') {
-        setHealth(healthResult.value);
-      } else {
-        setError(
-          healthResult.reason instanceof Error
-            ? healthResult.reason.message
-            : String(healthResult.reason),
-        );
-      }
-
-      if (signalResult.status === 'fulfilled') {
-        setSignal(signalResult.value);
-      } else {
-        const message =
-          signalResult.reason instanceof Error
-            ? signalResult.reason.message
-            : String(signalResult.reason);
-        if (message.includes('No v2 signal')) {
-          setSignal(null);
-        } else {
-          setError(message);
-        }
-      }
-
-      if (portfolioResult.status === 'fulfilled') {
-        setPortfolio(portfolioResult.value);
-      }
-
-      if (ordersResult.status === 'fulfilled') {
-        setOrders(ordersResult.value.orders);
-      } else {
-        setOrders([]);
-      }
-    };
 
     const eventTypes = [
       'candle.closed',
@@ -102,65 +93,42 @@ export function Oracle() {
       'alert.raised',
     ] as const;
 
-    const init = async () => {
+    const connect = async () => {
       try {
         const resolvedBaseUrl = await v2Api.resolveBaseUrl();
-        if (closed) return;
+        if (closed) {
+          return;
+        }
         setApiBaseUrl(resolvedBaseUrl);
-        await load();
-
         const streamUrl = await v2Api.streamUrl();
-        if (closed) return;
+        if (closed) {
+          return;
+        }
         source = new EventSource(streamUrl);
-        source.onmessage = (message) => {
-          const type = message.type || 'message';
-          try {
-            const data = JSON.parse(message.data) as Record<string, unknown>;
-            setEvents((current) =>
-              [{ id: message.lastEventId, type, data }, ...current].slice(0, 18),
-            );
-          } catch {
-            setEvents((current) =>
-              [{ id: message.lastEventId, type, data: { raw: message.data } }, ...current].slice(
-                0,
-                18,
-              ),
-            );
-          }
-          void load();
-        };
+
         eventTypes.forEach((eventType) => {
           source?.addEventListener(eventType, (message) => {
-            const payload = 'data' in message ? String(message.data) : '{}';
+            const raw = 'data' in message ? String(message.data) : '{}';
+            let data: Record<string, unknown> = {};
             try {
-              const data = JSON.parse(payload) as Record<string, unknown>;
-              setEvents((current) =>
-                [{ id: message.lastEventId, type: eventType, data }, ...current].slice(0, 18),
-              );
+              data = JSON.parse(raw) as Record<string, unknown>;
             } catch {
-              setEvents((current) =>
-                [{ id: message.lastEventId, type: eventType, data: { raw: payload } }, ...current]
-                  .slice(0, 18),
-              );
+              data = { raw };
             }
-            void load();
+            setEvents((current) =>
+              [{ id: message.lastEventId, type: eventType, data }, ...current].slice(0, 16),
+            );
+            refetchSnapshot();
           });
         });
-        source.onerror = () => {
-          if (!closed) {
-            setError(
-              `The ritual stream is unavailable. The dashboard resolved the v2 API to ${resolvedBaseUrl}. Check that service or set VITE_V2_API_URL.`,
-            );
-          }
-        };
-      } catch (err: unknown) {
+      } catch (error: unknown) {
         if (!closed) {
-          setError(err instanceof Error ? err.message : String(err));
+          setActionError(toMessage(error));
         }
       }
     };
 
-    void init();
+    void connect();
 
     return () => {
       closed = true;
@@ -170,228 +138,241 @@ export function Oracle() {
 
   const runAction = async (label: string, action: () => Promise<unknown>) => {
     setBusy(label);
-    setError(null);
+    setActionError(null);
     try {
-      const resolvedBaseUrl = await v2Api.resolveBaseUrl();
-      setApiBaseUrl(resolvedBaseUrl);
       await action();
-      const [nextHealth, nextSignal, nextPortfolio, nextOrders] = await Promise.all([
-        v2Api.health(),
-        v2Api.latestSignal(),
-        v2Api.portfolio(),
-        v2Api.orders(),
-      ]);
-      setHealth(nextHealth);
-      setSignal(nextSignal);
-      setPortfolio(nextPortfolio);
-      setOrders(nextOrders.orders);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      snapshot.refetch();
+    } catch (error: unknown) {
+      setActionError(toMessage(error));
     } finally {
       setBusy(null);
     }
   };
 
-  const directionClass =
-    signal?.direction === 'buy' ? styles.good : signal?.direction === 'sell' ? styles.bad : styles.neutral;
+  if (snapshot.loading && !snapshot.data) {
+    return <div className="emptyState">Resolving live signal and control state...</div>;
+  }
+
+  if (snapshot.error && !snapshot.data) {
+    return <div className="errorState">{toMessage(snapshot.error)}</div>;
+  }
+
+  if (!snapshot.data) {
+    return <div className="emptyState">Oracle state is unavailable.</div>;
+  }
+
+  const { health, paper, signal } = snapshot.data;
+  const model = toPaperCockpitViewModel(paper);
 
   return (
-    <div className={styles.page}>
-      <section className={styles.hero}>
-        <div className={styles.heroTop}>
+    <div className={`pageStack ${styles.page}`}>
+      <section className="pageHero">
+        <span className="eyebrowLabel">live signal ritual</span>
+        <div className="heroTitleRow">
           <div>
-            <div className={styles.eyebrow}>
-              <MoonStar size={14} />
-              witch market operator console
-            </div>
-            <h2 className={styles.title}>The Oracle Chamber</h2>
-            <p className={styles.lede}>
-              BitBat v2 watches BTC-USD, casts a deterministic signal, papers the trade, and records
-              the outcome in a live ledger you can interrupt at any time.
+            <h2>Oracle chamber</h2>
+            <p className="lede">
+              This route handles live runtime context and manual operator actions. Signal, decision,
+              order, and portfolio state remain visibly separate so the console never implies more
+              certainty than the backend actually provides.
             </p>
-            <p className={styles.lede}>Resolved v2 API: {apiBaseUrl}</p>
-          </div>
-
-          <div className={styles.signalBadge}>
-            <div className={styles.signalLabel}>Current omen</div>
-            <div className={`${styles.signalValue} ${directionClass}`}>
-              {signal?.direction ?? 'loading'}
-            </div>
-            <div className={styles.signalMeta}>
-              {signal ? `${fmtPct(signal.predicted_return)} projected move` : 'Waiting for a signal'}
-            </div>
           </div>
         </div>
+        <div className="statusStrip" role="status" aria-live="polite">
+          <span className="statusPill" data-tone={model.freshness.tone}>
+            <RefreshCcw size={14} />
+            {model.freshness.label}
+          </span>
+          <span
+            className="statusPill"
+            data-tone={health.trading_paused ? 'warning' : 'positive'}
+          >
+            <ShieldAlert size={14} />
+            Trading {health.trading_paused ? 'paused' : 'running'}
+          </span>
+          <span className="statusPill" data-tone={signal ? model.signal.tone : 'neutral'}>
+            <MoonStar size={14} />
+            {signal ? model.signal.label : 'No signal yet'}
+          </span>
+        </div>
+      </section>
 
-        <div className={styles.controls}>
+      {actionError ? <div className="errorState">{actionError}</div> : null}
+
+      <section className="metricGrid">
+        <article className="metricCard">
+          <span className="metricLabel">Resolved v2 API</span>
+          <span className="metricValue">{apiBaseUrl}</span>
+          <span className="metricDetail">Operator token stays in request headers only.</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Current signal</span>
+          <span className="metricValue">{signal?.direction?.toUpperCase() ?? 'NONE'}</span>
+          <span className="metricDetail">{signal ? formatPct(signal.confidence) : 'Waiting for first signal'}</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Paper equity</span>
+          <span className="metricValue">{formatUsd(paper.performance.equity)}</span>
+          <span className="metricDetail">{formatBtc(paper.portfolio.position_qty)}</span>
+        </article>
+        <article className="metricCard">
+          <span className="metricLabel">Last event</span>
+          <span className="metricValue">{formatTimestamp(health.last_event_at)}</span>
+          <span className="metricDetail">{health.event_count} runtime events recorded</span>
+        </article>
+      </section>
+
+      <section className="surfaceCard">
+        <div className="surfaceHeader">
+          <div>
+            <h3>Operator controls</h3>
+            <p>Passive telemetry is separate from actions that can change paper state.</p>
+          </div>
+        </div>
+        <div className="actionRow">
           <button
-            className={styles.button}
+            className="actionButton"
             disabled={busy !== null}
             onClick={() =>
-              runAction('simulate', () =>
-                v2Api.simulateCandle((portfolio?.mark_price ?? 100_000) + 250),
+              runAction('simulate-candle', () =>
+                v2Api.simulateCandle((paper.portfolio.mark_price || 100_000) + 250),
               )
             }
           >
-            <Sparkles size={16} /> Cast Demo Candle
+            <Sparkles size={16} />
+            Cast demo candle
           </button>
           <button
-            className={styles.button}
+            className="actionButton"
             disabled={busy !== null}
             onClick={() => runAction('sync-market', () => v2Api.syncMarket())}
           >
-            Pull Live Coinbase Candle
+            <Waves size={16} />
+            Pull live Coinbase candle
           </button>
-          {health?.trading_paused ? (
+          {health.trading_paused ? (
             <button
-              className={styles.button}
+              className="actionButton"
               disabled={busy !== null}
               onClick={() => runAction('resume', () => v2Api.resume())}
             >
-              <Waves size={16} /> Resume Trading
+              Resume trading
             </button>
           ) : (
             <button
-              className={`${styles.button} ${styles.buttonDanger}`}
+              className="actionButton dangerButton"
               disabled={busy !== null}
-              onClick={() => runAction('pause', () => v2Api.pause())}
+              onClick={() => {
+                if (window.confirm('Pause paper trading? This stops new automated actions.')) {
+                  void runAction('pause', () => v2Api.pause());
+                }
+              }}
             >
-              <ShieldAlert size={16} /> Pause Trading
+              Pause trading
             </button>
           )}
-          <button
-            className={`${styles.button} ${styles.buttonDanger}`}
-            disabled={busy !== null}
-            onClick={() => {
-              if (!window.confirm('Reset the paper account and clear the current paper orders?')) {
-                return;
-              }
-              void runAction('reset', () => v2Api.resetPaper());
-            }}
-          >
-            Reset Paper Account
-          </button>
-          <button
-            className={styles.button}
-            disabled={busy !== null}
-            onClick={() => runAction('retrain', () => v2Api.retrain())}
-          >
-            Request Retrain
-          </button>
-          <button
-            className={styles.button}
-            disabled={busy !== null}
-            onClick={() =>
-              runAction('acknowledge', () =>
-                v2Api.acknowledge('operator acknowledged oracle alert'),
-              )
-            }
-          >
-            Acknowledge Alert
-          </button>
         </div>
-
-        <div className={styles.statusLine}>
-          <span><span className={styles.dot} /> {health?.status ?? 'unknown'} runtime</span>
-          <span>{health?.venue ?? 'coinbase'} / {health?.product_id ?? 'BTC-USD'}</span>
-          <span>{health?.trading_paused ? 'trading paused' : 'trading armed for paper mode'}</span>
-          <span>{health ? `${health.event_count} recorded events` : 'connecting...'}</span>
-          {busy ? <span>running {busy}...</span> : null}
-        </div>
-        {error ? (
-          <p className={styles.error} role="status" aria-live="polite">
-            {error}
-          </p>
-        ) : null}
       </section>
 
-      <section className={styles.grid}>
-        <article className={`${styles.card} ${styles.span4}`}>
-          <div className={styles.cardTitle}>Portfolio Equity</div>
-          <div className={styles.metric}>{portfolio ? fmtUsd(portfolio.equity) : '...'}</div>
-          <div className={styles.subline}>
-            Cash {portfolio ? fmtUsd(portfolio.cash) : '...'} · Position {portfolio?.position_qty ?? 0} BTC
+      <section className="panelGrid">
+        <article className="surfaceCard">
+          <div className="surfaceHeader">
+            <div>
+              <h3>Signal and portfolio context</h3>
+              <p>Signal is a forecast. Portfolio is the account mark.</p>
+            </div>
           </div>
+          <div className="kvGrid">
+            <div className="kvItem">
+              <span className="kvLabel">Signal generated</span>
+              <span className="kvValue">
+                {signal ? formatTimestamp(signal.generated_at) : 'No signal yet'}
+              </span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Predicted return</span>
+              <span className="kvValue">
+                {signal ? formatPct(signal.predicted_return) : 'Unavailable'}
+              </span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Mark price</span>
+              <span className="kvValue">{formatUsd(paper.portfolio.mark_price)}</span>
+            </div>
+            <div className="kvItem">
+              <span className="kvLabel">Equity</span>
+              <span className="kvValue">{formatUsd(paper.performance.equity)}</span>
+            </div>
+          </div>
+          {signal?.reasons?.length ? (
+            <ul className="plainList">
+              {signal.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : null}
         </article>
 
-        <article className={`${styles.card} ${styles.span4}`}>
-          <div className={styles.cardTitle}>Projected Price</div>
-          <div className={styles.metric}>{signal ? fmtUsd(signal.predicted_price) : '...'}</div>
-          <div className={styles.subline}>
-            Confidence {signal ? fmtPct(signal.confidence) : '...'} · Model {signal?.model_name ?? '...'}
+        <article className="surfaceCard">
+          <div className="surfaceHeader">
+            <div>
+              <h3>Latest paper orders</h3>
+              <p>Order intent and fill outcome stay visible without leaving the route.</p>
+            </div>
           </div>
+          {paper.recent_orders.length > 0 ? (
+            <div className="tableScroll">
+              <table className="ledgerTable">
+                <thead>
+                  <tr>
+                    <th>Created</th>
+                    <th>Side</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paper.recent_orders.map((order) => (
+                    <tr key={order.order_id}>
+                      <td>{formatTimestamp(order.created_at)}</td>
+                      <td>{order.side}</td>
+                      <td>{formatBtc(order.quantity_btc)}</td>
+                      <td>{order.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="emptyState">No paper orders recorded yet.</div>
+          )}
         </article>
+      </section>
 
-        <article className={`${styles.card} ${styles.span4}`}>
-          <div className={styles.cardTitle}>PnL</div>
-          <div className={styles.metric}>
-            {portfolio ? fmtUsd(portfolio.realized_pnl + portfolio.unrealized_pnl) : '...'}
+      <section className="surfaceCard">
+        <div className="surfaceHeader">
+          <div>
+            <h3>Runtime event feed</h3>
+            <p>`role="log"` because the operator needs sequential updates, not decorative motion.</p>
           </div>
-          <div className={styles.subline}>
-            Realized {portfolio ? fmtUsd(portfolio.realized_pnl) : '...'} · Unrealized{' '}
-            {portfolio ? fmtUsd(portfolio.unrealized_pnl) : '...'}
-          </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span5}`}>
-          <div className={styles.cardTitle}>Signal Reasoning</div>
-          <div className={styles.list}>
-            {signal?.reasons?.length ? (
-              signal.reasons.map((reason) => (
-                <div key={reason} className={styles.row}>
-                  <div>
-                    <div className={styles.rowTitle}>{reason.split('=')[0]}</div>
-                    <div className={styles.rowMeta}>Deterministic factor used in the current omen.</div>
-                  </div>
-                  <div className={styles.rowValue}>{reason.split('=')[1] ?? reason}</div>
+        </div>
+        {events.length > 0 ? (
+          <div className="logList" role="log" aria-live="polite">
+            {events.map((event, index) => (
+              <div key={`${event.id ?? event.type}-${index}`} className="logEntry">
+                <div className="logMeta">
+                  <span>{event.type}</span>
+                  {event.id ? <span>ID {event.id}</span> : null}
                 </div>
-              ))
-            ) : (
-              <p className={styles.empty}>No reasoning captured yet.</p>
-            )}
+                <div>{describeEvent(event)}</div>
+              </div>
+            ))}
           </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span7}`}>
-          <div className={styles.cardTitle}>Recent Paper Orders</div>
-          <div className={styles.list}>
-            {orders.length ? (
-              orders.map((order) => (
-                <div key={order.order_id} className={styles.row}>
-                  <div>
-                    <div className={styles.rowTitle}>
-                      {order.side.toUpperCase()} · {order.quantity_btc} BTC
-                    </div>
-                    <div className={styles.rowMeta}>{new Date(order.created_at).toLocaleString()}</div>
-                  </div>
-                  <div className={styles.rowValue}>
-                    {fmtUsd(order.fill_price)} · {order.status}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className={styles.empty}>No paper fills yet.</p>
-            )}
+        ) : (
+          <div className="emptyState">
+            Waiting for the event stream. New candles, signals, fills, and alerts will appear here.
           </div>
-        </article>
-
-        <article className={`${styles.card} ${styles.span12}`}>
-          <div className={styles.cardTitle}>Live Ledger</div>
-          <div className={styles.ledger} role="status" aria-live="polite">
-            {events.length ? (
-              events.map((event, index) => (
-                <div key={`${event.id ?? 'evt'}-${index}`} className={styles.ledgerItem}>
-                  <div className={styles.ledgerType}>{event.type}</div>
-                  <div className={styles.ledgerText}>{describeEvent(event)}</div>
-                </div>
-              ))
-            ) : (
-              <p className={styles.empty}>
-                The ledger is quiet. Cast a demo candle to wake the chamber.
-              </p>
-            )}
-          </div>
-        </article>
+        )}
       </section>
     </div>
   );
