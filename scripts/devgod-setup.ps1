@@ -1,37 +1,113 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path -LiteralPath ".env.devgod") -and (Test-Path -LiteralPath ".env.devgod.example")) {
-    Copy-Item -LiteralPath ".env.devgod.example" -Destination ".env.devgod"
-    Write-Host "created .env.devgod from .env.devgod.example"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $repoRoot
+
+if (-not (Test-Path -LiteralPath ".env") -and (Test-Path -LiteralPath ".env.example")) {
+    Copy-Item -LiteralPath ".env.example" -Destination ".env"
+    Write-Host "created .env from .env.example"
 }
 
+function Test-DevgodSafeEnvKey {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    return $Name -match '^DEVGOD_[A-Z0-9_]+$'
+}
+
+function Trim-DevgodLeadingWhitespace {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    return ($Value -replace '^\s+', '')
+}
+
+function Trim-DevgodTrailingWhitespace {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    return ($Value -replace '\s+$', '')
+}
+
+function Strip-DevgodUnquotedComment {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    $builder = [System.Text.StringBuilder]::new()
+    $previousWasWhitespace = $false
+
+    for ($i = 0; $i -lt $Value.Length; $i++) {
+        $ch = $Value[$i]
+        if ($ch -eq '#' -and ($builder.Length -eq 0 -or $previousWasWhitespace)) {
+            break
+        }
+
+        [void]$builder.Append($ch)
+        $previousWasWhitespace = [char]::IsWhiteSpace($ch)
+    }
+
+    return (Trim-DevgodTrailingWhitespace $builder.ToString())
+}
+
+function Unescape-DevgodDoubleQuotedValue {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    $Value = $Value.Replace('\\', '\')
+    $Value = $Value.Replace('\"', '"')
+    $Value = $Value.Replace('\n', "`n")
+    $Value = $Value.Replace('\r', "`r")
+    $Value = $Value.Replace('\t', "`t")
+    $Value = $Value.Replace('\$', '$')
+
+    return $Value
+}
+
+function Import-DevgodEnvFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    Get-Content -LiteralPath $Path | ForEach-Object {
+        $line = $_.TrimEnd()
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith("#")) {
+            return
+        }
+
+        if ($line -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') {
+            $name = $Matches[1]
+            if (Test-DevgodSafeEnvKey -Name $name) {
+                $value = Trim-DevgodLeadingWhitespace $Matches[2]
+                if ($value -match '^"((?:\\.|[^"])*)"(?:\s+#.*)?$') {
+                    $value = Unescape-DevgodDoubleQuotedValue $Matches[1]
+                } elseif ($value -match "^'([^']*)'(?:\s+#.*)?$") {
+                    $value = $Matches[1]
+                } else {
+                    $value = Strip-DevgodUnquotedComment $value
+                }
+
+                Set-Item -Path "Env:$name" -Value $value
+            }
+        }
+    }
+}
+
+Import-DevgodEnvFile -Path ".env"
+
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "docker is required for local devgod setup unless you provide a managed Postgres backend"
+    throw "docker is required for local setup unless you provide a managed Postgres backend"
 }
 
 try {
     docker version | Out-Null
 } catch {
-    throw "docker is installed but not usable from this environment; enable Docker Desktop integration or provide a managed Postgres backend"
-}
-
-Get-Content ".env.devgod" | ForEach-Object {
-    if ($_ -match '^\s*#' -or $_ -notmatch '=') {
-        return
-    }
-
-    $parts = $_ -split '=', 2
-    $value = $parts[1].Trim('"')
-    [System.Environment]::SetEnvironmentVariable($parts[0], $value)
+    throw "docker is installed but not usable from this environment; enable Docker Desktop WSL integration or provide a managed Postgres backend"
 }
 
 if (-not $env:DEVGOD_PROJECT_REPO_PATH -or $env:DEVGOD_PROJECT_REPO_PATH -eq "/absolute/path/to/repo") {
-    $env:DEVGOD_PROJECT_REPO_PATH = (Get-Location).Path
+    $env:DEVGOD_PROJECT_REPO_PATH = $repoRoot
 }
 
 if (-not $env:DEVGOD_PROJECT_SLUG) {
-    $env:DEVGOD_PROJECT_SLUG = Split-Path -Leaf (Get-Location)
+    $env:DEVGOD_PROJECT_SLUG = (Split-Path -Leaf $repoRoot).ToLowerInvariant()
 }
 
 if (-not $env:DEVGOD_PROJECT_NAME) {
@@ -42,7 +118,7 @@ if (-not $env:DEVGOD_DOCKER_CONTAINER_NAME) {
     $env:DEVGOD_DOCKER_CONTAINER_NAME = "devgod-postgres-$($env:DEVGOD_PROJECT_SLUG)"
 }
 
-docker compose -f docker-compose.devgod.yml up -d devgod-postgres
+docker compose up -d devgod-postgres
 
 Write-Host "waiting for devgod-postgres to become healthy"
 $healthy = $false
@@ -67,13 +143,16 @@ if (-not $healthy) {
     throw "devgod-postgres did not become healthy"
 }
 
-npm install
-npm run devgod:migrate
-npm run devgod:bootstrap
-npm run devgod:verify:setup
+if (-not (Test-Path -LiteralPath "node_modules")) {
+    npm install
+}
+
+npm run migrate
+npm run bootstrap
+npm run verify:setup
 
 Write-Host ""
 Write-Host "devgod local setup complete"
 Write-Host "workspace: $($env:DEVGOD_WORKSPACE_SLUG)"
 Write-Host "project: $($env:DEVGOD_PROJECT_SLUG)"
-Write-Host "database: $($env:DEVGOD_CORE_DATABASE_URL)"
+Write-Host "database: configured"
