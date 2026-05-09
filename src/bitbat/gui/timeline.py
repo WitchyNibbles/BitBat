@@ -90,15 +90,26 @@ def _coerce_nullable_bool(value: Any) -> bool | None:
 
 
 def _direction_from_return(value: Any) -> str | None:
+    return _direction_from_return_with_tau(value, tau=_active_tau())
+
+
+def _active_tau() -> float:
+    from bitbat.config.loader import get_runtime_config, load_config
+
+    config = get_runtime_config() or load_config()
+    return float(config.get("tau", 0.01) or 0.01)
+
+
+def _direction_from_return_with_tau(value: Any, *, tau: float) -> str | None:
     if pd.isna(value):
         return None
     try:
         parsed = float(value)
     except (TypeError, ValueError):
         return None
-    if parsed > 0:
+    if parsed > tau:
         return "up"
-    if parsed < 0:
+    if parsed < -tau:
         return "down"
     return "flat"
 
@@ -108,6 +119,7 @@ def _normalize_timeline_rows(df: pd.DataFrame) -> pd.DataFrame:
         return _empty_timeline_frame()
 
     normalized = df.copy()
+    tau = _active_tau()
 
     if "timestamp_utc" not in normalized.columns:
         return _empty_timeline_frame()
@@ -143,10 +155,16 @@ def _normalize_timeline_rows(df: pd.DataFrame) -> pd.DataFrame:
     derived_from_direction = normalized["predicted_direction"].eq(normalized["actual_direction"])
     correct = correct.where(~(correct.isna() & direction_known), derived_from_direction)
 
-    realized_direction = normalized["actual_return"].map(_direction_from_return).astype("string")
+    realized_direction = normalized["actual_return"].map(
+        lambda value: _direction_from_return_with_tau(value, tau=tau)
+    ).astype("string")
+    normalized["actual_direction"] = normalized["actual_direction"].where(
+        ~realized_direction.notna(),
+        realized_direction,
+    )
     return_known = realized_direction.notna()
     derived_from_return = normalized["predicted_direction"].eq(realized_direction)
-    correct = correct.where(~(correct.isna() & return_known), derived_from_return)
+    correct = correct.where(~return_known, derived_from_return)
     normalized["correct"] = correct.astype("boolean")
 
     confidence_inputs = pd.concat([normalized["p_up"], normalized["p_down"]], axis=1)

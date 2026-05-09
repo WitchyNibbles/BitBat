@@ -5,6 +5,7 @@ from datetime import timedelta, timezone
 import pandas as pd
 import pytest
 
+import bitbat.config.loader as loader
 from bitbat.gui.performance import (
     attach_price_evidence,
     build_accuracy_history,
@@ -345,6 +346,52 @@ def test_format_recent_predictions_includes_pending_rows_with_future_target_time
     assert formatted.loc[0, "Status"] == "⏳ Pending"
     assert formatted.loc[0, "Predicted Price"] == "$101.00"
     assert formatted.loc[0, "Price Gap %"] == "1.0%"
+
+
+def test_format_recent_predictions_labels_classifier_hits_as_band_matches() -> None:
+    predictions = pd.DataFrame([
+        {
+            "timestamp_utc": "2026-03-31T12:10:00Z",
+            "predicted_direction": "flat",
+            "predicted_return": pd.NA,
+            "predicted_price": 100.0,
+            "actual_direction": "flat",
+            "actual_return": 0.001,
+            "correct": 1,
+            "p_up": 0.05,
+            "p_down": 0.05,
+            "p_flat": 0.90,
+        }
+    ])
+
+    formatted = format_recent_predictions(predictions, limit=20)
+
+    assert formatted.loc[0, "Status"] == "✅ Band Match"
+
+
+def test_format_recent_predictions_recomputes_stale_truth_using_active_tau(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loader.reset_runtime_config()
+    predictions = pd.DataFrame([
+        {
+            "timestamp_utc": "2026-03-31T12:10:00Z",
+            "predicted_direction": "flat",
+            "predicted_return": pd.NA,
+            "predicted_price": 100.0,
+            "actual_direction": "flat",
+            "actual_return": 0.004,
+            "correct": 1,
+            "p_up": 0.05,
+            "p_down": 0.05,
+            "p_flat": 0.90,
+        }
+    ])
+
+    formatted = format_recent_predictions(predictions, limit=20, tau=0.003)
+
+    assert formatted.loc[0, "Actual Outcome"] == "📈 UP"
+    assert formatted.loc[0, "Status"] == "❌ Band Miss"
 
 
 def test_format_recent_predictions_can_render_explicit_local_timezone_strings() -> None:

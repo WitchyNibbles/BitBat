@@ -8,6 +8,7 @@ from math import sqrt
 import numpy as np
 
 from bitbat.autonomous.models import PredictionOutcome
+from bitbat.config.loader import get_runtime_config, load_config
 
 
 class PerformanceMetrics:
@@ -16,6 +17,33 @@ class PerformanceMetrics:
     def __init__(self, predictions: Sequence[PredictionOutcome]) -> None:
         self.predictions = list(predictions)
         self.realized = [pred for pred in self.predictions if pred.actual_return is not None]
+        config = get_runtime_config() or load_config()
+        self.tau = float(config.get("tau", 0.01) or 0.01)
+
+    def _direction_from_return(self, value: float) -> str:
+        if value > self.tau:
+            return "up"
+        if value < -self.tau:
+            return "down"
+        return "flat"
+
+    def _prediction_is_correct(self, pred: PredictionOutcome) -> bool | None:
+        if pred.actual_return is not None:
+            actual_direction = self._direction_from_return(float(pred.actual_return))
+            if pred.predicted_return is not None:
+                predicted_direction = self._direction_from_return(float(pred.predicted_return))
+                return predicted_direction == actual_direction
+            predicted_direction = str(pred.predicted_direction or "flat").strip().lower()
+            if predicted_direction not in {"up", "down", "flat"}:
+                predicted_direction = "flat"
+            return predicted_direction == actual_direction
+        if pred.actual_direction is not None:
+            return str(pred.predicted_direction or "flat").strip().lower() == str(
+                pred.actual_direction
+            ).strip().lower()
+        if pred.correct is None:
+            return None
+        return bool(pred.correct)
 
     def _returns(self) -> np.ndarray:
         return np.array([float(pred.actual_return) for pred in self.realized], dtype="float64")
@@ -23,9 +51,10 @@ class PerformanceMetrics:
     def _correct_flags(self) -> list[bool]:
         flags: list[bool] = []
         for pred in self.realized:
-            if pred.correct is None:
+            result = self._prediction_is_correct(pred)
+            if result is None:
                 continue
-            flags.append(bool(pred.correct))
+            flags.append(bool(result))
         return flags
 
     def total_predictions(self) -> int:
@@ -99,7 +128,8 @@ class PerformanceMetrics:
         """Return confidence calibration summary."""
         rows: list[tuple[float, bool]] = []
         for pred in self.realized:
-            if pred.correct is None:
+            result = self._prediction_is_correct(pred)
+            if result is None:
                 continue
             # In regression mode p_up/p_down may be None; skip calibration.
             if pred.p_up is None and pred.p_down is None:
@@ -110,7 +140,7 @@ class PerformanceMetrics:
                 else max(0.0, 1.0 - float(pred.p_up or 0.0) - float(pred.p_down or 0.0))
             )
             confidence = max(float(pred.p_up or 0.0), float(pred.p_down or 0.0), p_flat)
-            rows.append((confidence, bool(pred.correct)))
+            rows.append((confidence, bool(result)))
 
         if not rows:
             return {
@@ -191,9 +221,10 @@ class PerformanceMetrics:
 
         matches: list[bool] = []
         for pred in self.realized:
-            if pred.actual_direction is None:
+            result = self._prediction_is_correct(pred)
+            if result is None:
                 continue
-            matches.append(pred.predicted_direction == pred.actual_direction)
+            matches.append(bool(result))
 
         if not matches:
             return 0.0

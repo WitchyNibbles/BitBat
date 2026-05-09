@@ -77,6 +77,24 @@ def _format_timestamp_for_display(
     return local.strftime("%Y-%m-%d %H:%M %Z")
 
 
+def _active_tau() -> float:
+    from bitbat.config.loader import get_runtime_config, load_config
+
+    config = get_runtime_config() or load_config()
+    return float(config.get("tau", 0.01) or 0.01)
+
+
+def _direction_from_return(value: Any, *, tau: float) -> str | None:
+    if pd.isna(value):
+        return None
+    parsed = float(value)
+    if parsed > tau:
+        return "up"
+    if parsed < -tau:
+        return "down"
+    return "flat"
+
+
 def _derive_display_predicted_price(
     predicted_direction: pd.Series,
     entry_price: pd.Series,
@@ -108,8 +126,9 @@ def _target_timestamps(
     return timestamps + delta
 
 
-def normalize_performance_rows(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_performance_rows(df: pd.DataFrame, *, tau: float | None = None) -> pd.DataFrame:
     """Coerce prediction-outcome rows into a consistent typed frame."""
+    tau_value = _active_tau() if tau is None else float(tau)
     if df.empty:
         return pd.DataFrame(
             columns=[
@@ -122,6 +141,7 @@ def normalize_performance_rows(df: pd.DataFrame) -> pd.DataFrame:
                 "p_up",
                 "p_down",
                 "p_flat",
+                "predicted_return",
                 "predicted_price",
                 "start_price",
                 "end_price",
@@ -153,6 +173,7 @@ def normalize_performance_rows(df: pd.DataFrame) -> pd.DataFrame:
         "p_down",
         "p_flat",
         "actual_return",
+        "predicted_return",
         "predicted_price",
         "start_price",
         "end_price",
@@ -171,6 +192,14 @@ def normalize_performance_rows(df: pd.DataFrame) -> pd.DataFrame:
         normalized["predicted_direction"].astype("string").str.lower().fillna("flat")
     )
     normalized["actual_direction"] = normalized["actual_direction"].astype("string").str.lower()
+    realized_direction = normalized["actual_return"].map(
+        lambda value: _direction_from_return(value, tau=tau_value)
+    )
+    realized_direction = realized_direction.astype("string")
+    normalized["actual_direction"] = normalized["actual_direction"].where(
+        ~realized_direction.notna(),
+        realized_direction,
+    )
 
     if "correct" in normalized.columns:
         normalized["correct"] = normalized["correct"].map(_coerce_nullable_bool).astype("boolean")
@@ -179,10 +208,7 @@ def normalize_performance_rows(df: pd.DataFrame) -> pd.DataFrame:
 
     direction_known = normalized["actual_direction"].notna()
     derived = normalized["predicted_direction"].eq(normalized["actual_direction"])
-    normalized["correct"] = normalized["correct"].where(
-        ~(normalized["correct"].isna() & direction_known),
-        derived,
-    )
+    normalized["correct"] = normalized["correct"].where(~direction_known, derived)
 
     confidence_inputs = normalized[["p_up", "p_down", "p_flat"]].astype("Float64")
     normalized["confidence"] = confidence_inputs.max(axis=1, skipna=True)
@@ -204,7 +230,7 @@ def attach_price_evidence(
     tau: float = 0.01,
 ) -> pd.DataFrame:
     """Attach user-facing price evidence to normalized performance rows."""
-    normalized = normalize_performance_rows(predictions)
+    normalized = normalize_performance_rows(predictions, tau=tau)
     if normalized.empty:
         normalized["actual_price"] = pd.Series(dtype="Float64")
         normalized["price_gap_pct"] = pd.Series(dtype="Float64")
@@ -388,8 +414,11 @@ def format_recent_predictions(
         horizon=horizon,
     )
     normalized["status"] = "⏳ Pending"
+    classifier_rows = normalized["predicted_return"].isna()
     normalized.loc[normalized["correct"].eq(True), "status"] = "✅ Correct"
     normalized.loc[normalized["correct"].eq(False), "status"] = "❌ Missed"
+    normalized.loc[classifier_rows & normalized["correct"].eq(True), "status"] = "✅ Band Match"
+    normalized.loc[classifier_rows & normalized["correct"].eq(False), "status"] = "❌ Band Miss"
 
     recent = normalized.sort_values("timestamp_utc", ascending=False).head(limit)
     if recent.empty:

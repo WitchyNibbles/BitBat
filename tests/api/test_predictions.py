@@ -347,6 +347,67 @@ class TestPredictionTimeline:
         assert data["price_points"][1]["actual_price"] == pytest.approx(43100.0)
         assert data["price_points"][2]["actual_price"] == pytest.approx(43850.0)
 
+    def test_prefers_target_horizon_price_when_available(
+        self,
+        client: SyncASGIClient,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        db_path = tmp_path / "data" / "autonomous.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        monkeypatch.chdir(tmp_path)
+
+        db = AutonomousDB(f"sqlite:///{db_path}")
+        from bitbat.autonomous.models import Base
+
+        Base.metadata.create_all(db.engine)
+
+        with db.session() as session:
+            db.store_prediction(
+                session,
+                timestamp_utc=datetime(2024, 1, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                predicted_direction="up",
+                predicted_price=43000.0,
+                p_up=0.7,
+                p_down=0.2,
+                p_flat=0.1,
+                model_version="v-target",
+                freq="1h",
+                horizon="4h",
+            )
+            db.store_prediction(
+                session,
+                timestamp_utc=datetime(2024, 1, 1, 1, 0, tzinfo=UTC).replace(tzinfo=None),
+                predicted_direction="down",
+                predicted_price=41500.0,
+                p_up=0.2,
+                p_down=0.7,
+                p_flat=0.1,
+                model_version="v-target",
+                freq="1h",
+                horizon="4h",
+            )
+
+        price_dir = tmp_path / "data" / "raw" / "prices"
+        price_dir.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame({
+            "timestamp_utc": [
+                datetime(2024, 1, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2024, 1, 1, 1, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2024, 1, 1, 4, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2024, 1, 1, 5, 0, tzinfo=UTC).replace(tzinfo=None),
+            ],
+            "close": [42000.0, 42100.0, 44000.0, 41000.0],
+        }).to_parquet(price_dir / "btcusd_yf_1h.parquet")
+
+        resp = client.get("/predictions/timeline?freq=1h&horizon=4h&limit=10")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["points"]) == 2
+        assert data["points"][0]["actual_price"] == pytest.approx(44000.0)
+        assert data["points"][1]["actual_price"] == pytest.approx(41000.0)
+
 
 class TestPerformance:
     def test_returns_metrics(self, client: SyncASGIClient, db_with_predictions: Path) -> None:
@@ -363,7 +424,7 @@ class TestPerformance:
         assert data["total_predictions"] == 0
         assert data["hit_rate"] is None
 
-    def test_directional_accuracy_uses_direction_labels_for_predicted_return_rows(
+    def test_directional_accuracy_prefers_predicted_return_when_present(
         self,
         client: SyncASGIClient,
         tmp_path: Path,
@@ -407,6 +468,53 @@ class TestPerformance:
         assert resp.status_code == 200
         data = resp.json()
         assert data["realized_predictions"] == 1
+        assert data["directional_accuracy"] == pytest.approx(1.0)
+
+    def test_performance_recomputes_stale_correctness_using_active_tau(
+        self,
+        client: SyncASGIClient,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        db_path = tmp_path / "data" / "autonomous.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        monkeypatch.chdir(tmp_path)
+
+        db = AutonomousDB(f"sqlite:///{db_path}")
+        from bitbat.autonomous.models import Base
+
+        Base.metadata.create_all(db.engine)
+
+        with db.session() as session:
+            prediction = db.store_prediction(
+                session,
+                timestamp_utc=datetime(2024, 1, 11, tzinfo=UTC).replace(tzinfo=None),
+                predicted_direction="flat",
+                predicted_return=None,
+                predicted_price=42000.0,
+                p_up=0.05,
+                p_down=0.05,
+                p_flat=0.90,
+                model_version="v-stale",
+                freq="1h",
+                horizon="4h",
+            )
+            db.realize_prediction(
+                session,
+                prediction_id=prediction.id,
+                actual_return=0.004,
+                actual_direction="flat",
+                correct=True,
+                start_price=42000.0,
+                end_price=42168.0,
+            )
+
+        resp = client.get("/predictions/performance?freq=1h&horizon=4h")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["realized_predictions"] == 1
+        assert data["hit_rate"] == pytest.approx(0.0)
         assert data["directional_accuracy"] == pytest.approx(0.0)
 
 

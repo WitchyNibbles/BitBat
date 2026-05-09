@@ -17,6 +17,7 @@ from bitbat.api.schemas import (
     PriceTimelinePoint,
 )
 from bitbat.autonomous.db import AutonomousDB
+from bitbat.autonomous.metrics import PerformanceMetrics
 from bitbat.model.infer import prediction_confidence
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
@@ -35,6 +36,10 @@ def _get_db() -> AutonomousDB:
 
 
 def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped-def]
+    from bitbat.config.loader import get_runtime_config, load_config
+
+    config = get_runtime_config() or load_config()
+    tau = float(config.get("tau", 0.01) or 0.01)
     p_up = getattr(p, "p_up", None)
     p_down = getattr(p, "p_down", None)
     p_flat = getattr(p, "p_flat", None)
@@ -54,6 +59,27 @@ def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped
         p_down=p_down,
         p_flat=p_flat,
     )
+    actual_return = getattr(p, "actual_return", None)
+    actual_direction = getattr(p, "actual_direction", None)
+    correct = getattr(p, "correct", None)
+    if actual_return is not None:
+        if float(actual_return) > tau:
+            actual_direction = "up"
+        elif float(actual_return) < -tau:
+            actual_direction = "down"
+        else:
+            actual_direction = "flat"
+        predicted_return = getattr(p, "predicted_return", None)
+        if predicted_return is not None:
+            if float(predicted_return) > tau:
+                predicted_direction = "up"
+            elif float(predicted_return) < -tau:
+                predicted_direction = "down"
+            else:
+                predicted_direction = "flat"
+        else:
+            predicted_direction = direction if direction in {"up", "down", "flat"} else "flat"
+        correct = predicted_direction == actual_direction
 
     return PredictionResponse(
         id=p.id,
@@ -67,9 +93,9 @@ def _prediction_to_response(p) -> PredictionResponse:  # type: ignore[no-untyped
         confidence=confidence,
         start_price=getattr(p, "start_price", None),
         end_price=getattr(p, "end_price", None),
-        actual_direction=p.actual_direction,
-        actual_return=p.actual_return,
-        correct=p.correct,
+        actual_direction=actual_direction,
+        actual_return=actual_return,
+        correct=correct,
         model_version=p.model_version,
         freq=p.freq,
         horizon=p.horizon,
@@ -103,6 +129,14 @@ def _timeline_tolerance(freq: str) -> pd.Timedelta | None:
         return pd.to_timedelta(freq) / 2
     except Exception:
         return None
+
+
+def _target_timestamps(timestamps: pd.Series, horizon: str) -> pd.Series:
+    try:
+        delta = pd.to_timedelta(horizon)
+    except Exception:
+        return timestamps
+    return timestamps + delta
 
 
 @router.get("/latest", response_model=PredictionResponse)
@@ -167,7 +201,7 @@ async def prediction_timeline(
             "predicted_price": row.predicted_price,
             "predicted_direction": row.predicted_direction,
             "confidence": _timeline_confidence(row),
-            "correct": row.correct,
+            "correct": _prediction_to_response(row).correct,
             "is_realized": bool(
                 row.correct is not None
                 or row.actual_direction is not None
@@ -203,13 +237,38 @@ async def prediction_timeline(
         ]
 
         tolerance = _timeline_tolerance(freq)
-        points_frame = pd.merge_asof(
-            points_frame,
+        target_frame = points_frame.assign(
+            target_timestamp_utc=_target_timestamps(points_frame["timestamp_utc"], horizon)
+        )
+        target_prices = pd.merge_asof(
+            target_frame.sort_values("target_timestamp_utc"),
+            price_frame.rename(
+                columns={
+                    "timestamp_utc": "target_timestamp_utc",
+                    "actual_price": "actual_price_target",
+                }
+            ).sort_values("target_timestamp_utc"),
+            on="target_timestamp_utc",
+            direction="nearest",
+            tolerance=tolerance,
+        ).sort_values("timestamp_utc")
+        points_frame = points_frame.merge(
+            target_prices.loc[:, ["timestamp_utc", "actual_price_target"]],
+            on="timestamp_utc",
+            how="left",
+        )
+        fallback_prices = pd.merge_asof(
+            points_frame.sort_values("timestamp_utc"),
             price_frame,
             on="timestamp_utc",
             direction="nearest",
             tolerance=tolerance,
+        ).sort_values("timestamp_utc")
+        points_frame["actual_price"] = points_frame["actual_price_target"].where(
+            points_frame["actual_price_target"].notna(),
+            fallback_prices["actual_price"],
         )
+        points_frame = points_frame.drop(columns=["actual_price_target"])
     else:
         points_frame["actual_price"] = pd.NA
 
@@ -262,45 +321,7 @@ async def prediction_performance(
                 total_predictions=0,
                 realized_predictions=0,
             )
-
-        correct = sum(1 for r in rows if r.correct)
-        hit_rate = correct / total if total else None
-        returns = [r.actual_return for r in rows if r.actual_return is not None]
-        avg_ret = sum(returns) / len(returns) if returns else None
-
-        # Directional accuracy, MAE, RMSE from predicted_return vs actual_return.
-        # Newer classifier rows do not carry predicted_return, so directional
-        # accuracy must fall back to the stored direction labels.
-        dir_correct = 0
-        dir_total = 0
-        errors: list[float] = []
-        for r in rows:
-            pr = getattr(r, "predicted_return", None)
-            ar = r.actual_return
-            if pr is not None and ar is not None:
-                errors.append(pr - ar)
-
-            predicted_direction = getattr(r, "predicted_direction", None)
-            actual_direction = getattr(r, "actual_direction", None)
-            if predicted_direction is not None and actual_direction is not None:
-                dir_correct += int(predicted_direction == actual_direction)
-                dir_total += 1
-
-        mae = sum(abs(e) for e in errors) / len(errors) if errors else None
-        rmse = (sum(e**2 for e in errors) / len(errors)) ** 0.5 if errors else None
-        directional_accuracy = dir_correct / dir_total if dir_total else None
-
-        # Streaks
-        win_streak = lose_streak = cur_win = cur_lose = 0
-        for r in reversed(rows):
-            if r.correct:
-                cur_win += 1
-                cur_lose = 0
-            else:
-                cur_lose += 1
-                cur_win = 0
-            win_streak = max(win_streak, cur_win)
-            lose_streak = max(lose_streak, cur_lose)
+        metrics = PerformanceMetrics(rows).to_dict()
 
         model_ver = rows[0].model_version if rows else None
 
@@ -311,11 +332,11 @@ async def prediction_performance(
             window_days=days,
             total_predictions=total,
             realized_predictions=total,
-            hit_rate=hit_rate,
-            avg_return=avg_ret,
-            win_streak=win_streak,
-            lose_streak=lose_streak,
-            mae=mae,
-            rmse=rmse,
-            directional_accuracy=directional_accuracy,
+            hit_rate=float(metrics["hit_rate"]),
+            avg_return=float(metrics["average_return"]),
+            win_streak=int(metrics["win_streak"]),
+            lose_streak=int(metrics["lose_streak"]),
+            mae=float(metrics["mae"]),
+            rmse=float(metrics["rmse"]),
+            directional_accuracy=float(metrics["directional_accuracy"]),
         )
