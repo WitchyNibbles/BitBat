@@ -188,9 +188,7 @@ class LegacyModelSignalProvider:
             if str(action_prediction.get("predicted_label", "")).lower() != "act":
                 direction = "hold"
         expected_move_return = (
-            0.0
-            if direction == "hold"
-            else round(signed_score * action_confidence, 6)
+            0.0 if direction == "hold" else round(signed_score * action_confidence, 6)
         )
         expected_cost_return = _round_trip_cost_return(self.runtime_config)
         expected_value_return = _signed_expected_value(expected_move_return, expected_cost_return)

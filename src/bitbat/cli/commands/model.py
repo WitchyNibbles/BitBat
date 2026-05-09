@@ -509,12 +509,14 @@ def _build_ablation_scenarios(feature_cols: list[str]) -> list[dict[str, Any]]:
         family = _feature_family_name(column)
         family_map.setdefault(family, []).append(column)
 
-    scenarios: list[dict[str, Any]] = [{
-        "scenario_id": "all_features",
-        "included_families": sorted(family_map),
-        "excluded_families": [],
-        "columns": list(feature_cols),
-    }]
+    scenarios: list[dict[str, Any]] = [
+        {
+            "scenario_id": "all_features",
+            "included_families": sorted(family_map),
+            "excluded_families": [],
+            "columns": list(feature_cols),
+        }
+    ]
     price_columns = family_map.get("price", [])
     if price_columns:
         scenarios.append({
@@ -544,10 +546,9 @@ def _runtime_replay_summary_for_artifact(
     horizon: str,
 ) -> dict[str, Any]:
     model_dir = Path(_config().get("models_dir", "models")) / f"{freq}_{horizon}"
-    has_meta_policy = (
-        (model_dir / "xgb.side.json").exists()
-        and (model_dir / "xgb.action.meta_label.json").exists()
-    )
+    has_meta_policy = (model_dir / "xgb.side.json").exists() and (
+        model_dir / "xgb.action.meta_label.json"
+    ).exists()
     if family != "xgb":
         return unsupported_runtime_replay_summary(
             signal_source="legacy_ml",
@@ -1322,9 +1323,7 @@ def model_ablate_features(
     scenarios = _build_ablation_scenarios(feature_cols)
     reports: list[dict[str, Any]] = []
     for scenario in scenarios:
-        scenario_dataset = dataset[
-            ["label", "r_forward", *scenario["columns"]]
-        ].copy()
+        scenario_dataset = dataset[["label", "r_forward", *scenario["columns"]]].copy()
         summary_by_family = _run_cv_folds(
             folds,
             ["xgb"],

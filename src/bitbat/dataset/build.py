@@ -292,9 +292,7 @@ def build_xy(
         barrier_take_profit=(
             float(barrier_take_profit) if barrier_take_profit is not None else None
         ),
-        barrier_stop_loss=(
-            float(barrier_stop_loss) if barrier_stop_loss is not None else None
-        ),
+        barrier_stop_loss=(float(barrier_stop_loss) if barrier_stop_loss is not None else None),
     )
 
     output_base = Path(output_root) if output_root is not None else Path("data")

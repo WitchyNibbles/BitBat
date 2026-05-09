@@ -52,11 +52,20 @@ jobs:
         run: docker build -t bitbat:ci .
       - name: Verify image runs
         run: |
-          docker run --rm -d --name bitbat-ci -p 8000:8000 bitbat:ci
+          BITBAT_V2_OPERATOR_TOKEN=ci-operator-token
+          docker run --rm -d \
+            --name bitbat-ci \
+            -p 8100:8100 \
+            -e BITBAT_V2_OPERATOR_TOKEN="$BITBAT_V2_OPERATOR_TOKEN" \
+            bitbat:ci
           for i in $(seq 1 15); do
-            curl -sf http://localhost:8000/health && break
+            curl -sf \
+              -H "X-BitBat-Operator-Token: $BITBAT_V2_OPERATOR_TOKEN" \
+              http://localhost:8100/v1/health && break
             echo "Waiting for server... ($i)"
             sleep 2
           done
-          curl -sf http://localhost:8000/health || exit 1
+          curl -sf \
+            -H "X-BitBat-Operator-Token: $BITBAT_V2_OPERATOR_TOKEN" \
+            http://localhost:8100/v1/health || exit 1
           docker stop bitbat-ci

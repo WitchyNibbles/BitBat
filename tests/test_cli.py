@@ -2037,16 +2037,12 @@ def test_cli_model_train_updates_cv_summary_with_replay_gate(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("artifact", encoding="utf-8")
         path.with_suffix(".meta.json").write_text(
-            json.dumps(
-                {
-                    "family": "xgb",
-                    "label_mode": (
-                        "meta_label" if artifact_role == "action" else "direction"
-                    ),
-                    "artifact_role": artifact_role,
-                    "version": "test-model-v1",
-                }
-            ),
+            json.dumps({
+                "family": "xgb",
+                "label_mode": ("meta_label" if artifact_role == "action" else "direction"),
+                "artifact_role": artifact_role,
+                "version": "test-model-v1",
+            }),
             encoding="utf-8",
         )
         return path
@@ -2128,20 +2124,22 @@ def test_cli_model_ablate_features_writes_report(
     monkeypatch.setattr(
         "bitbat.cli.commands.model._run_cv_folds",
         lambda folds, families, ds, freq, horizon, embargo_bars, purge_bars: {
-            "xgb": [{
-                "rmse": 0.01 if "feat_sent_1h_mean" in ds.columns else 0.02,
-                "mae": 0.005,
-                "directional_accuracy": 0.62 if "feat_sent_1h_mean" in ds.columns else 0.55,
-                "correlation": 0.1,
-                "net_sharpe": 1.1 if "feat_sent_1h_mean" in ds.columns else 0.9,
-                "gross_sharpe": 1.2,
-                "max_drawdown": -0.1,
-                "net_return": 0.03 if "feat_sent_1h_mean" in ds.columns else 0.01,
-                "gross_return": 0.04,
-                "total_costs": 0.001,
-                "total_fee_costs": 0.001,
-                "total_slippage_costs": 0.0,
-            }]
+            "xgb": [
+                {
+                    "rmse": 0.01 if "feat_sent_1h_mean" in ds.columns else 0.02,
+                    "mae": 0.005,
+                    "directional_accuracy": 0.62 if "feat_sent_1h_mean" in ds.columns else 0.55,
+                    "correlation": 0.1,
+                    "net_sharpe": 1.1 if "feat_sent_1h_mean" in ds.columns else 0.9,
+                    "gross_sharpe": 1.2,
+                    "max_drawdown": -0.1,
+                    "net_return": 0.03 if "feat_sent_1h_mean" in ds.columns else 0.01,
+                    "gross_return": 0.04,
+                    "total_costs": 0.001,
+                    "total_fee_costs": 0.001,
+                    "total_slippage_costs": 0.0,
+                }
+            ]
         },
     )
 
