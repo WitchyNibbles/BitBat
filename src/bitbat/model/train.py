@@ -39,12 +39,25 @@ def _default_model_path(family: BaselineFamily, freq: str, horizon: str) -> Path
     return model_dir / filename
 
 
+def _normalize_class_labels(class_labels: list[str] | tuple[str, ...]) -> list[str]:
+    return [str(label).strip().lower() for label in class_labels]
+
+
 def _classification_contract(
     y_train: pd.Series,
     *,
     label_mode: str,
+    class_labels: list[str] | tuple[str, ...] | None,
 ) -> tuple[pd.Series, list[str]]:
     resolved_label_mode = normalize_label_mode(label_mode)
+    if resolved_label_mode == "direction":
+        default_labels = list(DIRECTION_CLASSES)
+    elif resolved_label_mode == "meta_label":
+        default_labels = list(META_LABEL_CLASSES)
+    else:
+        default_labels = ["take_profit", "stop_loss", "timeout"]
+
+    resolved_class_labels = _normalize_class_labels(class_labels or default_labels)
     if pd.api.types.is_numeric_dtype(y_train):
         if resolved_label_mode != "direction":
             raise ValueError(
@@ -61,26 +74,19 @@ def _classification_contract(
         y_labels = pd.Series("flat", index=y_train.index, dtype="string")
         y_labels.loc[y_train >= tau] = "up"
         y_labels.loc[y_train <= -tau] = "down"
-        return y_labels, ["up", "down", "flat"]
+        return y_labels, resolved_class_labels
 
-    y_labels = y_train.astype("string")
+    y_labels = y_train.astype("string").str.strip().str.lower()
     if y_labels.isna().any():
         raise ValueError("Classification targets must be non-null.")
 
-    if resolved_label_mode == "direction":
-        ordered_labels = ["up", "down", "flat"]
-    elif resolved_label_mode == "meta_label":
-        ordered_labels = ["pass", "act"]
-    else:
-        ordered_labels = ["take_profit", "stop_loss", "timeout"]
-
     observed = {str(value) for value in y_labels.dropna().unique()}
-    invalid = sorted(observed - set(ordered_labels))
+    invalid = sorted(observed - set(resolved_class_labels))
     if invalid:
         raise ValueError(
             f"Label values {invalid} do not match the '{resolved_label_mode}' artifact contract."
         )
-    return y_labels, ordered_labels
+    return y_labels, resolved_class_labels
 
 
 def fit_baseline(
@@ -91,6 +97,7 @@ def fit_baseline(
     label_mode: str = "direction",
     seed: int = 42,
     persist: bool = True,
+    class_labels: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[TreeBaselineModel, dict[str, float]]:
     """Train a baseline model family from a shared feature/target contract."""
     if not isinstance(X_train, pd.DataFrame):
@@ -101,14 +108,18 @@ def fit_baseline(
     X = X_train.astype(float)
 
     if family == "xgb":
-        y_labels, class_labels = _classification_contract(y_train, label_mode=label_mode)
-        encoding = {label: index for index, label in enumerate(class_labels)}
-        y_encoded = y_labels.map(encoding).astype(int)
+        y_labels, resolved_class_labels = _classification_contract(
+            y_train,
+            label_mode=label_mode,
+            class_labels=class_labels,
+        )
+        label_lookup = {label: index for index, label in enumerate(resolved_class_labels)}
+        y_encoded = y_labels.map(label_lookup).astype(int)
 
         dtrain = xgb.DMatrix(X, label=y_encoded.to_numpy(), feature_names=list(X.columns))
         params = {
             "objective": "multi:softprob",
-            "num_class": len(class_labels),
+            "num_class": len(label_lookup),
             "eval_metric": "mlogloss",
             "seed": seed,
             "eta": 0.05,
@@ -124,7 +135,7 @@ def fit_baseline(
         }
         booster.set_attr(
             label_mode=normalize_label_mode(label_mode),
-            class_labels_json=json.dumps(class_labels),
+            class_labels_json=json.dumps(resolved_class_labels),
         )
         model: TreeBaselineModel = booster
     elif family == "random_forest":
@@ -170,6 +181,7 @@ def fit_xgb(
     label_mode: str = "direction",
     seed: int = 42,
     persist: bool = True,
+    class_labels: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[xgb.Booster, dict[str, float]]:
     """Train an XGBoost classification model and persist it to disk."""
     model, importance = fit_baseline(
@@ -179,6 +191,7 @@ def fit_xgb(
         label_mode=label_mode,
         seed=seed,
         persist=persist,
+        class_labels=class_labels,
     )
     if not isinstance(model, xgb.Booster):
         raise TypeError(f"Expected xgb.Booster from fit_baseline, got {type(model).__name__}")

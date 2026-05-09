@@ -25,7 +25,7 @@ def normalize_label_mode(label_mode: str | None) -> LabelMode:
         return "direction"
     if resolved == "triple_barrier":
         return "triple_barrier"
-    if resolved in {"meta_label", "meta"}:
+    if resolved in {"meta_label", "meta-label", "meta"}:
         return "meta_label"
     raise ValueError(
         "Unsupported label_mode "
@@ -69,11 +69,24 @@ def _metadata_path(path: Path) -> Path:
 
 
 def load_metadata(path: str | Path) -> dict[str, Any]:
-    """Load persisted artifact metadata when available."""
-    metadata_path = _metadata_path(Path(path))
-    if not metadata_path.exists():
+    """Load artifact metadata when available, otherwise infer a minimal payload."""
+    target = Path(path)
+    metadata_path = _metadata_path(target)
+    if metadata_path.exists():
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        payload.setdefault("family", _infer_family(target))
+        payload.setdefault("artifact", target.name)
+        payload.setdefault("path", str(target))
+        return payload
+    try:
+        family = _infer_family(target)
+    except ValueError:
         return {}
-    return json.loads(metadata_path.read_text(encoding="utf-8"))
+    return {
+        "family": family,
+        "artifact": target.name,
+        "path": str(target),
+    }
 
 
 def _infer_family(path: Path, family: BaselineFamily | None = None) -> BaselineFamily:

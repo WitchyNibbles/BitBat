@@ -9,7 +9,10 @@ SUPPORTED_SIGNAL_SOURCES = frozenset({"heuristic", "legacy_ml"})
 
 
 def resolve_signal_source(value: str) -> str:
-    normalized = value.strip().lower()
+    """Normalize and validate the v2 signal source selector."""
+    normalized = str(value).strip().lower()
+    if normalized == "":
+        normalized = "heuristic"
     if normalized not in SUPPORTED_SIGNAL_SOURCES:
         supported = ", ".join(sorted(SUPPORTED_SIGNAL_SOURCES))
         raise ValueError(
@@ -96,15 +99,18 @@ class BitBatV2Config:
             min_body_strength=float(
                 os.getenv("BITBAT_V2_MIN_BODY_STRENGTH", str(cls.min_body_strength))
             ),
-            model_name=os.getenv("BITBAT_V2_MODEL_NAME", cls.model_name),
             signal_source=resolve_signal_source(
                 os.getenv("BITBAT_V2_SIGNAL_SOURCE", cls.signal_source)
             ),
-            legacy_signal_freq=os.getenv("BITBAT_V2_LEGACY_SIGNAL_FREQ", cls.legacy_signal_freq),
+            legacy_signal_freq=os.getenv(
+                "BITBAT_V2_LEGACY_SIGNAL_FREQ",
+                cls.legacy_signal_freq,
+            ),
             legacy_signal_horizon=os.getenv(
                 "BITBAT_V2_LEGACY_SIGNAL_HORIZON",
                 cls.legacy_signal_horizon,
             ),
+            model_name=os.getenv("BITBAT_V2_MODEL_NAME", cls.model_name),
             venue=os.getenv("BITBAT_V2_VENUE", cls.venue),
             demo_mode=os.getenv(
                 "BITBAT_V2_DEMO_MODE",

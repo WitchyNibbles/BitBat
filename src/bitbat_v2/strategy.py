@@ -209,10 +209,14 @@ STRATEGIES: dict[str, Strategy] = {
     BaselineV1Strategy.name: BaselineV1Strategy(),
     FilteredMomentumV2Strategy.name: FilteredMomentumV2Strategy(),
 }
+STRATEGY_ALIASES: dict[str, str] = {
+    "ritual-momentum-v1": FilteredMomentumV2Strategy.name,
+}
 
 
 def get_strategy(name: str) -> Strategy:
+    resolved_name = STRATEGY_ALIASES.get(name, name)
     try:
-        return STRATEGIES[name]
+        return STRATEGIES[resolved_name]
     except KeyError as exc:
         raise ValueError(f"unknown v2 strategy: {name}") from exc

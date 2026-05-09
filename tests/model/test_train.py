@@ -140,3 +140,29 @@ def test_direction_classes_consistent_across_modules() -> None:
         f"DIRECTION_CLASSES mismatch: train={train_mod.DIRECTION_CLASSES}, "
         f"infer={infer_mod.DIRECTION_CLASSES}"
     )
+
+
+def test_fit_xgb_supports_custom_class_labels(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import xgboost as xgb
+
+    rng = np.random.default_rng(23)
+    X = pd.DataFrame(rng.normal(size=(75, 4)), columns=[f"f{i}" for i in range(4)])
+    X.attrs["freq"] = "5m"
+    X.attrs["horizon"] = "30m"
+    y = pd.Series(rng.choice(["take_profit", "stop_loss", "timeout"], size=75))
+
+    monkeypatch.chdir(tmp_path)
+    booster, _ = fit_xgb(
+        X,
+        y,
+        seed=0,
+        persist=False,
+        class_labels=["take_profit", "stop_loss", "timeout"],
+    )
+    dmatrix = xgb.DMatrix(X.astype(float), feature_names=list(X.columns))
+    probs = booster.predict(dmatrix)
+
+    assert probs.shape == (75, 3)

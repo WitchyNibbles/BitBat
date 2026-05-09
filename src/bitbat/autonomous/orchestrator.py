@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 _DEFAULT_LOOKBACK_DAYS = 729  # < 730 to avoid boundary errors for 1h/1d
 
 
+def _training_dataset_path(data_dir: Path, freq: str, horizon: str) -> Path:
+    return data_dir / "features" / f"{freq}_{horizon}" / "dataset.parquet"
+
+
 def _progress(
     callback: Callable[[str, float], None] | None,
     message: str,
@@ -60,8 +64,11 @@ def one_click_train(  # noqa: C901
         from bitbat.autonomous.models import init_database
         from bitbat.common.presets import get_preset
         from bitbat.config.loader import get_runtime_config, load_config
+        from bitbat.model.mode_profiles import get_mode_model_profile
+        from bitbat.model.mode_selection import select_mode_candidate
 
         preset = get_preset(preset_name)
+        profile = get_mode_model_profile(preset_name)
         freq = preset.freq
         horizon = preset.horizon
 
@@ -198,10 +205,15 @@ def one_click_train(  # noqa: C901
             horizon=horizon,
             start=str(first_date.date()),
             end=str(last_date.date()),
+            tau=float(preset.tau),
             enable_sentiment=enable_sentiment,
             enable_garch=enable_garch,
             macro_parquet=macro_parquet,
             onchain_parquet=onchain_parquet,
+            label_mode=profile.label_mode,
+            barrier_take_profit=profile.barrier_take_profit,
+            barrier_stop_loss=profile.barrier_stop_loss,
+            output_root=data_dir,
         )
     except Exception as exc:
         return _fail("build_features", exc, t0)
@@ -218,14 +230,73 @@ def one_click_train(  # noqa: C901
     # ------------------------------------------------------------------
     # Step 5: Train model
     # ------------------------------------------------------------------
-    _progress(progress_callback, "Training XGBoost model...", 0.61)
+    _progress(progress_callback, f"Training {profile.family} model...", 0.61)
 
     try:
-        from bitbat.model.train import fit_xgb
+        from bitbat.model.persist import save_baseline_artifact
+        from bitbat.model.train import fit_random_forest, fit_xgb
 
         X.attrs["freq"] = freq
         X.attrs["horizon"] = horizon
-        booster, importance = fit_xgb(X, y)
+        dataset_path = _training_dataset_path(data_dir, freq, horizon)
+        training_dataset = pd.read_parquet(dataset_path) if dataset_path.exists() else None
+        selection = (
+            select_mode_candidate(
+                training_dataset.set_index("timestamp_utc").sort_index(),
+                profile=profile,
+                seed=int(config.get("seed", 42)),
+            )
+            if training_dataset is not None
+            else {
+                "selected_family": profile.family,
+                "candidate_reports": {},
+                "champion_decision": {
+                    "winner": profile.family,
+                    "promote_candidate": False,
+                    "reason": "missing-training-dataset",
+                },
+            }
+        )
+        selected_family = str(selection.get("selected_family", profile.family))
+        if selected_family == "xgb":
+            if training_dataset is not None and "label" in training_dataset.columns:
+                labels = training_dataset["label"].astype(str)
+            elif not pd.api.types.is_numeric_dtype(y):
+                labels = y.astype(str)
+            else:
+                raise FileNotFoundError(
+                    "Dataset labels are required for classification training "
+                    "but were not persisted."
+                )
+            trained_model, importance = fit_xgb(
+                X,
+                labels,
+                persist=False,
+                class_labels=list(profile.class_labels),
+            )
+        else:
+            regression_targets = (
+                training_dataset["r_forward"].astype("float64")
+                if training_dataset is not None and "r_forward" in training_dataset.columns
+                else y.astype("float64")
+            )
+            trained_model, importance = fit_random_forest(
+                X,
+                regression_targets,
+                persist=False,
+            )
+        artifact_metadata = profile.artifact_metadata(preset)
+        artifact_metadata["selected_family"] = selected_family
+        artifact_metadata["candidate_reports"] = selection.get("candidate_reports", {})
+        artifact_metadata["champion_decision"] = selection.get("champion_decision", {})
+        save_baseline_artifact(
+            trained_model,
+            family=selected_family,  # type: ignore[arg-type]
+            freq=freq,
+            horizon=horizon,
+            root=config.get("models_dir"),
+            metadata=artifact_metadata,
+        )
     except Exception as exc:
         return _fail("train_model", exc, t0)
 
@@ -263,10 +334,19 @@ def one_click_train(  # noqa: C901
                 training_start=first_date.to_pydatetime(),
                 training_end=last_date.to_pydatetime(),
                 training_samples=len(X),
-                cv_score=None,
+                cv_score=float(
+                    (
+                        selection.get("candidate_reports", {})
+                        .get(selected_family, {})
+                        .get("metrics", {})
+                        .get("directional", {})
+                        .get("mean_directional_accuracy", 0.0)
+                    )
+                    or 0.0
+                ),
                 features=list(X.columns),
                 hyperparameters=None,
-                training_metadata=None,
+                training_metadata=artifact_metadata,
                 is_active=True,
             )
     except Exception as exc:

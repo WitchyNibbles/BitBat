@@ -168,3 +168,31 @@ def test_load_rejects_artifact_label_mode_mismatch(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Artifact label_mode mismatch"):
         load(path, family="xgb", expected_label_mode="triple_barrier")
+
+
+def test_load_metadata_roundtrip_and_label_mode_normalization(tmp_path: Path) -> None:
+    rng = np.random.default_rng(17)
+    X = pd.DataFrame(rng.normal(size=(80, 3)), columns=["feat_a", "feat_b", "feat_c"])
+    y = pd.Series(rng.normal(size=80))
+
+    model = RandomForestRegressor(n_estimators=20, random_state=11)
+    model.fit(X, y)
+
+    artifact_path = save_baseline_artifact(
+        model,
+        family="random_forest",
+        freq="1h",
+        horizon="24h",
+        root=tmp_path,
+        metadata={
+            "preset_name": "conservative",
+            "label_mode": "return_direction",
+        },
+    )
+
+    metadata = load_metadata(artifact_path)
+
+    assert metadata["family"] == "random_forest"
+    assert metadata["preset_name"] == "conservative"
+    assert normalize_label_mode(str(metadata["label_mode"])) == "direction"
+    assert normalize_label_mode("triple_barrier") == "triple_barrier"

@@ -206,3 +206,29 @@ def test_predict_latest_skips_when_unrealized_prediction_exists(
         stored = db.get_recent_predictions(session, "1h", "4h", days=7, realized_only=False)
 
     assert len(stored) == 1
+
+
+def test_model_path_uses_active_model_family_metadata(tmp_path: Path) -> None:
+    database_url = _db_url(tmp_path)
+    init_database(database_url)
+    db = AutonomousDB(database_url)
+
+    with db.session() as session:
+        db.store_model_version(
+            session=session,
+            version="v-rf",
+            freq="1h",
+            horizon="4h",
+            training_start=datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
+            training_end=datetime.now(UTC).replace(tzinfo=None),
+            training_samples=100,
+            cv_score=0.61,
+            features=["feat_close"],
+            hyperparameters=None,
+            training_metadata={"family": "random_forest"},
+            is_active=True,
+        )
+
+    predictor = LivePredictor(db=db, freq="1h", horizon="4h")
+
+    assert predictor._model_path().name == "random_forest.pkl"

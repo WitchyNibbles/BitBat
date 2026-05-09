@@ -19,8 +19,11 @@ from bitbat.autonomous.db import AutonomousDB, classify_monitor_db_error
 from bitbat.autonomous.models import PredictionOutcome
 from bitbat.config.loader import get_runtime_config, load_config, resolve_models_dir
 from bitbat.dataset.build import generate_price_features
-from bitbat.model.infer import predict_bar
+from bitbat.model.infer import predict_bar, predict_with_metadata
+from bitbat.model.mode_profiles import get_mode_model_profile_for_pair
+from bitbat.model.persist import default_model_artifact_path, normalize_label_mode
 from bitbat.model.persist import load as load_model
+from bitbat.model.persist import load_metadata as load_model_metadata
 
 logger = logging.getLogger(__name__)
 MIN_BARS_REQUIRED = 30
@@ -98,13 +101,52 @@ class LivePredictor:
         self.model_dir = resolve_models_dir(config)
 
     def _model_path(self) -> Path:
-        return self.model_dir / f"{self.freq}_{self.horizon}" / "xgb.json"
+        active_family = self._active_model_family()
+        if active_family is not None:
+            return default_model_artifact_path(
+                self.freq,
+                self.horizon,
+                family=active_family,
+                root=self.model_dir,
+            )
+        profile = get_mode_model_profile_for_pair(self.freq, self.horizon)
+        candidate_families = (
+            list(profile.candidate_families)
+            if profile is not None and profile.candidate_families
+            else ([profile.family] if profile is not None else ["xgb"])
+        )
+        for family in candidate_families:
+            candidate_path = default_model_artifact_path(
+                self.freq,
+                self.horizon,
+                family=family,
+                root=self.model_dir,
+            )
+            if candidate_path.exists():
+                return candidate_path
+        fallback_family = profile.family if profile is not None else "xgb"
+        return default_model_artifact_path(
+            self.freq,
+            self.horizon,
+            family=fallback_family,
+            root=self.model_dir,
+        )
 
-    def _load_model(self) -> xgb.Booster:
+    def _load_model(self) -> xgb.Booster | Any:
         model_path = self._model_path()
         if not model_path.exists():
             raise FileNotFoundError(f"Model artifact not found: {model_path}")
         return load_model(model_path, expected_label_mode="direction")
+
+    @staticmethod
+    def _model_feature_names(model: Any) -> list[str]:
+        feature_names = getattr(model, "feature_names", None)
+        if feature_names:
+            return list(feature_names)
+        feature_names_in = getattr(model, "feature_names_in_", None)
+        if feature_names_in is not None:
+            return [str(name) for name in feature_names_in]
+        return []
 
     def _active_model_version(self) -> str:
         try:
@@ -123,6 +165,24 @@ class LivePredictor:
         from bitbat import __version__
 
         return __version__
+
+    def _active_model_family(self) -> str | None:
+        try:
+            with self.db.session() as session:
+                active = self.db.get_active_model(session, self.freq, self.horizon)
+        except Exception:
+            return None
+        if active is None or not isinstance(active.training_metadata, dict):
+            return None
+        resolved_value = (
+            active.training_metadata.get("family")
+            or active.training_metadata.get("selected_family")
+            or ""
+        )
+        family = str(resolved_value).strip().lower()
+        if family in {"xgb", "random_forest"}:
+            return family
+        return None
 
     @staticmethod
     def _result(
@@ -190,6 +250,7 @@ class LivePredictor:
         # Load model
         try:
             booster = self._load_model()
+            metadata = load_model_metadata(self._model_path())
         except FileNotFoundError:
             logger.error("No model artifact found at %s — skipping prediction", self._model_path())
             return self._result(
@@ -315,7 +376,7 @@ class LivePredictor:
             )
 
         # Align features to model's expected columns
-        expected_features = list(booster.feature_names or [])
+        expected_features = self._model_feature_names(booster)
         if not expected_features:
             logger.error("Model artifact missing feature names — cannot align features")
             return self._result(
@@ -397,13 +458,28 @@ class LivePredictor:
         feature_row = aligned.loc[latest_ts]
         current_price = float(prices.loc[latest_ts, "close"])
         tau = float(config.get("tau", 0.01) or 0.01)
-        prediction = predict_bar(
-            booster,
-            feature_row,
-            timestamp=latest_ts,
-            current_price=current_price,
-            tau=tau,
-        )
+        if (
+            str(metadata.get("family", "xgb")).strip().lower() == "xgb"
+            and normalize_label_mode(str(metadata.get("label_mode", "direction"))) == "direction"
+            and [str(label).strip().lower() for label in metadata.get("class_labels", [])]
+            in ([], ["up", "down", "flat"])
+        ):
+            prediction = predict_bar(
+                booster,
+                feature_row,
+                timestamp=latest_ts,
+                current_price=current_price,
+                tau=tau,
+            )
+        else:
+            prediction = predict_with_metadata(
+                booster,
+                feature_row,
+                metadata=metadata,
+                timestamp=latest_ts,
+                current_price=current_price,
+                tau=tau,
+            )
 
         predicted_return = prediction.get("predicted_return")
         if predicted_return is not None:

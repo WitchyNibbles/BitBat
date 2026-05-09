@@ -8,9 +8,9 @@ import pandas as pd
 import pytest
 import xgboost as xgb
 
-from bitbat.model.infer import predict_bar, predict_classification
+from bitbat.model.infer import predict_bar, predict_classification, predict_with_metadata
 from bitbat.model.persist import save_baseline_artifact
-from bitbat.model.train import fit_xgb
+from bitbat.model.train import fit_random_forest, fit_xgb
 
 pytestmark = pytest.mark.behavioral
 
@@ -75,6 +75,41 @@ def test_predict_bar_p_values_sum_to_one(tmp_path: Path, monkeypatch: pytest.Mon
     assert abs(p_sum - 1.0) < 1e-5, f"p_up+p_down+p_flat = {p_sum}, expected 1.0"
 
 
+def test_predict_with_metadata_maps_triple_barrier_outputs_to_direction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rng = np.random.default_rng(31)
+    X = pd.DataFrame(rng.normal(size=(90, 4)), columns=list("abcd"))
+    X.attrs["freq"] = "5m"
+    X.attrs["horizon"] = "30m"
+    y = pd.Series(rng.choice(["take_profit", "stop_loss", "timeout"], size=90))
+    monkeypatch.chdir(tmp_path)
+
+    booster, _ = fit_xgb(
+        X,
+        y,
+        seed=0,
+        persist=False,
+        class_labels=["take_profit", "stop_loss", "timeout"],
+    )
+    result = predict_with_metadata(
+        booster,
+        X.iloc[-1],
+        metadata={
+            "family": "xgb",
+            "label_mode": "triple_barrier",
+            "class_labels": ["take_profit", "stop_loss", "timeout"],
+        },
+        current_price=100.0,
+        tau=0.003,
+    )
+
+    assert result["predicted_label"] in {"take_profit", "stop_loss", "timeout"}
+    assert result["predicted_direction"] in {"up", "down", "flat"}
+    assert abs(result["p_up"] + result["p_down"] + result["p_flat"] - 1.0) < 1e-5
+
+
 def test_predict_bar_rejects_non_direction_artifact(tmp_path: Path) -> None:
     rng = np.random.default_rng(9)
     X = pd.DataFrame(rng.normal(size=(80, 4)), columns=list("abcd"))
@@ -96,6 +131,63 @@ def test_predict_bar_rejects_non_direction_artifact(tmp_path: Path) -> None:
         predict_bar(artifact_path, X.iloc[-1])
 
 
+def test_predict_with_metadata_supports_random_forest_regression(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rng = np.random.default_rng(37)
+    X = pd.DataFrame(rng.normal(size=(120, 4)), columns=list("abcd"))
+    y = pd.Series(0.01 + (X["a"] * 0.005) - (X["b"] * 0.002))
+    monkeypatch.chdir(tmp_path)
+
+    model, _ = fit_random_forest(X, y, seed=7, persist=False)
+    row = X.iloc[-1]
+    result = predict_with_metadata(
+        model,
+        row,
+        metadata={
+            "family": "random_forest",
+            "label_mode": "return_direction",
+        },
+        current_price=100.0,
+        tau=0.01,
+    )
+
+    assert result["predicted_return"] is not None
+    assert result["predicted_price"] is not None
+    assert result["predicted_direction"] in {"up", "down", "flat"}
+
+
+def test_predict_classification_returns_label_probabilities(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rng = np.random.default_rng(23)
+    X = pd.DataFrame(rng.normal(size=(90, 4)), columns=list("abcd"))
+    X.attrs["freq"] = "5m"
+    X.attrs["horizon"] = "30m"
+    y = pd.Series(rng.choice(["act", "pass"], size=90))
+    monkeypatch.chdir(tmp_path)
+
+    booster, _ = fit_xgb(
+        X,
+        y,
+        seed=0,
+        persist=False,
+        class_labels=["act", "pass"],
+    )
+    result = predict_classification(
+        booster,
+        X.iloc[-1],
+        class_labels=["act", "pass"],
+        label_mode="meta_label",
+    )
+
+    assert result["predicted_label"] in {"act", "pass"}
+    assert set(result["probabilities"]) == {"act", "pass"}
+    assert 0.0 <= result["confidence"] <= 1.0
+
+
 def test_predict_classification_supports_meta_label_artifact(tmp_path: Path) -> None:
     rng = np.random.default_rng(11)
     X = pd.DataFrame(rng.normal(size=(80, 4)), columns=list("abcd"))
@@ -103,7 +195,7 @@ def test_predict_classification_supports_meta_label_artifact(tmp_path: Path) -> 
     X.attrs["freq"] = "1h"
     X.attrs["horizon"] = "4h"
 
-    model, _ = fit_xgb(X, y, label_mode="meta_label", persist=False)
+    model, _ = fit_xgb(X, y, label_mode="meta_label", persist=False, class_labels=["act", "pass"])
     artifact_path = save_baseline_artifact(
         model,
         family="xgb",
@@ -118,4 +210,4 @@ def test_predict_classification_supports_meta_label_artifact(tmp_path: Path) -> 
 
     assert result["label_mode"] == "meta_label"
     assert result["predicted_label"] in {"act", "pass"}
-    assert set(result["probabilities"]) == {"pass", "act"}
+    assert set(result["probabilities"]) == {"act", "pass"}

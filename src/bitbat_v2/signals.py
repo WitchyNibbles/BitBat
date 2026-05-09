@@ -16,16 +16,19 @@ from bitbat.autonomous.predictor import (
 )
 from bitbat.config.loader import get_runtime_config, load_config, resolve_models_dir
 from bitbat.dataset.build import generate_price_features, join_auxiliary_features
-from bitbat.model.infer import predict_bar, predict_classification
+from bitbat.model.infer import predict_classification, predict_with_metadata
 from bitbat.model.persist import load as load_model
 from bitbat.model.persist import load_metadata as load_model_metadata
 from bitbat.model.persist import normalize_label_mode
+from bitbat.timealign.bucket import bars_for_duration
 
 from .config import BitBatV2Config, resolve_signal_source
 from .domain import Candle
 from .strategy import StrategyContext, compute_metrics, get_strategy
 
 MIN_BARS_REQUIRED = 30
+INFERENCE_FEATURE_LOOKBACK = "72h"
+MAX_SENTIMENT_WINDOW = pd.to_timedelta("24h")
 
 
 @dataclass(frozen=True)
@@ -149,7 +152,7 @@ class LegacyModelSignalProvider:
         side_confidence = float(prediction.get("confidence") or max(p_up, p_down, p_flat))
         confidence = side_confidence
         signed_score = round(tau * (p_up - p_down), 6)
-        direction = {
+        predicted_trade_direction = {
             "up": "buy",
             "down": "sell",
             "flat": "hold",
@@ -170,46 +173,50 @@ class LegacyModelSignalProvider:
             f"p_down={p_down:.6f}",
             f"p_flat={p_flat:.6f}",
         ]
-        action_confidence = 1.0
-        if isinstance(action_prediction, dict):
-            action_probabilities = action_prediction.get("probabilities", {})
-            p_act = float(action_probabilities.get("act", 0.0))
-            p_pass = float(action_probabilities.get("pass", 0.0))
-            action_confidence = float(action_prediction.get("confidence", max(p_act, p_pass)))
-            reasons.extend([
-                f"p_act={p_act:.6f}",
-                f"p_pass={p_pass:.6f}",
-            ])
-            for key in ("family", "label_mode", "version", "freq", "horizon", "artifact_role"):
-                value = action_metadata.get(key)
-                if value not in (None, ""):
-                    reasons.append(f"action_artifact_{key}={value}")
-            confidence = round((side_confidence + p_act) / 2.0, 6)
-            if str(action_prediction.get("predicted_label", "")).lower() != "act":
-                direction = "hold"
+        confidence, action_confidence, meta_label_blocked = self._apply_action_signal(
+            action_prediction=action_prediction,
+            action_metadata=action_metadata,
+            side_confidence=side_confidence,
+            reasons=reasons,
+        )
         expected_move_return = (
-            0.0 if direction == "hold" else round(signed_score * action_confidence, 6)
+            0.0
+            if predicted_trade_direction == "hold"
+            else round(signed_score * action_confidence, 6)
         )
         expected_cost_return = _round_trip_cost_return(self.runtime_config)
         expected_value_return = _signed_expected_value(expected_move_return, expected_cost_return)
+        action_policy = self._resolve_action_policy(metadata)
+        min_confidence = float(action_policy["min_confidence"])
+        min_expected_value_return = float(action_policy["min_expected_value_return"])
         reasons.extend([
             f"expected_move_return={expected_move_return:.6f}",
             f"expected_cost_return={expected_cost_return:.6f}",
             f"expected_value_return={expected_value_return:.6f}",
+            f"action_policy_min_confidence={min_confidence:.6f}",
+            f"action_policy_min_expected_value_return={min_expected_value_return:.6f}",
         ])
         for key in ("family", "label_mode", "version", "freq", "horizon", "artifact_role"):
             value = metadata.get(key)
             if value not in (None, ""):
                 reasons.append(f"artifact_{key}={value}")
-        block_reason: str | None
-        if direction == "hold" and isinstance(action_prediction, dict):
-            block_reason = "meta-label predicted pass"
-        else:
-            block_reason = "legacy model predicted flat" if direction == "hold" else None
+
+        block_reason = self._resolve_block_reason(
+            predicted_trade_direction=predicted_trade_direction,
+            meta_label_blocked=meta_label_blocked,
+            confidence=confidence,
+            min_confidence=min_confidence,
+            expected_value_return=expected_value_return,
+            min_expected_value_return=min_expected_value_return,
+        )
+        direction = "hold" if block_reason is not None else predicted_trade_direction
+        predicted_return = 0.0 if direction == "hold" else expected_move_return
         return SignalEvaluation(
-            model_name=f"legacy_xgb_{freq}_{horizon}",
+            model_name=(
+                f"legacy_{str(metadata.get('family', 'xgb')).strip().lower()}_{freq}_{horizon}"
+            ),
             direction=direction,
-            predicted_return=expected_move_return,
+            predicted_return=predicted_return,
             predicted_price=float(predicted_price),
             confidence=confidence,
             reasons=reasons,
@@ -232,14 +239,15 @@ class LegacyModelSignalProvider:
         model_dir = self._model_dir(legacy_config)
         freq = self.runtime_config.legacy_signal_freq
         horizon = self.runtime_config.legacy_signal_horizon
-        model_path = model_dir / f"{freq}_{horizon}" / "xgb.json"
-        side_model_path = model_dir / f"{freq}_{horizon}" / "xgb.side.json"
-        action_model_path = model_dir / f"{freq}_{horizon}" / "xgb.action.meta_label.json"
+        pair_dir = model_dir / f"{freq}_{horizon}"
+        model_path = self._resolve_primary_model_path(pair_dir)
+        side_model_path = pair_dir / "xgb.side.json"
+        action_model_path = pair_dir / "xgb.action.meta_label.json"
         use_meta_policy = side_model_path.exists() and action_model_path.exists()
 
-        if not model_path.exists() and not use_meta_policy:
+        if model_path is None and not use_meta_policy:
             return self._hold(
-                f"legacy model artifact missing: {model_path}",
+                f"legacy model artifact missing for pair {freq}/{horizon}",
                 current_price=context.candle.close,
             )
 
@@ -253,7 +261,10 @@ class LegacyModelSignalProvider:
                 action_label_mode = normalize_label_mode(
                     str(action_metadata.get("label_mode", "meta_label"))
                 )
-                if artifact_label_mode != "direction" or action_label_mode != "meta_label":
+                if (
+                    artifact_label_mode not in {"direction", "triple_barrier"}
+                    or action_label_mode != "meta_label"
+                ):
                     return self._hold(
                         "legacy ML meta policy artifacts are not runtime-tradable",
                         current_price=context.candle.close,
@@ -261,12 +272,17 @@ class LegacyModelSignalProvider:
                 booster = self._booster(side_model_path)
                 action_booster = self._booster(action_model_path)
             else:
+                if model_path is None:
+                    return self._hold(
+                        f"legacy model artifact missing for pair {freq}/{horizon}",
+                        current_price=context.candle.close,
+                    )
                 metadata = self._metadata(model_path)
                 action_metadata = {}
                 artifact_label_mode = normalize_label_mode(
                     str(metadata.get("label_mode", "direction"))
                 )
-                if artifact_label_mode != "direction":
+                if artifact_label_mode not in {"direction", "triple_barrier"}:
                     return self._hold(
                         "legacy ML artifact is not runtime-tradable: "
                         f"label_mode={artifact_label_mode}",
@@ -320,9 +336,10 @@ class LegacyModelSignalProvider:
         tau = float(raw_tau if isinstance(raw_tau, int | float | str) else 0.01)
 
         try:
-            prediction = predict_bar(
+            prediction = predict_with_metadata(
                 booster,
                 feature_row,
+                metadata=metadata,
                 timestamp=current_ts,
                 current_price=current_price,
                 tau=tau,
@@ -332,6 +349,10 @@ class LegacyModelSignalProvider:
                     action_booster,
                     feature_row,
                     timestamp=current_ts,
+                    class_labels=action_metadata.get("class_labels", ["act", "pass"]),
+                    label_mode=normalize_label_mode(
+                        str(action_metadata.get("label_mode", "meta_label"))
+                    ),
                 )
                 if action_booster is not None
                 else None
@@ -364,8 +385,13 @@ class LegacyModelSignalProvider:
         if self._cached_aligned_features is not None:
             return self._cached_aligned_features
 
+        inference_prices = self._inference_price_window(prices, freq=freq)
         enable_garch = bool(legacy_config.get("enable_garch", False))
-        features = generate_price_features(prices, enable_garch=enable_garch, freq=freq)
+        features = generate_price_features(
+            inference_prices,
+            enable_garch=enable_garch,
+            freq=freq,
+        )
 
         enable_sentiment = bool(legacy_config.get("enable_sentiment", True))
         if enable_sentiment:
@@ -389,7 +415,9 @@ class LegacyModelSignalProvider:
                     utc=True,
                 ).dt.tz_localize(None)
                 news_df = news_df.sort_values("published_utc")
-                bar_df = prices.reset_index()[["timestamp_utc"]]
+                bar_df = inference_prices.reset_index()[["timestamp_utc"]]
+                sentiment_start = bar_df["timestamp_utc"].min() - MAX_SENTIMENT_WINDOW
+                news_df = news_df.loc[news_df["published_utc"] > sentiment_start]
                 sentiment_features = aggregate_sentiment(
                     news_df=news_df,
                     bar_df=bar_df,
@@ -414,7 +442,21 @@ class LegacyModelSignalProvider:
             col: col if col.startswith("feat_") else f"feat_{col}" for col in features.columns
         }
         features = features.rename(columns=rename_mapping)
-        expected_features = list(booster.feature_names or [])
+        reference_row = (
+            features.iloc[-1]
+            if not features.empty
+            else pd.Series(index=features.columns, dtype=float)
+        )
+        feature_names = getattr(booster, "feature_names", None)
+        if feature_names:
+            expected_features = list(feature_names)
+        else:
+            feature_names_in = getattr(booster, "feature_names_in_", None)
+            expected_features = (
+                [str(name) for name in feature_names_in]
+                if feature_names_in is not None
+                else list(reference_row.index)
+            )
         if not expected_features:
             raise ValueError("legacy model artifact missing feature names")
 
@@ -425,6 +467,15 @@ class LegacyModelSignalProvider:
         aligned = _fill_optional_feature_defaults(features[expected_features]).dropna()
         self._cached_aligned_features = aligned
         return self._cached_aligned_features
+
+    def _inference_price_window(self, prices: pd.DataFrame, *, freq: str) -> pd.DataFrame:
+        lookback_bars = max(
+            MIN_BARS_REQUIRED,
+            bars_for_duration(INFERENCE_FEATURE_LOOKBACK, freq) + 2,
+        )
+        if len(prices) <= lookback_bars:
+            return prices
+        return prices.iloc[-lookback_bars:].copy()
 
     @staticmethod
     def _merge_context_candle(prices: pd.DataFrame, candle: Candle) -> pd.DataFrame:
@@ -467,17 +518,97 @@ class LegacyModelSignalProvider:
 
     def _booster(self, model_path: Path) -> Any:
         if model_path not in self._cached_boosters:
-            expected_label_mode = "meta_label" if "meta_label" in model_path.name else "direction"
+            metadata = self._metadata(model_path)
+            expected_label_mode = normalize_label_mode(str(metadata.get("label_mode", "direction")))
             self._cached_boosters[model_path] = load_model(
                 model_path,
                 expected_label_mode=expected_label_mode,
             )
         return self._cached_boosters[model_path]
 
+    @staticmethod
+    def _resolve_action_policy(metadata: dict[str, Any]) -> dict[str, float]:
+        payload = metadata.get("action_policy", {})
+        if not isinstance(payload, dict):
+            return {
+                "min_confidence": 0.0,
+                "min_expected_value_return": 0.0,
+            }
+        return {
+            "min_confidence": max(float(payload.get("min_confidence", 0.0)), 0.0),
+            "min_expected_value_return": float(payload.get("min_expected_value_return", 0.0)),
+        }
+
+    @staticmethod
+    def _apply_action_signal(
+        *,
+        action_prediction: Any,
+        action_metadata: dict[str, Any],
+        side_confidence: float,
+        reasons: list[str],
+    ) -> tuple[float, float, bool]:
+        if not isinstance(action_prediction, dict):
+            return side_confidence, 1.0, False
+
+        action_probabilities = action_prediction.get("probabilities", {})
+        p_act = float(action_probabilities.get("act", 0.0))
+        p_pass = float(action_probabilities.get("pass", 0.0))
+        action_confidence = float(action_prediction.get("confidence", max(p_act, p_pass)))
+        reasons.extend([
+            f"p_act={p_act:.6f}",
+            f"p_pass={p_pass:.6f}",
+        ])
+        for key in ("family", "label_mode", "version", "freq", "horizon", "artifact_role"):
+            value = action_metadata.get(key)
+            if value not in (None, ""):
+                reasons.append(f"action_artifact_{key}={value}")
+        confidence = round((side_confidence + p_act) / 2.0, 6)
+        meta_label_blocked = str(action_prediction.get("predicted_label", "")).lower() != "act"
+        return confidence, action_confidence, meta_label_blocked
+
+    @staticmethod
+    def _resolve_block_reason(
+        *,
+        predicted_trade_direction: str,
+        meta_label_blocked: bool,
+        confidence: float,
+        min_confidence: float,
+        expected_value_return: float,
+        min_expected_value_return: float,
+    ) -> str | None:
+        if meta_label_blocked:
+            return "meta-label predicted pass"
+        if predicted_trade_direction == "hold":
+            return "legacy model predicted flat"
+        if confidence < min_confidence:
+            return "confidence below action policy"
+        if expected_value_return < min_expected_value_return:
+            return "expected value below action policy"
+        return None
+
     def _metadata(self, model_path: Path) -> dict[str, Any]:
         if model_path not in self._cached_metadata_by_path:
             self._cached_metadata_by_path[model_path] = load_model_metadata(model_path)
         return self._cached_metadata_by_path[model_path]
+
+    def _resolve_primary_model_path(self, pair_dir: Path) -> Path | None:
+        candidates = [
+            pair_dir / "xgb.json",
+            pair_dir / "random_forest.pkl",
+        ]
+        ranked: list[tuple[int, float, Path]] = []
+        for candidate in candidates:
+            if not candidate.exists():
+                continue
+            metadata = self._metadata(candidate)
+            family = str(metadata.get("family", "")).strip().lower()
+            selected_family = str(metadata.get("selected_family", "")).strip().lower()
+            score = 1 if family and family == selected_family else 0
+            ranked.append((score, candidate.stat().st_mtime, candidate))
+        if not ranked:
+            return None
+        ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return ranked[0][2]
 
     def _prices(self, data_dir: Path, freq: str, candle: Candle) -> pd.DataFrame:
         if self._cached_prices is None:
