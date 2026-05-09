@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from .config import BitBatV2Config
+from .config import BitBatV2Config, resolve_signal_source
 from .domain import (
     Candle,
     ControlState,
@@ -23,8 +23,9 @@ from .domain import (
     StrategyDecision,
     utc_now,
 )
+from .signals import SignalEvaluation, build_feature_snapshot, build_signal_provider
 from .storage import RuntimeStore
-from .strategy import StrategyContext, StrategyEvaluation, get_strategy
+from .strategy import StrategyContext
 
 
 @dataclass
@@ -61,13 +62,13 @@ class BitBatRuntime:
         config: BitBatV2Config,
         broker: EventBroker | None = None,
         now_fn: Callable[[], datetime] | None = None,
-        strategy_name: str = "filtered_momentum_v2",
     ) -> None:
         self.store = store
         self.config = config
         self.broker = broker or EventBroker()
         self.now_fn = now_fn or utc_now
-        self.strategy = get_strategy(strategy_name)
+        self.signal_source = resolve_signal_source(config.signal_source)
+        self.signal_provider = build_signal_provider(config)
 
     def initialize(self) -> None:
         self.store.create_schema()
@@ -102,8 +103,8 @@ class BitBatRuntime:
                 previous_candle=previous_candle,
                 history=history[:-1] if history else [],
             )
-            evaluation = self.strategy.evaluate(context)
-            features = self._compute_features(evaluation)
+            evaluation = self.signal_provider.evaluate(context)
+            features = self._compute_features(context)
             signal = latest_signal or self._build_signal(evaluation)
             return RuntimeOutcome(
                 candle=candle,
@@ -128,7 +129,7 @@ class BitBatRuntime:
             previous_candle=previous_candle,
             history=recent_history,
         )
-        evaluation = self.strategy.evaluate(context)
+        evaluation = self.signal_provider.evaluate(context)
         candle_event = self.store.append_event(
             "candle.closed",
             candle.to_dict(),
@@ -136,7 +137,7 @@ class BitBatRuntime:
         )
         self.broker.publish(candle_event)
 
-        features = self._compute_features(evaluation)
+        features = self._compute_features(context)
         feature_event = self.store.append_event(
             "features.computed",
             features.to_dict(),
@@ -259,39 +260,46 @@ class BitBatRuntime:
         self.broker.publish(event)
         return portfolio
 
-    def _compute_features(self, evaluation: StrategyEvaluation) -> FeatureSnapshot:
-        metrics = evaluation.metrics
+    def _compute_features(self, context: StrategyContext) -> FeatureSnapshot:
+        metrics = build_feature_snapshot(context)
         return FeatureSnapshot(
             generated_at=self.now_fn(),
             product_id=self.config.product_id,
-            close=metrics.close,
-            open_to_close_return=metrics.open_to_close_return,
-            momentum_return=metrics.momentum_return,
-            range_ratio=metrics.range_ratio,
-            short_trend_return=metrics.short_trend_return,
-            trend_return=metrics.trend_return,
-            body_strength=metrics.body_strength,
+            close=metrics["close"],
+            open_to_close_return=metrics["open_to_close_return"],
+            momentum_return=metrics["momentum_return"],
+            range_ratio=metrics["range_ratio"],
+            short_trend_return=metrics["short_trend_return"],
+            trend_return=metrics["trend_return"],
+            body_strength=metrics["body_strength"],
         )
 
-    def _build_signal(self, evaluation: StrategyEvaluation) -> PredictionSignal:
+    def _build_signal(self, evaluation: SignalEvaluation) -> PredictionSignal:
         return PredictionSignal(
             signal_id=f"sig-{uuid4().hex[:12]}",
             generated_at=self.now_fn(),
             product_id=self.config.product_id,
             venue=self.config.venue,
-            model_name=self.config.model_name,
+            model_name=evaluation.model_name,
             direction=evaluation.direction,
             confidence=evaluation.confidence,
             predicted_return=evaluation.predicted_return,
             predicted_price=evaluation.predicted_price,
             reasons=evaluation.reasons,
+            p_up=evaluation.p_up,
+            p_down=evaluation.p_down,
+            p_flat=evaluation.p_flat,
+            expected_move_return=evaluation.expected_move_return,
+            expected_cost_return=evaluation.expected_cost_return,
+            expected_value_return=evaluation.expected_value_return,
+            abstain_reason=evaluation.abstain_reason,
         )
 
     def _make_decision(
         self,
         signal: PredictionSignal,
         candle: Candle,
-        evaluation: StrategyEvaluation,
+        evaluation: SignalEvaluation,
     ) -> StrategyDecision:
         control = self.store.get_control_state()
         portfolio = self.store.get_portfolio()
@@ -320,6 +328,24 @@ class BitBatRuntime:
                 reason="operator pause",
                 stale_data=False,
                 trading_paused=True,
+            )
+        if signal.direction == "buy" and signal.expected_value_return <= 0.0:
+            return StrategyDecision(
+                decision_id=f"dec-{uuid4().hex[:12]}",
+                signal_id=signal.signal_id,
+                decided_at=self.now_fn(),
+                action="hold",
+                quantity_btc=0.0,
+                reason=signal.abstain_reason or "expected value after costs is non-positive",
+            )
+        if signal.direction == "sell" and signal.expected_value_return >= 0.0:
+            return StrategyDecision(
+                decision_id=f"dec-{uuid4().hex[:12]}",
+                signal_id=signal.signal_id,
+                decided_at=self.now_fn(),
+                action="hold",
+                quantity_btc=0.0,
+                reason=signal.abstain_reason or "expected value after costs is non-negative",
             )
         if signal.direction == "buy":
             quantity = self._size_order_quantity(signal, side="buy", portfolio=portfolio)
@@ -360,7 +386,7 @@ class BitBatRuntime:
             decided_at=self.now_fn(),
             action="hold",
             quantity_btc=0.0,
-            reason=evaluation.block_reason or "no valid spot action",
+            reason=signal.abstain_reason or evaluation.block_reason or "no valid spot action",
         )
 
     def _fill_order(self, decision: StrategyDecision, price: float) -> PaperOrder:

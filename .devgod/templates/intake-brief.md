@@ -2,13 +2,23 @@
 
 ## Brief ID
 
-`brief-<date>-<slug>`
+`brief-<task-id>`
+
+## Task ID
+
+`<task-id>`
 
 ## Request
 
 Original user ask:
 
 ## Goal
+
+## User
+
+## Problem
+
+## Value
 
 ## Audience
 
@@ -18,13 +28,15 @@ Original user ask:
 
 ## Unknowns
 
-## Success criteria
+## Success Criteria
+
+## Non-goals
 
 ## Out of scope
 
 ## Trust boundaries
 
-## Stop/go
+## Stop Go
 
 `go | needs_review | stop`
 

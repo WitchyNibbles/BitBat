@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 
+import pandas as pd
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from bitbat.api.cors import ALLOWED_BROWSER_ORIGINS
+from bitbat.config.loader import resolve_metrics_dir
 from bitbat_v2.api.schemas import (
     AcknowledgeAlertRequest,
     AutorunStatusResponse,
@@ -21,10 +27,14 @@ from bitbat_v2.api.schemas import (
     HealthResponse,
     OrderResponse,
     OrdersResponse,
+    PaperAlertResponse,
     PaperCockpitResponse,
+    PaperOrderResponse,
+    PaperPerformancePointResponse,
     PaperPerformanceResponse,
     PaperTradeResponse,
     PortfolioResponse,
+    PromotionEvidenceResponse,
     ResetPaperResponse,
     SignalResponse,
     SimulateCandleRequest,
@@ -55,6 +65,99 @@ def _resolve_operator_token(config: BitBatV2Config, override: str | None) -> str
     if config.demo_mode:
         return "bitbat-local-dev-token"
     return None
+
+
+def _load_json_payload(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _coerce_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    parsed = pd.Timestamp(value)
+    parsed = parsed.tz_localize(UTC) if parsed.tzinfo is None else parsed.tz_convert(UTC)
+    return parsed.to_pydatetime()
+
+
+def _as_mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _winner_runtime_payload(runtime_replay: dict[str, Any], winner: str | None) -> dict[str, Any]:
+    family_payloads = _as_mapping(runtime_replay.get("families", {}))
+    if winner is None:
+        return {}
+    return _as_mapping(family_payloads.get(winner, {}))
+
+
+def _promotion_reasons(champion: dict[str, Any], promotion_gate: dict[str, Any]) -> list[str]:
+    reasons = promotion_gate.get("reasons", [])
+    if isinstance(reasons, list) and reasons:
+        return [str(reason) for reason in reasons]
+    if champion.get("reason"):
+        return [str(champion["reason"])]
+    return []
+
+
+def _replay_generated_at(metrics_dir: Path, runtime_replay: dict[str, Any]) -> datetime | None:
+    generated_at = _coerce_datetime(runtime_replay.get("generated_at"))
+    if generated_at is not None:
+        return generated_at
+    replay_path = metrics_dir / "runtime_replay_summary.json"
+    if replay_path.exists():
+        return datetime.fromtimestamp(replay_path.stat().st_mtime, tz=UTC)
+    return None
+
+
+def _load_promotion_evidence() -> dict[str, Any] | None:
+    metrics_dir = resolve_metrics_dir()
+    cv_summary = _load_json_payload(metrics_dir / "cv_summary.json")
+    if cv_summary is None:
+        return None
+
+    champion = _as_mapping(cv_summary.get("champion_decision", {}))
+    if not champion:
+        return None
+    winner = champion.get("winner") if isinstance(champion.get("winner"), str) else None
+    promotion_gate = _as_mapping(champion.get("promotion_gate", {}))
+    runtime_replay = _as_mapping(cv_summary.get("runtime_replay", {}))
+    winner_runtime = _winner_runtime_payload(runtime_replay, winner)
+    replay_gate = _as_mapping(promotion_gate.get("replay_gate", {})) or _as_mapping(
+        winner_runtime.get("replay_gate", {})
+    )
+    replay_summary = _as_mapping(promotion_gate.get("replay_summary", {})) or _as_mapping(
+        winner_runtime.get("replay_summary", {})
+    )
+    artifact_metadata = _as_mapping(champion.get("artifact_metadata", {})) or _as_mapping(
+        winner_runtime.get("artifact_metadata", {})
+    )
+
+    return {
+        "verdict": (
+            "promotable"
+            if bool(champion.get("promote_candidate")) and bool(promotion_gate.get("pass", False))
+            else "blocked"
+        ),
+        "winner": winner,
+        "reasons": _promotion_reasons(champion, promotion_gate),
+        "runtime_compatible": replay_gate.get("runtime_compatible"),
+        "model_family": artifact_metadata.get("family"),
+        "label_mode": artifact_metadata.get("label_mode"),
+        "model_version": artifact_metadata.get("version"),
+        "artifact_path": champion.get("artifact_path") or winner_runtime.get("artifact_path"),
+        "replay_generated_at": _replay_generated_at(metrics_dir, runtime_replay),
+        "replay_start": _coerce_datetime(replay_summary.get("replay_start")),
+        "replay_end": _coerce_datetime(replay_summary.get("replay_end")),
+        "replay_trade_count": replay_summary.get("trade_count"),
+        "replay_hold_rate": replay_summary.get("hold_rate"),
+        "replay_action_rate": replay_summary.get("action_rate"),
+        "replay_calibration_brier": replay_summary.get("calibration_brier"),
+        "replay_mean_expected_value_return": replay_summary.get("mean_expected_value_return"),
+        "replay_net_pnl_pct": replay_summary.get("net_pnl_pct"),
+        "replay_abstain_breakdown": replay_summary.get("abstain_breakdown", {}),
+    }
 
 
 def create_app(  # noqa: C901
@@ -103,7 +206,7 @@ def create_app(  # noqa: C901
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://localhost:3000"],
+        allow_origins=list(ALLOWED_BROWSER_ORIGINS),
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -132,13 +235,23 @@ def create_app(  # noqa: C901
     @app.get("/v1/health", response_model=HealthResponse)
     def health(_: None = Depends(require_operator_auth)) -> HealthResponse:
         control = store.get_control_state()
+        latest_signal = store.get_latest_signal()
+        promotion = _load_promotion_evidence()
         return HealthResponse(
             status="ok",
             venue=config.venue,
             product_id=config.product_id,
             trading_paused=control.trading_paused,
             event_count=store.count_events(),
+            signal_source=runtime.signal_source,
+            signal_model_name=latest_signal.model_name if latest_signal is not None else None,
+            last_signal_at=latest_signal.generated_at if latest_signal is not None else None,
             last_event_at=store.get_last_event_at(),
+            promotion=(
+                PromotionEvidenceResponse.model_validate(promotion)
+                if promotion is not None
+                else None
+            ),
             autorun=AutorunStatusResponse.model_validate(autorun.snapshot().__dict__),
         )
 
@@ -172,6 +285,8 @@ def create_app(  # noqa: C901
         orders = store.get_orders(limit=None)
         portfolio_events = store.list_events_by_type("portfolio.updated", limit=None)
         alert_events = store.list_events_by_type("alert.raised", limit=20)
+        decision_events = store.list_events_by_type("decision.made", limit=None)
+        signal_events = store.list_events_by_type("signal.generated", limit=None)
         snapshot = build_paper_cockpit_snapshot(
             config=config,
             portfolio=portfolio,
@@ -180,7 +295,10 @@ def create_app(  # noqa: C901
             orders=orders,
             portfolio_events=portfolio_events,
             alert_events=alert_events,
+            decision_events=decision_events,
+            signal_events=signal_events,
         )
+        promotion = _load_promotion_evidence()
         closed_trades = [
             PaperTradeResponse.model_validate(trade.to_dict())
             for trade in closed_trades_from_orders(orders, fee_bps=config.fee_bps)
@@ -188,14 +306,27 @@ def create_app(  # noqa: C901
         return PaperCockpitResponse(
             portfolio=PortfolioResponse.model_validate(snapshot.portfolio.to_dict()),
             performance=PaperPerformanceResponse.model_validate(snapshot.performance.to_dict()),
+            promotion=(
+                PromotionEvidenceResponse.model_validate(promotion)
+                if promotion is not None
+                else None
+            ),
             latest_signal=(
                 SignalResponse.model_validate(snapshot.latest_signal.to_dict())
                 if snapshot.latest_signal is not None
                 else None
             ),
-            recent_orders=snapshot.recent_orders,
-            recent_alerts=[alert.to_dict() for alert in snapshot.recent_alerts],
-            equity_curve=[point.to_dict() for point in snapshot.equity_curve],
+            recent_orders=[
+                PaperOrderResponse.model_validate(order) for order in snapshot.recent_orders
+            ],
+            recent_alerts=[
+                PaperAlertResponse.model_validate(alert.to_dict())
+                for alert in snapshot.recent_alerts
+            ],
+            equity_curve=[
+                PaperPerformancePointResponse.model_validate(point.to_dict())
+                for point in snapshot.equity_curve
+            ],
             closed_trades=closed_trades,
         )
 
@@ -209,6 +340,8 @@ def create_app(  # noqa: C901
             last_event_at=store.get_last_event_at(),
             orders=orders,
             portfolio_events=store.list_events_by_type("portfolio.updated", limit=None),
+            decision_events=store.list_events_by_type("decision.made", limit=None),
+            signal_events=store.list_events_by_type("signal.generated", limit=None),
         )
         return PaperPerformanceResponse.model_validate(summary.to_dict())
 
@@ -228,12 +361,14 @@ def create_app(  # noqa: C901
             ControlStateResponse.model_validate(control.to_dict()),
         )
 
-    @app.post("/v1/control/retrain", response_model=ControlActionResponse)
-    def retrain(_: None = Depends(require_operator_auth)) -> ControlActionResponse:
-        control = runtime.request_retrain()
-        return ControlActionResponse(
-            status="retrain_requested",
-            control=ControlStateResponse.model_validate(control.to_dict()),
+    @app.post("/v1/control/retrain")
+    def retrain(_: None = Depends(require_operator_auth)) -> None:
+        raise HTTPException(
+            status_code=501,
+            detail=(
+                "BitBat v2 retraining is not wired yet. Use the legacy monitor pipeline for model "
+                "retraining during migration."
+            ),
         )
 
     @app.post("/v1/control/acknowledge", response_model=ControlActionResponse)

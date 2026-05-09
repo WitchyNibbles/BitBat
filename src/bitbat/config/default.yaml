@@ -45,6 +45,12 @@ model:
   promotion_gate:
     min_consecutive_outperformance: 2
     max_drawdown_floor: -0.35
+    replay_window_bars: 288
+    min_replay_trades: 2
+    max_hold_rate: 0.98
+    max_calibration_brier: 0.80
+    min_mean_expected_value_return: 0.0
+    min_net_pnl_pct: 0.0
 
 # Continuous training configuration
 continuous_training:

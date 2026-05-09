@@ -21,6 +21,7 @@ from sqlalchemy import (
     delete,
     func,
     insert,
+    inspect,
     select,
     update,
 )
@@ -69,6 +70,13 @@ class RuntimeStore:
             Column("confidence", Float, nullable=False),
             Column("predicted_return", Float, nullable=False),
             Column("predicted_price", Float, nullable=False),
+            Column("p_up", Float, nullable=False, default=0.0),
+            Column("p_down", Float, nullable=False, default=0.0),
+            Column("p_flat", Float, nullable=False, default=0.0),
+            Column("expected_move_return", Float, nullable=False, default=0.0),
+            Column("expected_cost_return", Float, nullable=False, default=0.0),
+            Column("expected_value_return", Float, nullable=False, default=0.0),
+            Column("abstain_reason", String(255), nullable=True),
             Column("reasons_json", Text, nullable=False),
         )
         self.portfolio = Table(
@@ -110,6 +118,7 @@ class RuntimeStore:
 
     def create_schema(self) -> None:
         self.metadata.create_all(self.engine)
+        self._ensure_latest_signal_columns()
 
     def ensure_seed_state(self, starting_cash_usd: float, mark_price: float = 0.0) -> None:
         now = utc_now()
@@ -245,6 +254,13 @@ class RuntimeStore:
                 "confidence": signal.confidence,
                 "predicted_return": signal.predicted_return,
                 "predicted_price": signal.predicted_price,
+                "p_up": signal.p_up,
+                "p_down": signal.p_down,
+                "p_flat": signal.p_flat,
+                "expected_move_return": signal.expected_move_return,
+                "expected_cost_return": signal.expected_cost_return,
+                "expected_value_return": signal.expected_value_return,
+                "abstain_reason": signal.abstain_reason,
                 "reasons_json": json.dumps(signal.reasons),
             }
             if existing is None:
@@ -270,8 +286,45 @@ class RuntimeStore:
             "confidence": mapping["confidence"],
             "predicted_return": mapping["predicted_return"],
             "predicted_price": mapping["predicted_price"],
+            "p_up": mapping.get("p_up", 0.0),
+            "p_down": mapping.get("p_down", 0.0),
+            "p_flat": mapping.get("p_flat", 0.0),
+            "expected_move_return": mapping.get("expected_move_return", 0.0),
+            "expected_cost_return": mapping.get("expected_cost_return", 0.0),
+            "expected_value_return": mapping.get("expected_value_return", 0.0),
+            "abstain_reason": mapping.get("abstain_reason"),
             "reasons": json.loads(mapping["reasons_json"]),
         })
+
+    def _ensure_latest_signal_columns(self) -> None:
+        inspector = inspect(self.engine)
+        if not inspector.has_table("v2_latest_signal"):
+            return
+        existing_columns = {column["name"] for column in inspector.get_columns("v2_latest_signal")}
+        add_column_sql = {
+            "p_up": "ALTER TABLE v2_latest_signal ADD COLUMN p_up FLOAT NOT NULL DEFAULT 0.0",
+            "p_down": "ALTER TABLE v2_latest_signal ADD COLUMN p_down FLOAT NOT NULL DEFAULT 0.0",
+            "p_flat": "ALTER TABLE v2_latest_signal ADD COLUMN p_flat FLOAT NOT NULL DEFAULT 0.0",
+            "expected_move_return": (
+                "ALTER TABLE v2_latest_signal "
+                "ADD COLUMN expected_move_return FLOAT NOT NULL DEFAULT 0.0"
+            ),
+            "expected_cost_return": (
+                "ALTER TABLE v2_latest_signal "
+                "ADD COLUMN expected_cost_return FLOAT NOT NULL DEFAULT 0.0"
+            ),
+            "expected_value_return": (
+                "ALTER TABLE v2_latest_signal "
+                "ADD COLUMN expected_value_return FLOAT NOT NULL DEFAULT 0.0"
+            ),
+            "abstain_reason": (
+                "ALTER TABLE v2_latest_signal ADD COLUMN abstain_reason VARCHAR(255)"
+            ),
+        }
+        with self.engine.begin() as conn:
+            for column_name, statement in add_column_sql.items():
+                if column_name not in existing_columns:
+                    conn.exec_driver_sql(statement)
 
     def save_portfolio(self, portfolio: PortfolioSnapshot) -> None:
         values = {

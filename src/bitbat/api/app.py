@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from bitbat.api.cors import ALLOWED_BROWSER_ORIGINS
 from bitbat.api.routes import analytics, health, metrics, predictions, system
 
 
@@ -22,7 +23,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://localhost:3000"],
+        allow_origins=list(ALLOWED_BROWSER_ORIGINS),
         allow_methods=["*"],
         allow_headers=["*"],
     )

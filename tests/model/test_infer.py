@@ -8,7 +8,8 @@ import pandas as pd
 import pytest
 import xgboost as xgb
 
-from bitbat.model.infer import predict_bar
+from bitbat.model.infer import predict_bar, predict_classification
+from bitbat.model.persist import save_baseline_artifact
 from bitbat.model.train import fit_xgb
 
 pytestmark = pytest.mark.behavioral
@@ -72,3 +73,49 @@ def test_predict_bar_p_values_sum_to_one(tmp_path: Path, monkeypatch: pytest.Mon
     result = predict_bar(model, row)
     p_sum = result["p_up"] + result["p_down"] + result["p_flat"]
     assert abs(p_sum - 1.0) < 1e-5, f"p_up+p_down+p_flat = {p_sum}, expected 1.0"
+
+
+def test_predict_bar_rejects_non_direction_artifact(tmp_path: Path) -> None:
+    rng = np.random.default_rng(9)
+    X = pd.DataFrame(rng.normal(size=(80, 4)), columns=list("abcd"))
+    y = pd.Series(rng.choice(["take_profit", "stop_loss", "timeout"], size=80))
+    X.attrs["freq"] = "1h"
+    X.attrs["horizon"] = "4h"
+
+    model, _ = fit_xgb(X, y, label_mode="triple_barrier", persist=False)
+    artifact_path = save_baseline_artifact(
+        model,
+        family="xgb",
+        freq="1h",
+        horizon="4h",
+        label_mode="triple_barrier",
+        root=tmp_path,
+    )
+
+    with pytest.raises(ValueError, match="only supports direction artifacts"):
+        predict_bar(artifact_path, X.iloc[-1])
+
+
+def test_predict_classification_supports_meta_label_artifact(tmp_path: Path) -> None:
+    rng = np.random.default_rng(11)
+    X = pd.DataFrame(rng.normal(size=(80, 4)), columns=list("abcd"))
+    y = pd.Series(rng.choice(["act", "pass"], size=80))
+    X.attrs["freq"] = "1h"
+    X.attrs["horizon"] = "4h"
+
+    model, _ = fit_xgb(X, y, label_mode="meta_label", persist=False)
+    artifact_path = save_baseline_artifact(
+        model,
+        family="xgb",
+        freq="1h",
+        horizon="4h",
+        label_mode="meta_label",
+        artifact_role="action",
+        root=tmp_path,
+    )
+
+    result = predict_classification(artifact_path, X.iloc[-1])
+
+    assert result["label_mode"] == "meta_label"
+    assert result["predicted_label"] in {"act", "pass"}
+    assert set(result["probabilities"]) == {"pass", "act"}

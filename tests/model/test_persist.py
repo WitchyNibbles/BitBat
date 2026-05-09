@@ -13,6 +13,8 @@ from bitbat.model.persist import (
     default_model_artifact_path,
     load,
     load_baseline_artifact,
+    load_metadata,
+    normalize_label_mode,
     save,
     save_baseline_artifact,
 )
@@ -87,6 +89,9 @@ def test_baseline_artifact_helpers_use_stable_paths(tmp_path: Path) -> None:
     )
     assert isinstance(loaded, RandomForestRegressor)
     assert np.allclose(model.predict(X), loaded.predict(X))
+    metadata = load_metadata(artifact_path)
+    assert metadata["family"] == "random_forest"
+    assert metadata["source"] == "unit-test"
 
 
 def test_default_model_artifact_path_uses_configured_models_dir(tmp_path: Path) -> None:
@@ -104,3 +109,62 @@ def test_default_model_artifact_path_uses_configured_models_dir(tmp_path: Path) 
         reset_runtime_config()
 
     assert artifact_path == models_dir / "1h_1h" / "xgb.json"
+
+
+def test_default_model_artifact_path_uses_distinct_triple_barrier_suffix(tmp_path: Path) -> None:
+    artifact_path = default_model_artifact_path(
+        "1h",
+        "4h",
+        family="xgb",
+        label_mode="triple_barrier",
+        root=tmp_path,
+    )
+
+    assert artifact_path == tmp_path / "1h_4h" / "xgb.triple_barrier.json"
+
+
+def test_default_model_artifact_path_supports_role_specific_suffixes(tmp_path: Path) -> None:
+    side_path = default_model_artifact_path(
+        "1h",
+        "4h",
+        family="xgb",
+        artifact_role="side",
+        root=tmp_path,
+    )
+    action_path = default_model_artifact_path(
+        "1h",
+        "4h",
+        family="xgb",
+        label_mode="meta_label",
+        artifact_role="action",
+        root=tmp_path,
+    )
+
+    assert side_path == tmp_path / "1h_4h" / "xgb.side.json"
+    assert action_path == tmp_path / "1h_4h" / "xgb.action.meta_label.json"
+
+
+def test_load_rejects_artifact_label_mode_mismatch(tmp_path: Path) -> None:
+    rng = np.random.default_rng(21)
+    X = pd.DataFrame(rng.normal(size=(90, 4)), columns=list("abcd"))
+    y = pd.Series(rng.choice(["up", "down", "flat"], size=90))
+    dtrain = xgb.DMatrix(
+        X, label=y.map({"up": 0, "down": 1, "flat": 2}), feature_names=list(X.columns)
+    )
+    booster = xgb.train(
+        {"objective": "multi:softprob", "num_class": 3},
+        dtrain,
+        num_boost_round=5,
+    )
+    booster.set_attr(label_mode=normalize_label_mode("direction"))
+
+    path = tmp_path / "xgb.json"
+    save(
+        booster,
+        path,
+        family="xgb",
+        metadata={"family": "xgb", "label_mode": "direction"},
+    )
+
+    with pytest.raises(ValueError, match="Artifact label_mode mismatch"):
+        load(path, family="xgb", expected_label_mode="triple_barrier")

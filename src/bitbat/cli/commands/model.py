@@ -27,13 +27,27 @@ from bitbat.model.evaluate import (
     build_candidate_report,
     classification_probability_metrics,
     compute_multiple_testing_safeguards,  # noqa: F401
+    evaluate_replay_promotion_gate,
     regression_metrics,  # noqa: F401
     select_champion_report,
 )
+from bitbat.model.manifest import write_candidate_manifests
 from bitbat.model.optimize import HyperparamOptimizer  # noqa: F401
-from bitbat.model.persist import BaselineFamily, save_baseline_artifact
+from bitbat.model.persist import (
+    BaselineFamily,
+    load_metadata,
+    normalize_artifact_role,
+    normalize_label_mode,
+    save_baseline_artifact,
+)
 from bitbat.model.persist import load as load_model  # noqa: F401
 from bitbat.model.train import fit_random_forest, fit_xgb  # noqa: F401
+from bitbat_v2.config import BitBatV2Config
+from bitbat_v2.evaluation import (
+    load_candles_from_parquet,
+    simulate_legacy_model_replay,
+    unsupported_runtime_replay_summary,
+)
 
 # ---------------------------------------------------------------------------
 # Private helpers for model_cv (C901 complexity reduction)
@@ -106,7 +120,7 @@ def _resolve_cv_window_spec(
     return window_spec
 
 
-def _run_cv_folds(
+def _run_cv_folds(  # noqa: C901
     folds: list,
     selected_families: list,
     ds: pd.DataFrame,
@@ -133,6 +147,14 @@ def _run_cv_folds(
     summary_by_family: dict[str, list[dict[str, Any]]] = {
         model_family: [] for model_family in selected_families
     }
+
+    def _class_labels(y_values: pd.Series) -> tuple[str, ...]:
+        observed = {str(value) for value in y_values.dropna().astype(str).unique()}
+        if observed.issubset({"take_profit", "stop_loss", "timeout"}):
+            return ("take_profit", "stop_loss", "timeout")
+        if observed.issubset({"act", "pass"}):
+            return ("pass", "act")
+        return ("up", "down", "flat")
 
     for idx, fold in enumerate(folds):
         if fold.train.empty or fold.test.empty:
@@ -168,10 +190,18 @@ def _run_cv_folds(
                     return_probabilities=True,
                 )
                 if raw_predictions.ndim == 2:
-                    class_metrics = classification_probability_metrics(
-                        y_label_test,
-                        raw_predictions,
-                    )
+                    class_labels = _class_labels(y_label_train)
+                    try:
+                        class_metrics = classification_probability_metrics(
+                            y_label_test,
+                            raw_predictions,
+                            class_labels=class_labels,
+                        )
+                    except TypeError:
+                        class_metrics = classification_probability_metrics(
+                            y_label_test,
+                            raw_predictions,
+                        )
                     predicted = _predict_baseline(model_family, trained_model, X_test)
                 else:
                     predicted = np.asarray(raw_predictions, dtype="float64")
@@ -352,6 +382,346 @@ def _run_champion_selection(
     metrics_dir.mkdir(parents=True, exist_ok=True)
     (metrics_dir / "cv_summary.json").write_text(
         json.dumps(aggregate, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _replay_gate_thresholds() -> dict[str, float | int]:
+    model_cfg = _config().get("model", {})
+    promotion_cfg = model_cfg.get("promotion_gate", {}) if isinstance(model_cfg, dict) else {}
+    return {
+        "replay_window_bars": int(promotion_cfg.get("replay_window_bars", 288)),
+        "min_trade_count": int(promotion_cfg.get("min_replay_trades", 2)),
+        "max_hold_rate": float(promotion_cfg.get("max_hold_rate", 0.98)),
+        "max_calibration_brier": float(promotion_cfg.get("max_calibration_brier", 0.80)),
+        "min_mean_expected_value_return": float(
+            promotion_cfg.get("min_mean_expected_value_return", 0.0)
+        ),
+        "min_net_pnl_pct": float(promotion_cfg.get("min_net_pnl_pct", 0.0)),
+    }
+
+
+def _cost_assumptions() -> dict[str, float]:
+    return {
+        "cost_bps": float(_config().get("cost_bps", 4.0)),
+        "fee_bps": float(_config().get("fee_bps", _config().get("cost_bps", 4.0))),
+        "slippage_bps": float(_config().get("slippage_bps", 0.0)),
+    }
+
+
+def _artifact_entry(
+    path: Path,
+    *,
+    artifact_role: str,
+) -> dict[str, Any]:
+    metadata = load_metadata(path)
+    return {
+        "artifact_role": normalize_artifact_role(artifact_role),
+        "path": str(path),
+        "metadata": metadata,
+    }
+
+
+def _train_path_aware_auxiliary_artifacts(
+    *,
+    X: pd.DataFrame,
+    dataset: pd.DataFrame,
+    freq: str,
+    horizon: str,
+) -> list[tuple[str, Path]]:
+    auxiliary_paths: list[tuple[str, Path]] = []
+    side_label = dataset.get("side_label")
+    if side_label is None:
+        side_label = pd.Series("flat", index=dataset.index, dtype="string")
+        side_label.loc[dataset["r_forward"].astype(float) > 0.0] = "up"
+        side_label.loc[dataset["r_forward"].astype(float) < 0.0] = "down"
+    meta_label = dataset.get("meta_label")
+    if meta_label is None:
+        meta_label = pd.Series(
+            np.where(dataset["label"].astype(str) == "timeout", "pass", "act"),
+            index=dataset.index,
+            dtype="string",
+        )
+
+    side_model, _ = fit_xgb(
+        X,
+        side_label.astype(str),
+        label_mode="direction",
+        seed=int(_config()["seed"]),
+        persist=False,
+    )
+    side_path = save_baseline_artifact(
+        side_model,
+        family="xgb",
+        freq=freq,
+        horizon=horizon,
+        label_mode="direction",
+        artifact_role="side",
+        metadata={
+            "source": "cli:model-train",
+            "model_role": "side",
+            "source_label_mode": "triple_barrier",
+            "class_labels": ["up", "down", "flat"],
+        },
+    )
+    auxiliary_paths.append(("side", side_path))
+
+    action_model, _ = fit_xgb(
+        X,
+        meta_label.astype(str),
+        label_mode="meta_label",
+        seed=int(_config()["seed"]),
+        persist=False,
+    )
+    action_path = save_baseline_artifact(
+        action_model,
+        family="xgb",
+        freq=freq,
+        horizon=horizon,
+        label_mode="meta_label",
+        artifact_role="action",
+        metadata={
+            "source": "cli:model-train",
+            "model_role": "action",
+            "source_label_mode": "triple_barrier",
+            "class_labels": ["pass", "act"],
+        },
+    )
+    auxiliary_paths.append(("action", action_path))
+    return auxiliary_paths
+
+
+def _feature_family_name(column: str) -> str:
+    if column.startswith("feat_sent_"):
+        return "sentiment"
+    if "garch" in column:
+        return "volatility"
+    if "macro" in column:
+        return "macro"
+    if "onchain" in column:
+        return "onchain"
+    return "price"
+
+
+def _build_ablation_scenarios(feature_cols: list[str]) -> list[dict[str, Any]]:
+    family_map: dict[str, list[str]] = {}
+    for column in feature_cols:
+        family = _feature_family_name(column)
+        family_map.setdefault(family, []).append(column)
+
+    scenarios: list[dict[str, Any]] = [
+        {
+            "scenario_id": "all_features",
+            "included_families": sorted(family_map),
+            "excluded_families": [],
+            "columns": list(feature_cols),
+        }
+    ]
+    price_columns = family_map.get("price", [])
+    if price_columns:
+        scenarios.append({
+            "scenario_id": "price_only",
+            "included_families": ["price"],
+            "excluded_families": sorted([name for name in family_map if name != "price"]),
+            "columns": list(price_columns),
+        })
+    for family in sorted(name for name in family_map if name != "price"):
+        remaining = [column for column in feature_cols if _feature_family_name(column) != family]
+        if not remaining:
+            continue
+        scenarios.append({
+            "scenario_id": f"drop_{family}",
+            "included_families": sorted(name for name in family_map if name != family),
+            "excluded_families": [family],
+            "columns": remaining,
+        })
+    return scenarios
+
+
+def _runtime_replay_summary_for_artifact(
+    *,
+    family: str,
+    label_mode: str,
+    freq: str,
+    horizon: str,
+) -> dict[str, Any]:
+    model_dir = Path(_config().get("models_dir", "models")) / f"{freq}_{horizon}"
+    has_meta_policy = (model_dir / "xgb.side.json").exists() and (
+        model_dir / "xgb.action.meta_label.json"
+    ).exists()
+    if family != "xgb":
+        return unsupported_runtime_replay_summary(
+            signal_source="legacy_ml",
+            model_name=f"{family}_{freq}_{horizon}",
+            compatibility_reason="runtime_incompatible_family",
+        ).to_dict()
+    if label_mode != "direction" and not has_meta_policy:
+        return unsupported_runtime_replay_summary(
+            signal_source="legacy_ml",
+            model_name=f"{family}_{freq}_{horizon}",
+            compatibility_reason=f"runtime_incompatible_label_mode:{label_mode}",
+        ).to_dict()
+
+    thresholds = _replay_gate_thresholds()
+    prices_path = Path(_config()["data_dir"]) / "raw" / "prices" / f"btcusd_yf_{freq}.parquet"
+    if not prices_path.exists():
+        return unsupported_runtime_replay_summary(
+            signal_source="legacy_ml",
+            model_name=f"{family}_{freq}_{horizon}",
+            compatibility_reason="replay_prices_missing",
+        ).to_dict()
+
+    replay_config = BitBatV2Config(
+        database_url="sqlite:///:memory:",
+        demo_mode=False,
+        signal_source="legacy_ml",
+        legacy_signal_freq=freq,
+        legacy_signal_horizon=horizon,
+        fee_bps=float(_config().get("fee_bps", _config().get("cost_bps", 4.0))),
+        slippage_bps=float(_config().get("slippage_bps", 0.0)),
+    )
+    candles = load_candles_from_parquet(prices_path, replay_config)
+    replay_window_bars = int(thresholds["replay_window_bars"])
+    if replay_window_bars > 0:
+        candles = candles[-replay_window_bars:]
+    if not candles:
+        return unsupported_runtime_replay_summary(
+            signal_source="legacy_ml",
+            model_name=f"{family}_{freq}_{horizon}",
+            compatibility_reason="replay_window_empty",
+        ).to_dict()
+
+    return simulate_legacy_model_replay(
+        candles,
+        replay_config,
+        tau=float(_config().get("tau", 0.01)),
+    ).to_dict()
+
+
+def _update_cv_summary_with_replay_gate(
+    *,
+    trained_paths: list[tuple[BaselineFamily, Path]],
+    auxiliary_artifacts: dict[str, list[tuple[str, Path]]] | None = None,
+    dataset_meta: dict[str, Any] | None = None,
+    label_mode: str,
+    freq: str,
+    horizon: str,
+) -> None:
+    summary_path = resolve_metrics_dir() / "cv_summary.json"
+    if summary_path.exists():
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    else:
+        primary_family = trained_paths[0][0] if trained_paths else "xgb"
+        payload = {
+            "candidate_reports": {
+                family: {"candidate_id": family, "family": family}
+                for family, _model_path in trained_paths
+            },
+            "champion_decision": {
+                "winner": primary_family,
+                "promote_candidate": False,
+                "promotion_gate": {"pass": False, "reasons": ["cv-summary-missing"]},
+                "reason": "cv-summary-missing",
+            },
+        }
+    candidate_reports = payload.get("candidate_reports", {})
+    if not isinstance(candidate_reports, dict):
+        return
+
+    thresholds = _replay_gate_thresholds()
+    auxiliary_artifacts = auxiliary_artifacts or {}
+    replay_payload: dict[str, Any] = {
+        "generated_at": pd.Timestamp.utcnow().isoformat(),
+        "winner": payload.get("champion_decision", {}).get("winner"),
+        "families": {},
+    }
+    artifact_registry: dict[str, dict[str, Any]] = {}
+    for family, model_path in trained_paths:
+        report = candidate_reports.get(family)
+        if not isinstance(report, dict):
+            continue
+        artifact_metadata = load_metadata(model_path)
+        replay_summary = _runtime_replay_summary_for_artifact(
+            family=family,
+            label_mode=label_mode,
+            freq=freq,
+            horizon=horizon,
+        )
+        replay_gate = evaluate_replay_promotion_gate(
+            replay_summary,
+            min_trade_count=int(thresholds["min_trade_count"]),
+            max_hold_rate=float(thresholds["max_hold_rate"]),
+            max_calibration_brier=float(thresholds["max_calibration_brier"]),
+            min_mean_expected_value_return=float(thresholds["min_mean_expected_value_return"]),
+            min_net_pnl_pct=float(thresholds["min_net_pnl_pct"]),
+        )
+        report["artifact_path"] = str(model_path)
+        report["artifact_metadata"] = artifact_metadata
+        report["replay_summary"] = replay_summary
+        report["replay_gate"] = replay_gate
+        family_auxiliary = auxiliary_artifacts.get(family, [])
+        report["auxiliary_artifacts"] = [
+            _artifact_entry(aux_path, artifact_role=role) for role, aux_path in family_auxiliary
+        ]
+        replay_payload["families"][family] = {
+            "artifact_path": str(model_path),
+            "artifact_metadata": artifact_metadata,
+            "replay_summary": replay_summary,
+            "replay_gate": replay_gate,
+            "auxiliary_artifacts": report["auxiliary_artifacts"],
+        }
+        artifact_registry[family] = {
+            "primary": _artifact_entry(model_path, artifact_role="primary"),
+            "auxiliary": report["auxiliary_artifacts"],
+        }
+
+    champion_decision = payload.get("champion_decision", {})
+    if isinstance(champion_decision, dict):
+        winner = champion_decision.get("winner")
+        winner_report = candidate_reports.get(winner) if isinstance(winner, str) else None
+        if isinstance(winner_report, dict):
+            replay_gate = winner_report.get("replay_gate", {})
+            winner_replay_summary = winner_report.get("replay_summary")
+            champion_decision["replay_gate"] = replay_gate
+            champion_decision["artifact_path"] = winner_report.get("artifact_path")
+            champion_decision["artifact_metadata"] = winner_report.get("artifact_metadata")
+            promotion_gate = champion_decision.get("promotion_gate", {})
+            if not isinstance(promotion_gate, dict):
+                promotion_gate = {}
+            existing_reasons = list(promotion_gate.get("reasons", []))
+            replay_reasons = replay_gate.get("reasons", []) if isinstance(replay_gate, dict) else []
+            merged_reasons = existing_reasons + [
+                reason for reason in replay_reasons if reason not in existing_reasons
+            ]
+            promotion_gate["replay_gate"] = replay_gate
+            promotion_gate["replay_summary"] = winner_replay_summary
+            promotion_gate["pass"] = bool(promotion_gate.get("pass", True)) and bool(
+                isinstance(replay_gate, dict) and replay_gate.get("pass", False)
+            )
+            promotion_gate["reasons"] = merged_reasons
+            champion_decision["promotion_gate"] = promotion_gate
+            if not bool(isinstance(replay_gate, dict) and replay_gate.get("pass", False)):
+                champion_decision["promote_candidate"] = False
+                if isinstance(replay_gate, dict) and replay_gate.get("runtime_compatible") is False:
+                    champion_decision["reason"] = "winner-runtime-incompatible"
+                else:
+                    champion_decision["reason"] = "replay-gate-failed"
+
+    payload["candidate_reports"] = candidate_reports
+    payload["champion_decision"] = champion_decision
+    payload["runtime_replay"] = replay_payload
+    payload["candidate_manifests"] = write_candidate_manifests(
+        freq=freq,
+        horizon=horizon,
+        dataset_meta=dataset_meta or {},
+        candidate_reports=candidate_reports,
+        artifact_registry=artifact_registry,
+        champion_decision=champion_decision if isinstance(champion_decision, dict) else {},
+        cost_assumptions=_cost_assumptions(),
+    )
+    summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    (resolve_metrics_dir() / "runtime_replay_summary.json").write_text(
+        json.dumps(replay_payload, indent=2),
         encoding="utf-8",
     )
 
@@ -727,17 +1097,34 @@ def model_train(
         require_label=True,
         require_forward_return=True,
     )
+    dataset_meta_path = Path(_config()["data_dir"]) / "features" / f"{freq_val}_{horizon_val}"
+    dataset_meta_path = dataset_meta_path / "meta.json"
+    dataset_meta: dict[str, Any] = {}
+    if dataset_meta_path.exists():
+        dataset_meta = json.loads(dataset_meta_path.read_text(encoding="utf-8"))
+    label_mode = normalize_label_mode(str(dataset_meta.get("label_mode", "direction")))
     feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
     X = dataset[feature_cols]
     X.attrs["freq"] = freq_val
     X.attrs["horizon"] = horizon_val
 
+    class_labels = (
+        ["up", "down", "flat"]
+        if label_mode == "direction"
+        else ["take_profit", "stop_loss", "timeout"]
+    )
     trained_paths: list[tuple[BaselineFamily, Path]] = []
+    auxiliary_artifacts: dict[str, list[tuple[str, Path]]] = {}
     for model_family in selected_families:
         if model_family == "xgb":
-            # XGBoost expects direction labels (up/down/flat); fit_xgb encodes via DIRECTION_CLASSES
             y_xgb = dataset["label"].astype(str)
-            trained_model, _ = fit_xgb(X, y_xgb, seed=int(_config()["seed"]), persist=False)
+            trained_model, _ = fit_xgb(
+                X,
+                y_xgb,
+                label_mode=label_mode,
+                seed=int(_config()["seed"]),
+                persist=False,
+            )
         else:
             y_rf = dataset["r_forward"]
             trained_model, _ = fit_random_forest(
@@ -748,15 +1135,38 @@ def model_train(
             family=model_family,
             freq=freq_val,
             horizon=horizon_val,
-            metadata={"source": "cli:model-train"},
+            label_mode=label_mode,
+            metadata={
+                "source": "cli:model-train",
+                "model_role": "primary",
+                "class_labels": class_labels,
+            },
         )
         trained_paths.append((model_family, model_path))
+        if model_family == "xgb" and label_mode == "triple_barrier":
+            auxiliary_artifacts[model_family] = _train_path_aware_auxiliary_artifacts(
+                X=X,
+                dataset=dataset,
+                freq=freq_val,
+                horizon=horizon_val,
+            )
+
+    _update_cv_summary_with_replay_gate(
+        trained_paths=trained_paths,
+        auxiliary_artifacts=auxiliary_artifacts,
+        dataset_meta=dataset_meta,
+        label_mode=label_mode,
+        freq=freq_val,
+        horizon=horizon_val,
+    )
 
     if len(trained_paths) == 1 and trained_paths[0][0] == "xgb":
         click.echo(f"Trained model saved to {trained_paths[0][1]}")
     else:
         for model_family, model_path in trained_paths:
             click.echo(f"Trained {model_family} model saved to {model_path}")
+            for role, auxiliary_path in auxiliary_artifacts.get(model_family, []):
+                click.echo(f"Trained {model_family} {role} artifact saved to {auxiliary_path}")
 
 
 @model.command("infer")
@@ -815,7 +1225,15 @@ def model_infer(
     )
     feature_cols = [col for col in feature_frame.columns if col.startswith("feat_")]
 
-    booster = load_model(resolved_model_path)
+    metadata = load_metadata(resolved_model_path)
+    label_mode = normalize_label_mode(str(metadata.get("label_mode", "direction")))
+    if label_mode != "direction":
+        raise click.ClickException(
+            "model infer currently supports only direction artifacts. "
+            f"Artifact {resolved_model_path} declares label_mode='{label_mode}'."
+        )
+
+    booster = load_model(resolved_model_path, expected_label_mode="direction")
     records: list[dict[str, Any]] = []
     for ts, row in feature_frame[feature_cols].iterrows():
         result = predict_bar(booster, row, timestamp=ts)
@@ -838,3 +1256,120 @@ def model_infer(
         output.parent.mkdir(parents=True, exist_ok=True)
         predictions.to_parquet(output, index=False)
         click.echo(f"Wrote {len(predictions)} predictions to {output}")
+
+
+@model.command("ablate-features")
+@click.option("--freq", default=None, help="Bar frequency.")
+@click.option("--horizon", default=None, help="Prediction horizon.")
+@click.option("--start", default=None, help="Optional train/eval start (ISO8601).")
+@click.option("--end", default=None, help="Optional train/eval end (ISO8601).")
+def model_ablate_features(
+    freq: str | None,
+    horizon: str | None,
+    start: str | None,
+    end: str | None,
+) -> None:
+    """Run deterministic bar-stack feature-family ablations on the directional benchmark path."""
+    freq_val = _resolve_setting(freq, "freq")
+    horizon_val = _resolve_setting(horizon, "horizon")
+    dataset = _load_feature_dataset(
+        freq_val,
+        horizon_val,
+        require_label=True,
+        require_forward_return=True,
+    )
+    dataset_meta_path = (
+        Path(_config()["data_dir"]) / "features" / f"{freq_val}_{horizon_val}" / "meta.json"
+    )
+    dataset_meta: dict[str, Any] = {}
+    if dataset_meta_path.exists():
+        dataset_meta = json.loads(dataset_meta_path.read_text(encoding="utf-8"))
+    label_mode = normalize_label_mode(str(dataset_meta.get("label_mode", "direction")))
+    if label_mode != "direction":
+        raise click.ClickException(
+            "model ablate-features currently supports only direction datasets so scenarios "
+            "stay runtime-comparable."
+        )
+
+    feature_cols = [col for col in dataset.columns if col.startswith("feat_")]
+    if not feature_cols:
+        raise click.ClickException("No feature columns found for feature ablation.")
+
+    start_value = start or str(dataset.index.min())
+    end_value = end or str(dataset.index.max())
+    model_cfg = _config().get("model", {})
+    resolved_embargo_bars, resolved_purge_bars = _resolve_cv_embargo_purge(
+        None, None, None, model_cfg
+    )
+    window_spec = _resolve_cv_window_spec(
+        None,
+        None,
+        None,
+        [],
+        model_cfg,
+        start_value,
+        end_value,
+        dataset.index,
+    )
+    folds = walk_forward(
+        dataset.index,
+        windows=window_spec,
+        embargo_bars=resolved_embargo_bars,
+        purge_bars=resolved_purge_bars,
+    )
+    if not folds:
+        raise click.ClickException("No ablation folds produced from the current dataset/window.")
+
+    scenarios = _build_ablation_scenarios(feature_cols)
+    reports: list[dict[str, Any]] = []
+    for scenario in scenarios:
+        scenario_dataset = dataset[["label", "r_forward", *scenario["columns"]]].copy()
+        summary_by_family = _run_cv_folds(
+            folds,
+            ["xgb"],
+            scenario_dataset,
+            freq_val,
+            horizon_val,
+            resolved_embargo_bars,
+            resolved_purge_bars,
+        )
+        folds_summary = summary_by_family.get("xgb", [])
+        report = build_candidate_report(
+            candidate_id=scenario["scenario_id"],
+            family="xgb",
+            fold_metrics=folds_summary,
+        )
+        reports.append({
+            "scenario_id": scenario["scenario_id"],
+            "included_families": scenario["included_families"],
+            "excluded_families": scenario["excluded_families"],
+            "feature_count": len(scenario["columns"]),
+            "metrics": report["metrics"],
+            "windows": report["windows"],
+        })
+
+    reports.sort(
+        key=lambda item: (
+            float(item["metrics"]["risk"]["mean_net_return"]),
+            float(item["metrics"]["risk"]["mean_net_sharpe"]),
+            float(item["metrics"]["directional"]["mean_directional_accuracy"]),
+        ),
+        reverse=True,
+    )
+    payload = {
+        "generated_at": pd.Timestamp.utcnow().isoformat(),
+        "freq": freq_val,
+        "horizon": horizon_val,
+        "label_mode": label_mode,
+        "reports": reports,
+        "recommended_scenario": reports[0]["scenario_id"] if reports else None,
+    }
+    metrics_dir = resolve_metrics_dir()
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    output_path = metrics_dir / "feature_ablation.json"
+    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    click.echo(
+        "Feature ablation complete: "
+        f"recommended={payload['recommended_scenario']}, "
+        f"scenarios={len(reports)}. Saved {output_path}"
+    )

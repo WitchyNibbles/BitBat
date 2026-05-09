@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -101,6 +102,9 @@ class PaperPerformanceSummary:
     benchmark_equity: float
     benchmark_return_pct: float
     alpha_vs_buy_hold: float
+    hold_rate: float = 0.0
+    action_rate: float = 0.0
+    abstain_breakdown: dict[str, int] = field(default_factory=dict)
     last_signal_at: datetime | None = None
     last_signal_direction: str | None = None
     signal_confidence: float | None = None
@@ -129,6 +133,9 @@ class PaperPerformanceSummary:
             "benchmark_equity": self.benchmark_equity,
             "benchmark_return_pct": self.benchmark_return_pct,
             "alpha_vs_buy_hold": self.alpha_vs_buy_hold,
+            "hold_rate": self.hold_rate,
+            "action_rate": self.action_rate,
+            "abstain_breakdown": dict(self.abstain_breakdown),
             "last_signal_at": _iso(self.last_signal_at),
             "last_signal_direction": self.last_signal_direction,
             "signal_confidence": self.signal_confidence,
@@ -183,7 +190,7 @@ def alerts_from_events(events: list[RuntimeEvent]) -> list[PaperAlert]:
 
 
 def closed_trades_from_orders(
-    orders: list[dict[str, Any] | Any],
+    orders: Sequence[dict[str, Any] | Any],
     *,
     fee_bps: float,
 ) -> list[PaperTrade]:
@@ -253,6 +260,42 @@ def closed_trades_from_orders(
     return trades
 
 
+def signal_activity_summary(
+    *,
+    decision_events: list[RuntimeEvent],
+    signal_events: list[RuntimeEvent],
+) -> tuple[float, float, dict[str, int]]:
+    signal_by_id = {
+        str(event.payload.get("signal_id")): event.payload
+        for event in signal_events
+        if event.event_type == "signal.generated"
+    }
+    hold_count = 0
+    action_count = 0
+    abstain_breakdown: dict[str, int] = {}
+
+    for event in decision_events:
+        if event.event_type != "decision.made":
+            continue
+        action = str(event.payload.get("action", "hold"))
+        if action in {"buy", "sell"}:
+            action_count += 1
+            continue
+        hold_count += 1
+        signal_payload = signal_by_id.get(str(event.payload.get("signal_id")), {})
+        reason = str(
+            signal_payload.get("abstain_reason") or event.payload.get("reason") or "unspecified"
+        )
+        abstain_breakdown[reason] = abstain_breakdown.get(reason, 0) + 1
+
+    total = hold_count + action_count
+    if total == 0:
+        return 0.0, 0.0, abstain_breakdown
+    hold_rate = round(hold_count / total, 6)
+    action_rate = round(action_count / total, 6)
+    return hold_rate, action_rate, abstain_breakdown
+
+
 def build_paper_performance_summary(
     *,
     config: BitBatV2Config,
@@ -261,6 +304,8 @@ def build_paper_performance_summary(
     last_event_at: datetime | None,
     orders: list[Any],
     portfolio_events: list[RuntimeEvent],
+    decision_events: list[RuntimeEvent],
+    signal_events: list[RuntimeEvent],
 ) -> PaperPerformanceSummary:
     points = portfolio_points_from_events(portfolio_events)
     equity_series = pd.Series([point.equity for point in points], dtype="float64")
@@ -325,6 +370,10 @@ def build_paper_performance_summary(
         4,
     )
     alpha_vs_buy_hold = round(net_pnl_pct - benchmark_return_pct, 6)
+    hold_rate, action_rate, abstain_breakdown = signal_activity_summary(
+        decision_events=decision_events,
+        signal_events=signal_events,
+    )
     return PaperPerformanceSummary(
         as_of=portfolio.as_of,
         starting_cash=starting_cash,
@@ -347,6 +396,9 @@ def build_paper_performance_summary(
         benchmark_equity=benchmark_equity,
         benchmark_return_pct=benchmark_return_pct,
         alpha_vs_buy_hold=alpha_vs_buy_hold,
+        hold_rate=hold_rate,
+        action_rate=action_rate,
+        abstain_breakdown=abstain_breakdown,
         last_signal_at=latest_signal.generated_at if latest_signal else None,
         last_signal_direction=latest_signal.direction if latest_signal else None,
         signal_confidence=latest_signal.confidence if latest_signal else None,
@@ -363,6 +415,8 @@ def build_paper_cockpit_snapshot(
     orders: list[Any],
     portfolio_events: list[RuntimeEvent],
     alert_events: list[RuntimeEvent],
+    decision_events: list[RuntimeEvent],
+    signal_events: list[RuntimeEvent],
 ) -> PaperCockpitSnapshot:
     performance = build_paper_performance_summary(
         config=config,
@@ -371,6 +425,8 @@ def build_paper_cockpit_snapshot(
         last_event_at=last_event_at,
         orders=orders,
         portfolio_events=portfolio_events,
+        decision_events=decision_events,
+        signal_events=signal_events,
     )
     recent_orders = [
         {

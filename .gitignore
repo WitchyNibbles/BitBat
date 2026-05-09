@@ -108,3 +108,6 @@ skills-lock.json
 # devgod
 .env.devgod
 .env.devgod.*
+.devgod/
+.codex/
+.codex/agents

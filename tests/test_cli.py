@@ -1791,10 +1791,17 @@ def test_cli_model_train_family_both(
         family: str,
         freq: str,
         horizon: str,
+        label_mode: str = "direction",
+        artifact_role: str = "primary",
         metadata: dict[str, Any] | None = None,
     ) -> Path:
-        del model, metadata
-        filename = "xgb.json" if family == "xgb" else "random_forest.pkl"
+        del model, metadata, label_mode
+        if family == "xgb" and artifact_role == "side":
+            filename = "xgb.side.json"
+        elif family == "xgb" and artifact_role == "action":
+            filename = "xgb.action.meta_label.json"
+        else:
+            filename = "xgb.json" if family == "xgb" else "random_forest.pkl"
         path = Path("models") / f"{freq}_{horizon}" / filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("artifact", encoding="utf-8")
@@ -1827,6 +1834,334 @@ def test_cli_model_train_family_both(
     assert "Trained xgb model saved to" in out
     assert "Trained random_forest model saved to" in out
     assert {family for family, _path in saved_calls} == {"xgb", "random_forest"}
+
+
+def test_cli_model_train_passes_label_mode_to_artifact_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=24, freq="1h"),
+        "feat_f1": np.linspace(0.0, 1.0, 24),
+        "label": pd.Series((["take_profit", "timeout"] * 12)[:24], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.02, 24),
+    }).to_parquet(feature_dir / "dataset.parquet", index=False)
+    (feature_dir / "meta.json").write_text(
+        json.dumps({"label_mode": "triple_barrier"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.fit_xgb",
+        lambda X_train, y_train, **kwargs: (object(), {}),
+    )
+
+    def fake_save_baseline_artifact(
+        model: Any,
+        *,
+        family: str,
+        freq: str,
+        horizon: str,
+        label_mode: str = "direction",
+        artifact_role: str = "primary",
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        del model, family, freq, horizon, metadata
+        captured.setdefault("calls", []).append((artifact_role, label_mode))
+        path_name = {
+            "primary": "xgb.triple_barrier.json",
+            "side": "xgb.side.json",
+            "action": "xgb.action.meta_label.json",
+        }[artifact_role]
+        path = Path("models") / "1h_4h" / path_name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("artifact", encoding="utf-8")
+        return path
+
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.save_baseline_artifact",
+        fake_save_baseline_artifact,
+    )
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "train",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "xgb",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    assert ("primary", "triple_barrier") in captured["calls"]
+    assert ("side", "direction") in captured["calls"]
+    assert ("action", "meta_label") in captured["calls"]
+
+
+def test_cli_model_infer_rejects_non_direction_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    features_path = tmp_path / "features.parquet"
+    pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=1, freq="1h"),
+        "feat_f1": [0.1],
+    }).to_parquet(features_path, index=False)
+
+    model_dir = tmp_path / "models" / "1h_4h"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model_path = model_dir / "xgb.triple_barrier.json"
+    model_path.write_text("artifact", encoding="utf-8")
+    model_path.with_suffix(".meta.json").write_text(
+        json.dumps({"label_mode": "triple_barrier", "family": "xgb"}),
+        encoding="utf-8",
+    )
+
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+    monkeypatch.chdir(tmp_path)
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "infer",
+        "--features",
+        str(features_path),
+        "--model",
+        str(model_path),
+        "--freq",
+        "1h",
+        "--horizon",
+        "4h",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(click.ClickException, match="supports only direction artifacts"):
+        main()
+
+
+def test_cli_model_train_updates_cv_summary_with_replay_gate(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=24, freq="1h"),
+        "feat_f1": np.linspace(0.0, 1.0, 24),
+        "label": pd.Series((["up", "down"] * 12)[:24], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.02, 24),
+    }).to_parquet(feature_dir / "dataset.parquet", index=False)
+    (feature_dir / "meta.json").write_text(
+        json.dumps({"label_mode": "direction"}),
+        encoding="utf-8",
+    )
+
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    (metrics_dir / "cv_summary.json").write_text(
+        json.dumps({
+            "candidate_reports": {"xgb": {"candidate_id": "xgb", "family": "xgb"}},
+            "champion_decision": {
+                "winner": "xgb",
+                "promote_candidate": True,
+                "promotion_gate": {"pass": True, "reasons": []},
+                "reason": "winner-meets-thresholds",
+            },
+        }),
+        encoding="utf-8",
+    )
+    prices_dir = tmp_path / "data" / "raw" / "prices"
+    prices_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=4, freq="1h"),
+        "open": [100.0, 101.0, 102.0, 103.0],
+        "high": [101.0, 102.0, 103.0, 104.0],
+        "low": [99.0, 100.0, 101.0, 102.0],
+        "close": [100.5, 101.5, 102.5, 103.5],
+        "volume": [10.0, 10.0, 10.0, 10.0],
+    }).to_parquet(prices_dir / "btcusd_yf_1h.parquet", index=False)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.fit_xgb",
+        lambda X_train, y_train, **kwargs: (object(), {}),
+    )
+
+    def fake_save_baseline_artifact(
+        model: Any,
+        *,
+        family: str,
+        freq: str,
+        horizon: str,
+        label_mode: str = "direction",
+        artifact_role: str = "primary",
+        metadata: dict[str, Any] | None = None,
+    ) -> Path:
+        del model, family, freq, horizon, label_mode, metadata
+        if artifact_role == "side":
+            path = Path("models") / "1h_4h" / "xgb.side.json"
+        elif artifact_role == "action":
+            path = Path("models") / "1h_4h" / "xgb.action.meta_label.json"
+        else:
+            path = Path("models") / "1h_4h" / "xgb.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("artifact", encoding="utf-8")
+        path.with_suffix(".meta.json").write_text(
+            json.dumps({
+                "family": "xgb",
+                "label_mode": ("meta_label" if artifact_role == "action" else "direction"),
+                "artifact_role": artifact_role,
+                "version": "test-model-v1",
+            }),
+            encoding="utf-8",
+        )
+        return path
+
+    class FakeReplaySummary:
+        def to_dict(self) -> dict[str, Any]:
+            return {
+                "runtime_compatible": True,
+                "trade_count": 1,
+                "hold_rate": 0.99,
+                "calibration_brier": 0.90,
+                "mean_expected_value_return": 0.0,
+                "net_pnl_pct": -0.01,
+            }
+
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.save_baseline_artifact",
+        fake_save_baseline_artifact,
+    )
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model.simulate_legacy_model_replay",
+        lambda candles, config, tau: FakeReplaySummary(),
+    )
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "train",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+        "--family",
+        "xgb",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    summary = json.loads((metrics_dir / "cv_summary.json").read_text(encoding="utf-8"))
+    assert summary["candidate_reports"]["xgb"]["replay_gate"]["pass"] is False
+    assert summary["champion_decision"]["promote_candidate"] is False
+    assert summary["champion_decision"]["reason"] == "replay-gate-failed"
+    assert "runtime_replay" in summary
+    assert "candidate_manifests" in summary
+    manifest_path = Path(summary["candidate_manifests"]["xgb"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["artifacts"]["primary"]["metadata"]["artifact_role"] == "primary"
+    assert manifest["promotion_evidence"]["pass"] is False
+
+
+def test_cli_model_ablate_features_writes_report(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    freq = "1h"
+    horizon = "4h"
+    config_path = _write_test_config(
+        tmp_path / "test_config.yaml",
+        enable_sentiment=False,
+    )
+
+    feature_dir = tmp_path / "data" / "features" / f"{freq}_{horizon}"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({
+        "timestamp_utc": pd.date_range("2024-01-01 00:00:00", periods=24, freq="1h"),
+        "feat_price": np.linspace(0.0, 1.0, 24),
+        "feat_sent_1h_mean": np.linspace(1.0, 2.0, 24),
+        "label": pd.Series((["up", "down"] * 12)[:24], dtype="string"),
+        "r_forward": np.linspace(0.0, 0.02, 24),
+    }).to_parquet(feature_dir / "dataset.parquet", index=False)
+    (feature_dir / "meta.json").write_text(
+        json.dumps({"label_mode": "direction"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.model._run_cv_folds",
+        lambda folds, families, ds, freq, horizon, embargo_bars, purge_bars: {
+            "xgb": [
+                {
+                    "rmse": 0.01 if "feat_sent_1h_mean" in ds.columns else 0.02,
+                    "mae": 0.005,
+                    "directional_accuracy": 0.62 if "feat_sent_1h_mean" in ds.columns else 0.55,
+                    "correlation": 0.1,
+                    "net_sharpe": 1.1 if "feat_sent_1h_mean" in ds.columns else 0.9,
+                    "gross_sharpe": 1.2,
+                    "max_drawdown": -0.1,
+                    "net_return": 0.03 if "feat_sent_1h_mean" in ds.columns else 0.01,
+                    "gross_return": 0.04,
+                    "total_costs": 0.001,
+                    "total_fee_costs": 0.001,
+                    "total_slippage_costs": 0.0,
+                }
+            ]
+        },
+    )
+
+    argv = [
+        "bitbat",
+        "--config",
+        str(config_path),
+        "model",
+        "ablate-features",
+        "--freq",
+        freq,
+        "--horizon",
+        horizon,
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    report = json.loads(
+        (tmp_path / "metrics" / "feature_ablation.json").read_text(encoding="utf-8")
+    )
+    assert report["recommended_scenario"] == "all_features"
+    assert {item["scenario_id"] for item in report["reports"]} >= {"all_features", "price_only"}
 
 
 def test_cli_batch_run(
@@ -1908,7 +2243,10 @@ def test_cli_batch_run(
     monkeypatch.setattr("bitbat.ingest.news_gdelt.fetch", fake_fetch_news)
     monkeypatch.setattr("bitbat.cli.commands.batch.generate_price_features", fake_price_features)
     monkeypatch.setattr("bitbat.cli.commands.batch.aggregate_sentiment", fake_sentiment)
-    monkeypatch.setattr("bitbat.cli.commands.batch.load_model", lambda path: booster)
+    monkeypatch.setattr(
+        "bitbat.cli.commands.batch.load_model",
+        lambda path, expected_label_mode=None: booster,
+    )
     monkeypatch.setattr("bitbat.cli.commands.batch.predict_bar", fake_predict)
 
     argv = [

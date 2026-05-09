@@ -14,6 +14,7 @@ from bitbat.model.evaluate import (
     build_candidate_report,
     compute_multiple_testing_safeguards,
     evaluate_promotion_gate,
+    evaluate_replay_promotion_gate,
     regression_metrics,
     select_champion_report,
     window_diagnostics,
@@ -311,3 +312,72 @@ def test_promotion_gate_rejects_for_drawdown_or_no_consecutive_wins() -> None:
     assert gate["drawdown_ok"] is False
     assert gate["max_consecutive_outperformance"] < 2
     assert len(gate["reasons"]) >= 1
+
+
+def test_replay_promotion_gate_requires_trade_count_and_positive_edge() -> None:
+    replay_summary = {
+        "runtime_compatible": True,
+        "trade_count": 1,
+        "hold_rate": 0.20,
+        "calibration_brier": 0.40,
+        "mean_expected_value_return": 0.001,
+        "net_pnl_pct": 0.02,
+    }
+
+    gate = evaluate_replay_promotion_gate(
+        replay_summary,
+        min_trade_count=2,
+        max_hold_rate=0.95,
+        max_calibration_brier=0.80,
+        min_mean_expected_value_return=0.0,
+        min_net_pnl_pct=0.0,
+    )
+
+    assert gate["pass"] is False
+    assert "replay_trade_count_below_threshold" in gate["reasons"]
+
+
+def test_replay_promotion_gate_rejects_high_hold_bad_calibration_and_non_positive_edge() -> None:
+    replay_summary = {
+        "runtime_compatible": True,
+        "trade_count": 5,
+        "hold_rate": 0.995,
+        "calibration_brier": 0.92,
+        "mean_expected_value_return": 0.0,
+        "net_pnl_pct": -0.01,
+    }
+
+    gate = evaluate_replay_promotion_gate(
+        replay_summary,
+        min_trade_count=2,
+        max_hold_rate=0.98,
+        max_calibration_brier=0.80,
+        min_mean_expected_value_return=0.0,
+        min_net_pnl_pct=0.0,
+    )
+
+    assert gate["pass"] is False
+    assert "replay_hold_rate_above_threshold" in gate["reasons"]
+    assert "replay_calibration_brier_above_threshold" in gate["reasons"]
+    assert "replay_expected_value_non_positive" in gate["reasons"]
+    assert "replay_net_pnl_pct_non_positive" in gate["reasons"]
+
+
+def test_replay_promotion_gate_rejects_runtime_incompatible_candidates() -> None:
+    gate = evaluate_replay_promotion_gate(
+        {
+            "runtime_compatible": False,
+            "compatibility_reason": "runtime_incompatible_family",
+            "trade_count": 0,
+            "hold_rate": 1.0,
+        },
+        min_trade_count=2,
+        max_hold_rate=0.98,
+        max_calibration_brier=0.80,
+        min_mean_expected_value_return=0.0,
+        min_net_pnl_pct=0.0,
+    )
+
+    assert gate["pass"] is False
+    assert gate["runtime_compatible"] is False
+    assert gate["reasons"] == ["runtime_incompatible_family"]

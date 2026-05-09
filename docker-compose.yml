@@ -19,13 +19,14 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    profiles:
+      - legacy
 
   # -------------------------------------------------------------------------
   # BitBat v2 API — clean-room paper-trading runtime for shadow runs
   # -------------------------------------------------------------------------
   bitbat-v2-api:
     build: .
-    command: uvicorn bitbat_v2.api.app:app --host 0.0.0.0 --port 8100
     volumes:
       - ./data:/app/data
       - ./models:/app/models
@@ -33,9 +34,15 @@ services:
       - "8100:8100"
     environment:
       - PYTHONPATH=/app/src
+      - BITBAT_PRIMARY_API=v2
+      - BITBAT_V2_PORT=8100
       - BITBAT_V2_DATABASE_URL=${BITBAT_V2_DATABASE_URL:-sqlite:///data/bitbat_v2.db}
       - BITBAT_V2_DEMO_MODE=${BITBAT_V2_DEMO_MODE:-false}
-      - BITBAT_V2_OPERATOR_TOKEN=${BITBAT_V2_OPERATOR_TOKEN:-}
+      - BITBAT_V2_OPERATOR_TOKEN=${BITBAT_V2_OPERATOR_TOKEN}
+      - BITBAT_V2_AUTORUN_ENABLED=${BITBAT_V2_AUTORUN_ENABLED:-false}
+      - BITBAT_V2_SIGNAL_SOURCE=${BITBAT_V2_SIGNAL_SOURCE:-legacy_ml}
+      - BITBAT_V2_LEGACY_SIGNAL_FREQ=${BITBAT_V2_LEGACY_SIGNAL_FREQ:-5m}
+      - BITBAT_V2_LEGACY_SIGNAL_HORIZON=${BITBAT_V2_LEGACY_SIGNAL_HORIZON:-30m}
     healthcheck:
       test:
         [
@@ -49,8 +56,6 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    profiles:
-      - v2
 
   # -------------------------------------------------------------------------
   # Data-ingestion service — fetches prices + news every hour
@@ -67,6 +72,8 @@ services:
       - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
       - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
     restart: unless-stopped
+    profiles:
+      - legacy
 
   # -------------------------------------------------------------------------
   # Autonomous monitoring agent — validates predictions, triggers retraining
@@ -89,16 +96,22 @@ services:
     restart: unless-stopped
     depends_on:
       - bitbat-ingest
+    profiles:
+      - legacy
 
   # -------------------------------------------------------------------------
   # React dashboard (The Oracle's Console)
   # -------------------------------------------------------------------------
   bitbat-ui:
-    build: ./dashboard
+    build:
+      context: ./dashboard
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_V2_API_URL: ${VITE_V2_API_URL:-http://localhost:8100}
     ports:
       - "3000:80"
     depends_on:
-      - bitbat-api
+      - bitbat-v2-api
     restart: unless-stopped
 
   # -------------------------------------------------------------------------

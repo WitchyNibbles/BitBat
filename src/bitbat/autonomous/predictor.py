@@ -104,7 +104,7 @@ class LivePredictor:
         model_path = self._model_path()
         if not model_path.exists():
             raise FileNotFoundError(f"Model artifact not found: {model_path}")
-        return load_model(model_path)
+        return load_model(model_path, expected_label_mode="direction")
 
     def _active_model_version(self) -> str:
         try:

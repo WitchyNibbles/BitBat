@@ -156,3 +156,11 @@ def test_build_xy_triple_barrier_label_mode_compatibility(
 
     assert set(default_dataset["label"].unique()).issubset({"up", "down", "flat"})
     assert set(barrier_dataset["label"].unique()).issubset({"take_profit", "stop_loss", "timeout"})
+    assert set(barrier_dataset["side_label"].unique()).issubset({"up", "down", "flat"})
+    assert set(barrier_dataset["meta_label"].unique()).issubset({"act", "pass"})
+
+    barrier_meta = json.loads(
+        (output_barrier / "features" / "1h_2h" / "meta.json").read_text(encoding="utf-8")
+    )
+    assert barrier_meta["barrier_take_profit"] == 0.01
+    assert barrier_meta["barrier_stop_loss"] == 0.01

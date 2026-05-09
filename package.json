@@ -5,10 +5,26 @@
   "name": "project-with-devgod",
   "private": true,
   "scripts": {
-    "devgod:bootstrap": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts bootstrap-project",
-    "devgod:health": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts health",
-    "devgod:migrate": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts migrate",
-    "devgod:setup:local": "bash scripts/devgod-setup.sh",
-    "devgod:verify:setup": "node --env-file=.env.devgod --experimental-strip-types ./node_modules/devgod/src/admin.ts verify-setup"
+    "devgod": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts",
+    "devgod:bootstrap": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts bootstrap-project",
+    "devgod:check-workflow": "bash scripts/check-devgod-workflow.sh",
+    "devgod:check:happy-path": "bash scripts/check-devgod-happy-path.sh",
+    "devgod:github-dispatch": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts github-dispatch --target .",
+    "devgod:health": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts health",
+    "devgod:mcp": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts mcp",
+    "devgod:migrate": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts migrate",
+    "devgod:ops": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts ops --format text",
+    "devgod:plan-context": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts plan-context",
+    "devgod:record-review": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts record-review --input .devgod/review-action.json",
+    "devgod:recover": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts recover",
+    "devgod:report": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts report --format markdown",
+    "devgod:scaffold-workflow": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts scaffold-workflow --target .",
+    "devgod:seed-happy-path-fixture": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts seed-happy-path-fixture --target .",
+    "devgod:setup:local": "node --experimental-strip-types ./node_modules/devgod/src/install/setup-local.ts",
+    "devgod:status": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts status",
+    "devgod:ui": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts serve-ui",
+    "devgod:verify:migrations:live": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts verify-live-migrations",
+    "devgod:verify:review-identity": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts verify-review-identity",
+    "devgod:verify:setup": "node --experimental-strip-types ./node_modules/devgod/src/admin/devgod.ts verify-setup"
   }
 }

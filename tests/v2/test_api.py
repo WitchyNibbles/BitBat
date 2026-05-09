@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from datetime import UTC, datetime
 
+import pytest
+
+from bitbat.api.cors import ALLOWED_BROWSER_ORIGINS
 from bitbat_v2.api.app import create_app
+from bitbat_v2.config import BitBatV2Config
 from bitbat_v2.domain import Candle, PortfolioSnapshot, PredictionSignal, utc_now
 from bitbat_v2.storage import RuntimeStore
 from tests.api.client import SyncASGIClient
@@ -40,6 +45,8 @@ def test_v2_api_health_and_simulation_flow(tmp_path) -> None:
     assert health.status_code == 200
     assert health.json()["product_id"] == "BTC-USD"
     assert health.json()["autorun"]["enabled"] is False
+    assert health.json()["signal_source"] == "heuristic"
+    assert health.json()["signal_model_name"] is None
 
     simulated = client.request(
         "POST",
@@ -51,11 +58,14 @@ def test_v2_api_health_and_simulation_flow(tmp_path) -> None:
     body = simulated.json()
     assert body["decision"]["action"] == "buy"
     assert any(reason.startswith("score=") for reason in body["signal"]["reasons"])
+    assert body["signal"]["expected_value_return"] > 0
+    assert body["signal"]["expected_cost_return"] > 0
     assert "confirmed positive trend and score above threshold" in body["decision"]["reason"]
 
     signal = client.get("/v1/signals/latest", headers=AUTH_HEADERS)
     assert signal.status_code == 200
     assert signal.json()["product_id"] == "BTC-USD"
+    assert signal.json()["expected_value_return"] > 0
 
     orders = client.get("/v1/orders", headers=AUTH_HEADERS)
     assert orders.status_code == 200
@@ -73,6 +83,116 @@ def test_v2_api_health_and_simulation_flow(tmp_path) -> None:
     performance = client.get("/v1/performance", headers=AUTH_HEADERS)
     assert performance.status_code == 200
     assert "net_pnl" in performance.json()
+
+
+def test_v2_health_exposes_promotion_evidence(tmp_path, monkeypatch) -> None:
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    (metrics_dir / "cv_summary.json").write_text(
+        json.dumps({
+            "champion_decision": {
+                "winner": "xgb",
+                "promote_candidate": False,
+                "reason": "replay-gate-failed",
+                "promotion_gate": {
+                    "pass": False,
+                    "reasons": ["replay_hold_rate_above_threshold"],
+                    "replay_gate": {"runtime_compatible": True},
+                    "replay_summary": {
+                        "trade_count": 1,
+                        "hold_rate": 0.99,
+                        "action_rate": 0.01,
+                        "calibration_brier": 0.9,
+                        "mean_expected_value_return": 0.0,
+                        "net_pnl_pct": -0.01,
+                        "abstain_breakdown": {"legacy model predicted flat": 4},
+                        "replay_start": "2026-04-25T10:00:00+00:00",
+                        "replay_end": "2026-04-25T12:00:00+00:00",
+                    },
+                },
+                "artifact_metadata": {
+                    "family": "xgb",
+                    "label_mode": "direction",
+                    "version": "test-model-v1",
+                },
+                "artifact_path": "models/5m_30m/xgb.json",
+            },
+            "runtime_replay": {"generated_at": "2026-04-25T12:05:00+00:00", "families": {}},
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("bitbat_v2.api.app.resolve_metrics_dir", lambda: metrics_dir)
+
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        operator_token=AUTH_TOKEN,
+    )
+    client = SyncASGIClient(app)
+
+    health = client.get("/v1/health", headers=AUTH_HEADERS)
+
+    assert health.status_code == 200
+    payload = health.json()
+    assert payload["promotion"]["verdict"] == "blocked"
+    assert payload["promotion"]["label_mode"] == "direction"
+    assert payload["promotion"]["model_family"] == "xgb"
+    assert payload["promotion"]["replay_hold_rate"] == 0.99
+    assert payload["promotion"]["reasons"] == ["replay_hold_rate_above_threshold"]
+
+
+def test_v2_paper_exposes_hold_rate_and_abstain_breakdown(tmp_path, monkeypatch) -> None:
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("bitbat_v2.api.app.resolve_metrics_dir", lambda: metrics_dir)
+
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        operator_token=AUTH_TOKEN,
+    )
+    signal = PredictionSignal(
+        signal_id="sig-hold",
+        generated_at=datetime(2026, 4, 25, 10, 0, tzinfo=UTC),
+        product_id="BTC-USD",
+        venue="coinbase",
+        model_name="legacy_xgb_5m_30m",
+        direction="hold",
+        confidence=0.0,
+        predicted_return=0.0,
+        predicted_price=100_000.0,
+        reasons=["signal_source=legacy_ml"],
+        abstain_reason="legacy model predicted flat",
+    )
+    app.state.store.save_latest_signal(signal)
+    app.state.store.append_event(
+        "signal.generated",
+        signal.to_dict(),
+        occurred_at=signal.generated_at,
+    )
+    app.state.store.append_event(
+        "decision.made",
+        {
+            "decision_id": "dec-hold",
+            "signal_id": signal.signal_id,
+            "decided_at": signal.generated_at.isoformat(),
+            "action": "hold",
+            "quantity_btc": 0.0,
+            "reason": "no valid spot action",
+            "stale_data": False,
+            "trading_paused": False,
+        },
+        occurred_at=signal.generated_at,
+    )
+
+    client = SyncASGIClient(app)
+    paper = client.get("/v1/paper", headers=AUTH_HEADERS)
+
+    assert paper.status_code == 200
+    payload = paper.json()
+    assert payload["performance"]["hold_rate"] == 1.0
+    assert payload["performance"]["action_rate"] == 0.0
+    assert payload["performance"]["abstain_breakdown"]["legacy model predicted flat"] == 1
 
 
 def test_v2_latest_signal_returns_404_before_any_candle(tmp_path) -> None:
@@ -101,7 +221,61 @@ def test_v2_auth_rejects_missing_token(tmp_path) -> None:
     assert health.status_code == 401
 
 
-def test_v2_control_pause_resume_reset_retrain_and_acknowledge(tmp_path) -> None:
+@pytest.mark.parametrize("origin", ALLOWED_BROWSER_ORIGINS)
+def test_v2_api_allows_configured_local_browser_origin_preflight(tmp_path, origin: str) -> None:
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        operator_token=AUTH_TOKEN,
+    )
+    client = SyncASGIClient(app)
+
+    response = client.request(
+        "OPTIONS",
+        "/v1/health",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-BitBat-Operator-Token",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    allow_headers = response.headers["access-control-allow-headers"].lower()
+    assert "x-bitbat-operator-token" in allow_headers
+
+
+def test_v2_api_rejects_unknown_origin_preflight(tmp_path) -> None:
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        operator_token=AUTH_TOKEN,
+    )
+    client = SyncASGIClient(app)
+
+    response = client.request(
+        "OPTIONS",
+        "/v1/health",
+        headers={
+            "Origin": "http://evil.example",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-BitBat-Operator-Token",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_v2_config_from_env_rejects_unknown_signal_source(monkeypatch) -> None:
+    monkeypatch.setenv("BITBAT_V2_SIGNAL_SOURCE", "typo-mode")
+
+    with pytest.raises(ValueError, match="Unsupported BITBAT_V2_SIGNAL_SOURCE"):
+        BitBatV2Config.from_env()
+
+
+def test_v2_control_pause_resume_reset_and_acknowledge(tmp_path) -> None:
     app = create_app(
         database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
         demo_mode=False,
@@ -117,10 +291,6 @@ def test_v2_control_pause_resume_reset_retrain_and_acknowledge(tmp_path) -> None
     assert resumed.status_code == 200
     assert resumed.json()["control"]["trading_paused"] is False
 
-    retrained = client.request("POST", "/v1/control/retrain", headers=AUTH_HEADERS)
-    assert retrained.status_code == 200
-    assert retrained.json()["control"]["retrain_requested"] is True
-
     acknowledged = client.request(
         "POST",
         "/v1/control/acknowledge",
@@ -135,6 +305,20 @@ def test_v2_control_pause_resume_reset_retrain_and_acknowledge(tmp_path) -> None
     reset = client.request("POST", "/v1/control/reset-paper", headers=AUTH_HEADERS)
     assert reset.status_code == 200
     assert reset.json()["portfolio"]["cash"] == 10_000.0
+
+
+def test_v2_retrain_endpoint_reports_not_wired(tmp_path) -> None:
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'bitbat_v2.db'}",
+        demo_mode=False,
+        operator_token=AUTH_TOKEN,
+    )
+    client = SyncASGIClient(app)
+
+    response = client.request("POST", "/v1/control/retrain", headers=AUTH_HEADERS)
+
+    assert response.status_code == 501
+    assert "not wired yet" in response.json()["detail"]
 
 
 def test_v2_event_stream_supports_backlog_reads(tmp_path) -> None:

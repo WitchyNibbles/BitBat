@@ -101,6 +101,13 @@ class PredictionSignal:
     predicted_return: float
     predicted_price: float
     reasons: list[str] = field(default_factory=list)
+    p_up: float = 0.0
+    p_down: float = 0.0
+    p_flat: float = 0.0
+    expected_move_return: float = 0.0
+    expected_cost_return: float = 0.0
+    expected_value_return: float = 0.0
+    abstain_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -114,6 +121,13 @@ class PredictionSignal:
             "predicted_return": self.predicted_return,
             "predicted_price": self.predicted_price,
             "reasons": list(self.reasons),
+            "p_up": self.p_up,
+            "p_down": self.p_down,
+            "p_flat": self.p_flat,
+            "expected_move_return": self.expected_move_return,
+            "expected_cost_return": self.expected_cost_return,
+            "expected_value_return": self.expected_value_return,
+            "abstain_reason": self.abstain_reason,
         }
 
     @classmethod
@@ -129,6 +143,15 @@ class PredictionSignal:
             predicted_return=float(data["predicted_return"]),
             predicted_price=float(data["predicted_price"]),
             reasons=[str(reason) for reason in data.get("reasons", [])],
+            p_up=float(data.get("p_up", 0.0)),
+            p_down=float(data.get("p_down", 0.0)),
+            p_flat=float(data.get("p_flat", 0.0)),
+            expected_move_return=float(data.get("expected_move_return", 0.0)),
+            expected_cost_return=float(data.get("expected_cost_return", 0.0)),
+            expected_value_return=float(data.get("expected_value_return", 0.0)),
+            abstain_reason=(
+                None if data.get("abstain_reason") in (None, "") else str(data["abstain_reason"])
+            ),
         )
 
 
