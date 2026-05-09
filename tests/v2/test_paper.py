@@ -117,6 +117,22 @@ def test_build_paper_performance_summary_adds_buy_hold_and_drawdown() -> None:
             },
         ),
     ]
+    decision_events = [
+        RuntimeEvent(
+            id=3,
+            event_type="decision.made",
+            occurred_at=portfolio.as_of,
+            payload={"signal_id": "sig-1", "action": "buy", "reason": "positive edge"},
+        )
+    ]
+    signal_events = [
+        RuntimeEvent(
+            id=4,
+            event_type="signal.generated",
+            occurred_at=portfolio.as_of,
+            payload={**signal.to_dict(), "abstain_reason": None},
+        )
+    ]
 
     summary = build_paper_performance_summary(
         config=config,
@@ -125,12 +141,15 @@ def test_build_paper_performance_summary_adds_buy_hold_and_drawdown() -> None:
         last_event_at=portfolio.as_of,
         orders=orders,
         portfolio_events=portfolio_events,
+        decision_events=decision_events,
+        signal_events=signal_events,
     )
 
     assert summary.net_pnl == -40.0
     assert summary.benchmark_equity > 0
     assert summary.max_drawdown_pct <= 0.0
     assert summary.last_signal_direction == "buy"
+    assert summary.action_rate == 1.0
 
 
 def test_paper_cockpit_summary_uses_full_order_history_but_caps_recent_rows() -> None:
@@ -170,6 +189,34 @@ def test_paper_cockpit_summary_uses_full_order_history_but_caps_recent_rows() ->
             },
         )
     ]
+    decision_events = [
+        RuntimeEvent(
+            id=2,
+            event_type="decision.made",
+            occurred_at=portfolio.as_of,
+            payload={"signal_id": "sig-hold", "action": "hold", "reason": "no edge"},
+        )
+    ]
+    signal_events = [
+        RuntimeEvent(
+            id=3,
+            event_type="signal.generated",
+            occurred_at=portfolio.as_of,
+            payload={
+                "signal_id": "sig-hold",
+                "generated_at": portfolio.as_of.isoformat(),
+                "product_id": "BTC-USD",
+                "venue": "coinbase",
+                "model_name": "legacy_xgb_5m_30m",
+                "direction": "hold",
+                "confidence": 0.0,
+                "predicted_return": 0.0,
+                "predicted_price": 100_500.0,
+                "reasons": ["signal_source=legacy_ml"],
+                "abstain_reason": "replay gate blocked entry",
+            },
+        )
+    ]
 
     snapshot = build_paper_cockpit_snapshot(
         config=config,
@@ -179,7 +226,11 @@ def test_paper_cockpit_summary_uses_full_order_history_but_caps_recent_rows() ->
         orders=orders,
         portfolio_events=portfolio_events,
         alert_events=[],
+        decision_events=decision_events,
+        signal_events=signal_events,
     )
 
     assert snapshot.performance.trade_count == 60
     assert len(snapshot.recent_orders) == 50
+    assert snapshot.performance.hold_rate == 1.0
+    assert snapshot.performance.abstain_breakdown["replay gate blocked entry"] == 1

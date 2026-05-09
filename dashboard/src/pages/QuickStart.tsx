@@ -124,7 +124,7 @@ export function QuickStart() {
   return (
     <div className={styles.page}>
       <div className={styles.controls}>
-        <span className={styles.activeLabel}>Model active</span>
+        <span className={styles.activeLabel}>Legacy monitor active</span>
         <button
           className={styles.retrain}
           onClick={() => {
@@ -134,9 +134,14 @@ export function QuickStart() {
             setErrorMsg('');
           }}
         >
-          Retrain
+          Return to Legacy Setup
         </button>
       </div>
+
+      <p className={styles.statusMsg}>
+        This page drives the legacy training and monitoring path. Active paper trading now lives in
+        the Oracle view.
+      </p>
 
       <div className="divider">&#x2726;</div>
 

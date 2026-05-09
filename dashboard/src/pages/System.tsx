@@ -117,7 +117,11 @@ export function System() {
 
   return (
     <div className={styles.page}>
-      <h2>System Health</h2>
+      <h2>Legacy System Diagnostics</h2>
+      <p className={styles.empty}>
+        This view reports the legacy monitor stack. It is diagnostic-only while `bitbat_v2` is the
+        primary paper-trading runtime.
+      </p>
 
       <div className={styles.statusGrid}>
         <StatusCard label="Database" value={dbStatus} status={dbColor} />
@@ -139,7 +143,7 @@ export function System() {
       <div className="divider">&#x2726;</div>
 
       <section>
-        <h3>Performance Snapshots</h3>
+        <h3>Legacy Performance Snapshots</h3>
         {snapshotRows.length > 0 ? (
           <DataTable columns={SNAPSHOT_COLUMNS} rows={snapshotRows} />
         ) : (
@@ -151,7 +155,7 @@ export function System() {
 
       <section>
         <div className={styles.sectionHeader}>
-          <h3>System Logs</h3>
+          <h3>Legacy System Logs</h3>
           <select
             className={styles.logSelect}
             value={logLimit}
@@ -176,7 +180,7 @@ export function System() {
       <div className="divider">&#x2726;</div>
 
       <section>
-        <h3>Retraining History</h3>
+        <h3>Legacy Retraining History</h3>
         {retrainRows.length > 0 ? (
           <DataTable columns={RETRAIN_COLUMNS} rows={retrainRows} />
         ) : (

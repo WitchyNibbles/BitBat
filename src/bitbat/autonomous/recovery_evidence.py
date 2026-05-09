@@ -244,7 +244,11 @@ def build_recovery_evidence(
                 "Recovery evidence requires an empty prediction_outcomes set for the target pair."
             )
 
-    booster = load_model(resolved_model_path, family="xgb")
+    booster = load_model(
+        resolved_model_path,
+        family="xgb",
+        expected_label_mode="direction",
+    )
     feature_cols = [column for column in evaluation.columns if column.startswith("feat_")]
     for row in evaluation.itertuples(index=False):
         timestamp = pd.Timestamp(row.timestamp_utc).to_pydatetime()

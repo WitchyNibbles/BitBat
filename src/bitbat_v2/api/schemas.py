@@ -13,7 +13,11 @@ class HealthResponse(BaseModel):
     product_id: str
     trading_paused: bool
     event_count: int
+    signal_source: str
+    signal_model_name: str | None = None
+    last_signal_at: datetime | None = None
     last_event_at: datetime | None = None
+    promotion: PromotionEvidenceResponse | None = None
     autorun: AutorunStatusResponse
 
 
@@ -40,6 +44,34 @@ class SignalResponse(BaseModel):
     predicted_return: float
     predicted_price: float
     reasons: list[str] = Field(default_factory=list)
+    p_up: float = 0.0
+    p_down: float = 0.0
+    p_flat: float = 0.0
+    expected_move_return: float = 0.0
+    expected_cost_return: float = 0.0
+    expected_value_return: float = 0.0
+    abstain_reason: str | None = None
+
+
+class PromotionEvidenceResponse(BaseModel):
+    verdict: str
+    winner: str | None = None
+    reasons: list[str] = Field(default_factory=list)
+    runtime_compatible: bool | None = None
+    model_family: str | None = None
+    label_mode: str | None = None
+    model_version: str | None = None
+    artifact_path: str | None = None
+    replay_generated_at: datetime | None = None
+    replay_start: datetime | None = None
+    replay_end: datetime | None = None
+    replay_trade_count: int | None = None
+    replay_hold_rate: float | None = None
+    replay_action_rate: float | None = None
+    replay_calibration_brier: float | None = None
+    replay_mean_expected_value_return: float | None = None
+    replay_net_pnl_pct: float | None = None
+    replay_abstain_breakdown: dict[str, int] = Field(default_factory=dict)
 
 
 class PortfolioResponse(BaseModel):
@@ -119,6 +151,9 @@ class PaperPerformanceResponse(BaseModel):
     benchmark_equity: float
     benchmark_return_pct: float
     alpha_vs_buy_hold: float
+    hold_rate: float = 0.0
+    action_rate: float = 0.0
+    abstain_breakdown: dict[str, int] = Field(default_factory=dict)
     last_signal_at: datetime | None = None
     last_signal_direction: str | None = None
     signal_confidence: float | None = None
@@ -139,6 +174,7 @@ class PaperOrderResponse(BaseModel):
 class PaperCockpitResponse(BaseModel):
     portfolio: PortfolioResponse
     performance: PaperPerformanceResponse
+    promotion: PromotionEvidenceResponse | None = None
     latest_signal: SignalResponse | None = None
     recent_orders: list[PaperOrderResponse] = Field(default_factory=list)
     recent_alerts: list[PaperAlertResponse] = Field(default_factory=list)

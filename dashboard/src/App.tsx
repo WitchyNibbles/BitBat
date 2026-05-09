@@ -9,7 +9,9 @@ import { Performance } from './pages/Performance';
 import { Settings } from './pages/Settings';
 import { System } from './pages/System';
 
-const PAGES: Record<Page, () => ReactNode> = {
+const ENABLE_LEGACY_PAGES = import.meta.env.VITE_ENABLE_LEGACY_PAGES === 'true';
+
+const ALL_PAGES: Record<Page, () => ReactNode> = {
   oracle: Oracle,
   home: Home,
   quickstart: QuickStart,
@@ -17,6 +19,10 @@ const PAGES: Record<Page, () => ReactNode> = {
   settings: Settings,
   system: System,
 };
+
+const PAGES: Record<Page, () => ReactNode> = ENABLE_LEGACY_PAGES
+  ? ALL_PAGES
+  : { oracle: Oracle } as Record<Page, () => ReactNode>;
 
 function resolveInitialPage(): Page {
   const hash = window.location.hash.replace('#', '');
@@ -48,7 +54,11 @@ export default function App() {
   const PageComponent = PAGES[page];
 
   return (
-    <Layout activePage={page} onNavigate={navigate}>
+    <Layout
+      activePage={page}
+      onNavigate={navigate}
+      showLegacyPages={ENABLE_LEGACY_PAGES}
+    >
       <PageComponent />
     </Layout>
   );

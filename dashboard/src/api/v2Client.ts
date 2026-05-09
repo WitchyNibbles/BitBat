@@ -1,7 +1,7 @@
 const V2_BASE_URL =
   (import.meta.env.VITE_V2_API_URL as string | undefined) ?? 'http://localhost:8100';
-const V2_OPERATOR_TOKEN =
-  (import.meta.env.VITE_V2_OPERATOR_TOKEN as string | undefined) ?? '';
+const V2_TOKEN_STORAGE_KEY = 'bitbat_v2_operator_token';
+let operatorToken = '';
 
 export interface V2HealthResponse {
   status: string;
@@ -9,7 +9,11 @@ export interface V2HealthResponse {
   product_id: string;
   trading_paused: boolean;
   event_count: number;
+  signal_source: string;
+  signal_model_name?: string | null;
+  last_signal_at?: string | null;
   last_event_at?: string | null;
+  promotion?: V2PromotionEvidence | null;
 }
 
 export interface V2SignalResponse {
@@ -23,6 +27,34 @@ export interface V2SignalResponse {
   predicted_return: number;
   predicted_price: number;
   reasons: string[];
+  p_up: number;
+  p_down: number;
+  p_flat: number;
+  expected_move_return: number;
+  expected_cost_return: number;
+  expected_value_return: number;
+  abstain_reason?: string | null;
+}
+
+export interface V2PromotionEvidence {
+  verdict: string;
+  winner?: string | null;
+  reasons: string[];
+  runtime_compatible?: boolean | null;
+  model_family?: string | null;
+  label_mode?: string | null;
+  model_version?: string | null;
+  artifact_path?: string | null;
+  replay_generated_at?: string | null;
+  replay_start?: string | null;
+  replay_end?: string | null;
+  replay_trade_count?: number | null;
+  replay_hold_rate?: number | null;
+  replay_action_rate?: number | null;
+  replay_calibration_brier?: number | null;
+  replay_mean_expected_value_return?: number | null;
+  replay_net_pnl_pct?: number | null;
+  replay_abstain_breakdown: Record<string, number>;
 }
 
 export interface V2PortfolioResponse {
@@ -51,6 +83,19 @@ export interface V2OrderResponse {
 
 export interface V2OrdersResponse {
   orders: V2OrderResponse[];
+}
+
+export interface V2PaperResponse {
+  performance: {
+    net_pnl: number;
+    net_pnl_pct: number;
+    hold_rate: number;
+    action_rate: number;
+    abstain_breakdown: Record<string, number>;
+    trade_count: number;
+    expectancy_per_trade: number;
+  };
+  promotion?: V2PromotionEvidence | null;
 }
 
 export interface V2ControlResponse {
@@ -95,6 +140,33 @@ class V2ApiError extends Error {
   }
 }
 
+function readOperatorToken(): string {
+  if (operatorToken) return operatorToken;
+  if (typeof window === 'undefined') return '';
+  operatorToken = window.sessionStorage.getItem(V2_TOKEN_STORAGE_KEY) ?? '';
+  return operatorToken;
+}
+
+function persistOperatorToken(token: string): string {
+  operatorToken = token.trim();
+  if (typeof window !== 'undefined') {
+    if (operatorToken) {
+      window.sessionStorage.setItem(V2_TOKEN_STORAGE_KEY, operatorToken);
+    } else {
+      window.sessionStorage.removeItem(V2_TOKEN_STORAGE_KEY);
+    }
+  }
+  return operatorToken;
+}
+
+function requireOperatorToken(): string {
+  const token = readOperatorToken();
+  if (!token) {
+    throw new V2ApiError('Set an operator token before using the v2 console.', 401);
+  }
+  return token;
+}
+
 function formatApiError(body: string, status: number): string {
   try {
     const parsed = JSON.parse(body) as { detail?: string };
@@ -107,11 +179,12 @@ function formatApiError(body: string, status: number): string {
 }
 
 async function v2Fetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = requireOperatorToken();
   const response = await fetch(`${V2_BASE_URL}${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
-      ...(V2_OPERATOR_TOKEN ? { 'X-BitBat-Operator-Token': V2_OPERATOR_TOKEN } : {}),
+      'X-BitBat-Operator-Token': token,
     },
   });
   if (!response.ok) {
@@ -123,13 +196,17 @@ async function v2Fetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const v2Api = {
   baseUrl: V2_BASE_URL,
+  getOperatorToken: () => readOperatorToken(),
+  hasOperatorToken: () => Boolean(readOperatorToken()),
+  setOperatorToken: (token: string) => persistOperatorToken(token),
+  clearOperatorToken: () => persistOperatorToken(''),
   health: () => v2Fetch<V2HealthResponse>('/v1/health'),
   portfolio: () => v2Fetch<V2PortfolioResponse>('/v1/portfolio'),
   latestSignal: () => v2Fetch<V2SignalResponse>('/v1/signals/latest'),
   orders: (limit = 12) => v2Fetch<V2OrdersResponse>(`/v1/orders?limit=${limit}`),
+  paper: () => v2Fetch<V2PaperResponse>('/v1/paper'),
   pause: () => v2Fetch<V2ControlResponse>('/v1/control/pause', { method: 'POST' }),
   resume: () => v2Fetch<V2ControlResponse>('/v1/control/resume', { method: 'POST' }),
-  retrain: () => v2Fetch<V2ControlResponse>('/v1/control/retrain', { method: 'POST' }),
   acknowledge: (message: string) =>
     v2Fetch<V2ControlResponse>('/v1/control/acknowledge', {
       method: 'POST',
@@ -156,5 +233,4 @@ export const v2Api = {
     v2Fetch<V2SimulateResponse>('/v1/control/sync-market', {
       method: 'POST',
     }),
-  streamUrl: `${V2_BASE_URL}/v1/stream/events?token=${encodeURIComponent(V2_OPERATOR_TOKEN)}`,
 } as const;

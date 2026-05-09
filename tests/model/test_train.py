@@ -90,6 +90,7 @@ def test_fit_xgb_uses_classification_objective(
     cfg = json.loads(booster.save_config())
     objective = cfg["learner"]["objective"]["name"]
     assert objective == "multi:softprob"
+    assert booster.attributes()["label_mode"] == "direction"
 
 
 def test_fit_xgb_classification_output_shape(
@@ -108,6 +109,26 @@ def test_fit_xgb_classification_output_shape(
     probs = booster.predict(dmatrix)
     assert probs.shape == (60, 3), f"Expected (60, 3), got {probs.shape}"
     assert (probs >= 0.0).all() and (probs <= 1.0).all()
+
+
+def test_fit_xgb_supports_triple_barrier_label_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rng = np.random.default_rng(3)
+    X = pd.DataFrame(rng.normal(size=(60, 4)), columns=[f"f{i}" for i in range(4)])
+    X.attrs["freq"] = "1h"
+    X.attrs["horizon"] = "4h"
+    y = pd.Series(rng.choice(["take_profit", "stop_loss", "timeout"], size=60))
+
+    monkeypatch.chdir(tmp_path)
+    booster, _ = fit_xgb(X, y, label_mode="triple_barrier", seed=0)
+
+    assert booster.attributes()["label_mode"] == "triple_barrier"
+    assert json.loads(booster.attributes()["class_labels_json"]) == [
+        "take_profit",
+        "stop_loss",
+        "timeout",
+    ]
 
 
 def test_direction_classes_consistent_across_modules() -> None:

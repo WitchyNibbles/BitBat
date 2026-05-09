@@ -71,7 +71,7 @@ def batch_run(
 
     model_path = _model_path(freq_val, horizon_val)
     _ensure_path_exists(model_path, "Model artifact")
-    booster = load_model(model_path)
+    booster = load_model(model_path, expected_label_mode="direction")
     if not isinstance(booster, xgb.Booster):
         raise click.ClickException("Batch inference requires an XGBoost model artifact.")
 

@@ -95,13 +95,16 @@ poetry run bitbat --help
 Common local entrypoints:
 
 ```bash
-# API
+# Primary v2 API
+poetry run uvicorn bitbat_v2.api.app:app --reload --port 8100
+
+# Legacy API (diagnostic support)
 poetry run uvicorn bitbat.api.app:app --reload
 
-# autonomous ingestion loop
+# Legacy autonomous ingestion loop
 poetry run python scripts/run_ingestion_service.py
 
-# autonomous monitor loop
+# Legacy autonomous monitor loop
 poetry run python scripts/run_monitoring_agent.py
 ```
 
@@ -121,18 +124,30 @@ That image includes:
 
 ### Run BitBat From The Docker Image
 
-If you want the full default container behavior, run the image as-is. It starts:
-- the ingestion service
-- the monitoring agent
-- the FastAPI server on port `8000`
+If you want the primary default container behavior, run the image as-is. It starts:
+- the BitBat v2 FastAPI operator API on port `8100`
 
 ```bash
 docker run --rm \
-  -p 8000:8000 \
+  -p 8100:8100 \
   -v "$PWD/data:/app/data" \
   -v "$PWD/models:/app/models" \
   -v "$PWD/logs:/app/logs" \
   -v "$PWD/config:/app/config" \
+  -e BITBAT_V2_OPERATOR_TOKEN=your-operator-token \
+  bitbat:local
+```
+
+If you need the legacy monitor stack inside the same container, enable it explicitly:
+
+```bash
+docker run --rm \
+  -p 8100:8100 \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/models:/app/models" \
+  -v "$PWD/logs:/app/logs" \
+  -e BITBAT_V2_OPERATOR_TOKEN=your-operator-token \
+  -e BITBAT_LEGACY_SERVICES_ENABLED=true \
   bitbat:local
 ```
 
@@ -160,20 +175,35 @@ docker run --rm -it \
 
 ### Run With Docker Compose
 
-To build and start the API, ingestion service, monitor, and dashboard together:
+To build and start the primary operator stack together:
 
 ```bash
+export BITBAT_V2_OPERATOR_TOKEN=your-operator-token
 docker compose up --build
 ```
 
 Main ports:
 - `8000` → FastAPI API
+- `8100` → BitBat v2 paper-trading API
 - `3000` → React dashboard
+
+Default runtime notes:
+- the React dashboard targets the v2 API by default
+- the React dashboard prompts for the operator token at runtime and keeps it only in session storage
+- `bitbat_v2` is the primary paper-trading operator path
+- the legacy `bitbat` API remains available during migration as diagnostic support
+- legacy ingestion and monitoring are disabled by default; opt in with a `legacy` profile
 
 To run only the API service:
 
 ```bash
 docker compose up --build bitbat-api
+```
+
+To enable the legacy ingestion and monitoring stack explicitly:
+
+```bash
+docker compose --profile legacy up --build
 ```
 
 ---

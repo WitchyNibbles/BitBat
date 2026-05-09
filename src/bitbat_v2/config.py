@@ -5,6 +5,18 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+SUPPORTED_SIGNAL_SOURCES = frozenset({"heuristic", "legacy_ml"})
+
+
+def resolve_signal_source(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized not in SUPPORTED_SIGNAL_SOURCES:
+        supported = ", ".join(sorted(SUPPORTED_SIGNAL_SOURCES))
+        raise ValueError(
+            f"Unsupported BITBAT_V2_SIGNAL_SOURCE '{value}'. Supported values: {supported}."
+        )
+    return normalized
+
 
 @dataclass(frozen=True)
 class BitBatV2Config:
@@ -26,7 +38,10 @@ class BitBatV2Config:
     short_trend_lookback_candles: int = 3
     max_range_ratio: float = 0.012
     min_body_strength: float = 0.35
-    model_name: str = "ritual-momentum-v1"
+    model_name: str = "filtered_momentum_v2"
+    signal_source: str = "heuristic"
+    legacy_signal_freq: str = "5m"
+    legacy_signal_horizon: str = "30m"
     venue: str = "coinbase"
     demo_mode: bool = False
     operator_token: str | None = None
@@ -82,6 +97,14 @@ class BitBatV2Config:
                 os.getenv("BITBAT_V2_MIN_BODY_STRENGTH", str(cls.min_body_strength))
             ),
             model_name=os.getenv("BITBAT_V2_MODEL_NAME", cls.model_name),
+            signal_source=resolve_signal_source(
+                os.getenv("BITBAT_V2_SIGNAL_SOURCE", cls.signal_source)
+            ),
+            legacy_signal_freq=os.getenv("BITBAT_V2_LEGACY_SIGNAL_FREQ", cls.legacy_signal_freq),
+            legacy_signal_horizon=os.getenv(
+                "BITBAT_V2_LEGACY_SIGNAL_HORIZON",
+                cls.legacy_signal_horizon,
+            ),
             venue=os.getenv("BITBAT_V2_VENUE", cls.venue),
             demo_mode=os.getenv(
                 "BITBAT_V2_DEMO_MODE",

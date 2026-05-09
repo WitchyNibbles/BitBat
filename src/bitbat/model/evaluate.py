@@ -379,6 +379,82 @@ def evaluate_promotion_gate(
     }
 
 
+def evaluate_replay_promotion_gate(
+    replay_summary: dict[str, Any],
+    *,
+    min_trade_count: int,
+    max_hold_rate: float,
+    max_calibration_brier: float,
+    min_mean_expected_value_return: float,
+    min_net_pnl_pct: float,
+) -> dict[str, Any]:
+    """Evaluate recent runtime replay evidence before a candidate is promotable."""
+    runtime_compatible = bool(replay_summary.get("runtime_compatible", True))
+    if not runtime_compatible:
+        compatibility_reason = str(
+            replay_summary.get("compatibility_reason", "runtime_incompatible")
+        )
+        return {
+            "pass": False,
+            "runtime_compatible": False,
+            "trade_count": int(replay_summary.get("trade_count", 0)),
+            "hold_rate": float(replay_summary.get("hold_rate", 1.0)),
+            "calibration_brier": replay_summary.get("calibration_brier"),
+            "mean_expected_value_return": float(
+                replay_summary.get("mean_expected_value_return", 0.0)
+            ),
+            "net_pnl_pct": float(replay_summary.get("net_pnl_pct", 0.0)),
+            "thresholds": {
+                "min_trade_count": int(min_trade_count),
+                "max_hold_rate": float(max_hold_rate),
+                "max_calibration_brier": float(max_calibration_brier),
+                "min_mean_expected_value_return": float(min_mean_expected_value_return),
+                "min_net_pnl_pct": float(min_net_pnl_pct),
+            },
+            "reasons": [compatibility_reason],
+        }
+
+    trade_count = int(replay_summary.get("trade_count", 0))
+    hold_rate = float(replay_summary.get("hold_rate", 1.0))
+    calibration_brier = replay_summary.get("calibration_brier")
+    mean_expected_value_return = float(replay_summary.get("mean_expected_value_return", 0.0))
+    net_pnl_pct = float(replay_summary.get("net_pnl_pct", 0.0))
+
+    reasons: list[str] = []
+    if trade_count < int(min_trade_count):
+        reasons.append("replay_trade_count_below_threshold")
+    if hold_rate > float(max_hold_rate):
+        reasons.append("replay_hold_rate_above_threshold")
+    if calibration_brier is None:
+        reasons.append("replay_calibration_missing")
+    elif float(calibration_brier) > float(max_calibration_brier):
+        reasons.append("replay_calibration_brier_above_threshold")
+    if mean_expected_value_return <= float(min_mean_expected_value_return):
+        reasons.append("replay_expected_value_non_positive")
+    if net_pnl_pct <= float(min_net_pnl_pct):
+        reasons.append("replay_net_pnl_pct_non_positive")
+
+    return {
+        "pass": len(reasons) == 0,
+        "runtime_compatible": True,
+        "trade_count": trade_count,
+        "hold_rate": round(hold_rate, 6),
+        "calibration_brier": (
+            round(float(calibration_brier), 6) if calibration_brier is not None else None
+        ),
+        "mean_expected_value_return": round(mean_expected_value_return, 6),
+        "net_pnl_pct": round(net_pnl_pct, 6),
+        "thresholds": {
+            "min_trade_count": int(min_trade_count),
+            "max_hold_rate": float(max_hold_rate),
+            "max_calibration_brier": float(max_calibration_brier),
+            "min_mean_expected_value_return": float(min_mean_expected_value_return),
+            "min_net_pnl_pct": float(min_net_pnl_pct),
+        },
+        "reasons": reasons,
+    }
+
+
 def build_candidate_report(
     *,
     candidate_id: str,

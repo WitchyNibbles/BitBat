@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from bitbat.contracts import ensure_feature_contract
@@ -44,6 +45,8 @@ class DatasetMeta:
     target_max: float
     seed: int | None
     version: str
+    barrier_take_profit: float | None = None
+    barrier_stop_loss: float | None = None
 
 
 def _load_parquet(path: str | Path) -> pd.DataFrame:
@@ -247,6 +250,16 @@ def build_xy(
     dataset["timestamp_utc"] = dataset.index
     dataset["label"] = y_direction
     dataset["r_forward"] = y_returns.astype("float64")
+    if contract_label_mode == "triple_barrier":
+        side_label = pd.Series("flat", index=dataset.index, dtype="string")
+        side_label.loc[dataset["r_forward"] > 0.0] = "up"
+        side_label.loc[dataset["r_forward"] < 0.0] = "down"
+        dataset["side_label"] = side_label
+        dataset["meta_label"] = pd.Series(
+            np.where(dataset["label"] == "timeout", "pass", "act"),
+            index=dataset.index,
+            dtype="string",
+        )
     dataset = dataset.reset_index(drop=True)
     dataset = ensure_feature_contract(
         dataset,
@@ -276,6 +289,12 @@ def build_xy(
         target_max=float(y.max()),
         seed=seed,
         version=version or "unknown",
+        barrier_take_profit=(
+            float(barrier_take_profit) if barrier_take_profit is not None else None
+        ),
+        barrier_stop_loss=(
+            float(barrier_stop_loss) if barrier_stop_loss is not None else None
+        ),
     )
 
     output_base = Path(output_root) if output_root is not None else Path("data")

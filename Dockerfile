@@ -51,7 +51,7 @@ COPY src/bitbat/config/default.yaml config/default.yaml
 
 RUN chmod +x scripts/start.sh
 
-EXPOSE 8000 8501
+EXPOSE 8000 8100 8501
 
-# Run the API and background autonomous monitoring agents
+# Run the primary API surface
 CMD ["/app/scripts/start.sh"]

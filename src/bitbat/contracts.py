@@ -124,15 +124,22 @@ def ensure_feature_contract(  # noqa: C901
             allowed_labels = {"up", "down", "flat"}
         elif resolved_label_mode == "triple_barrier":
             allowed_labels = {"take_profit", "stop_loss", "timeout"}
+        elif resolved_label_mode in {"meta_label", "meta"}:
+            allowed_labels = {"act", "pass"}
         else:
             raise ContractError(
-                "Unsupported feature label_mode. Use 'direction' or 'triple_barrier'."
+                "Unsupported feature label_mode. Use 'direction', 'triple_barrier', or "
+                "'meta_label'."
             )
         invalid_labels = validated.loc[~validated["label"].isin(allowed_labels), "label"]
         if not invalid_labels.empty:
             ordered_labels = ", ".join(sorted(allowed_labels))
             raise ContractError(f"Feature frame labels must be one of: {ordered_labels}.")
         ordered.append("label")
+        for extra_label in ("side_label", "meta_label"):
+            if extra_label in validated.columns:
+                validated[extra_label] = validated[extra_label].astype("string")
+                ordered.append(extra_label)
 
     if require_forward_return:
         if "r_forward" not in validated.columns:

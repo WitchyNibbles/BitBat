@@ -13,15 +13,67 @@ from sklearn.ensemble import RandomForestRegressor
 from bitbat.config.loader import resolve_models_dir
 
 BaselineFamily = Literal["xgb", "random_forest"]
+LabelMode = Literal["direction", "triple_barrier", "meta_label"]
+ArtifactRole = Literal["primary", "side", "action"]
 TreeBaselineModel: TypeAlias = xgb.Booster | RandomForestRegressor
 
 
-def _family_filename(family: BaselineFamily) -> str:
-    return "xgb.json" if family == "xgb" else "random_forest.pkl"
+def normalize_label_mode(label_mode: str | None) -> LabelMode:
+    """Normalize artifact label regimes to a small supported set."""
+    resolved = str(label_mode or "direction").strip().lower()
+    if resolved in {"direction", "return_direction"}:
+        return "direction"
+    if resolved == "triple_barrier":
+        return "triple_barrier"
+    if resolved in {"meta_label", "meta"}:
+        return "meta_label"
+    raise ValueError(
+        "Unsupported label_mode "
+        f"'{label_mode}'. Expected 'direction', 'triple_barrier', or 'meta_label'."
+    )
+
+
+def normalize_artifact_role(role: str | None) -> ArtifactRole:
+    resolved = str(role or "primary").strip().lower()
+    if resolved in {"", "primary"}:
+        return "primary"
+    if resolved == "side":
+        return "side"
+    if resolved == "action":
+        return "action"
+    raise ValueError(
+        f"Unsupported artifact role '{role}'. Expected 'primary', 'side', or 'action'."
+    )
+
+
+def _family_filename(
+    family: BaselineFamily,
+    *,
+    label_mode: LabelMode = "direction",
+    artifact_role: ArtifactRole = "primary",
+) -> str:
+    suffix = ""
+    if artifact_role != "primary":
+        suffix = f".{artifact_role}"
+    if family == "xgb":
+        if label_mode == "direction":
+            return f"xgb{suffix}.json"
+        return f"xgb{suffix}.{label_mode}.json"
+    if label_mode == "direction":
+        return f"random_forest{suffix}.pkl"
+    return f"random_forest{suffix}.{label_mode}.pkl"
 
 
 def _metadata_path(path: Path) -> Path:
     return path.with_suffix(".meta.json")
+
+
+def load_metadata(path: str | Path) -> dict[str, Any]:
+    """Load persisted artifact metadata when available."""
+    metadata_path = _metadata_path(Path(path))
+    if not metadata_path.exists():
+        return {}
+    return json.loads(metadata_path.read_text(encoding="utf-8"))
 
 
 def _infer_family(path: Path, family: BaselineFamily | None = None) -> BaselineFamily:
@@ -45,11 +97,22 @@ def default_model_artifact_path(
     horizon: str,
     *,
     family: BaselineFamily,
+    label_mode: str | None = "direction",
+    artifact_role: str | None = "primary",
     root: str | Path | None = None,
 ) -> Path:
     """Return the canonical artifact path for a baseline family."""
     resolved_root = Path(root) if root is not None else resolve_models_dir()
-    return resolved_root / f"{freq}_{horizon}" / _family_filename(family)
+    resolved_label_mode = normalize_label_mode(label_mode)
+    return (
+        resolved_root
+        / f"{freq}_{horizon}"
+        / _family_filename(
+            family,
+            label_mode=resolved_label_mode,
+            artifact_role=normalize_artifact_role(artifact_role),
+        )
+    )
 
 
 def save(
@@ -88,10 +151,20 @@ def load(
     path: str | Path,
     *,
     family: BaselineFamily | None = None,
+    expected_label_mode: str | None = None,
 ) -> TreeBaselineModel:
     """Load a baseline model artifact from disk."""
     target = Path(path)
     resolved_family = _infer_family(target, family)
+    metadata = load_metadata(target)
+    if expected_label_mode is not None and metadata:
+        resolved_expected = normalize_label_mode(expected_label_mode)
+        artifact_label_mode = normalize_label_mode(str(metadata.get("label_mode", "direction")))
+        if artifact_label_mode != resolved_expected:
+            raise ValueError(
+                "Artifact label_mode mismatch: "
+                f"expected '{resolved_expected}' but found '{artifact_label_mode}' at {target}"
+            )
 
     if resolved_family == "xgb":
         booster = xgb.Booster()
@@ -111,15 +184,27 @@ def save_baseline_artifact(
     family: BaselineFamily,
     freq: str,
     horizon: str,
+    label_mode: str | None = "direction",
+    artifact_role: str | None = "primary",
     root: str | Path | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> Path:
     """Persist a baseline artifact using stable family-aware paths."""
-    target = default_model_artifact_path(freq, horizon, family=family, root=root)
+    resolved_label_mode = normalize_label_mode(label_mode)
+    target = default_model_artifact_path(
+        freq,
+        horizon,
+        family=family,
+        label_mode=resolved_label_mode,
+        artifact_role=artifact_role,
+        root=root,
+    )
     payload = {
         "freq": freq,
         "horizon": horizon,
         "family": family,
+        "label_mode": resolved_label_mode,
+        "artifact_role": normalize_artifact_role(artifact_role),
     }
     if metadata:
         payload.update(metadata)
@@ -132,8 +217,18 @@ def load_baseline_artifact(
     horizon: str,
     *,
     family: BaselineFamily,
+    label_mode: str | None = "direction",
+    artifact_role: str | None = "primary",
     root: str | Path | None = None,
 ) -> TreeBaselineModel:
     """Load a baseline artifact using stable family-aware paths."""
-    target = default_model_artifact_path(freq, horizon, family=family, root=root)
-    return load(target, family=family)
+    resolved_label_mode = normalize_label_mode(label_mode)
+    target = default_model_artifact_path(
+        freq,
+        horizon,
+        family=family,
+        label_mode=resolved_label_mode,
+        artifact_role=artifact_role,
+        root=root,
+    )
+    return load(target, family=family, expected_label_mode=resolved_label_mode)

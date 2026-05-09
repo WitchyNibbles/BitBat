@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import pickle
 from pathlib import Path
@@ -12,11 +13,13 @@ import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
 
 from bitbat.config.loader import resolve_models_dir
+from bitbat.model.persist import normalize_label_mode
 
 BaselineFamily = Literal["xgb", "random_forest"]
 TreeBaselineModel: TypeAlias = xgb.Booster | RandomForestRegressor
 
 DIRECTION_CLASSES: dict[str, int] = {"up": 0, "down": 1, "flat": 2}
+META_LABEL_CLASSES: dict[str, int] = {"pass": 0, "act": 1}
 LOGGER = logging.getLogger(__name__)
 
 
@@ -36,11 +39,56 @@ def _default_model_path(family: BaselineFamily, freq: str, horizon: str) -> Path
     return model_dir / filename
 
 
+def _classification_contract(
+    y_train: pd.Series,
+    *,
+    label_mode: str,
+) -> tuple[pd.Series, list[str]]:
+    resolved_label_mode = normalize_label_mode(label_mode)
+    if pd.api.types.is_numeric_dtype(y_train):
+        if resolved_label_mode != "direction":
+            raise ValueError(
+                "Numeric target conversion is only supported for direction label_mode artifacts."
+            )
+        tau = 0.01
+        try:
+            from bitbat.config.loader import load_config
+
+            tau = float(load_config().get("tau", 0.01))
+        except Exception:
+            LOGGER.debug("Falling back to default tau during baseline training.", exc_info=True)
+
+        y_labels = pd.Series("flat", index=y_train.index, dtype="string")
+        y_labels.loc[y_train >= tau] = "up"
+        y_labels.loc[y_train <= -tau] = "down"
+        return y_labels, ["up", "down", "flat"]
+
+    y_labels = y_train.astype("string")
+    if y_labels.isna().any():
+        raise ValueError("Classification targets must be non-null.")
+
+    if resolved_label_mode == "direction":
+        ordered_labels = ["up", "down", "flat"]
+    elif resolved_label_mode == "meta_label":
+        ordered_labels = ["pass", "act"]
+    else:
+        ordered_labels = ["take_profit", "stop_loss", "timeout"]
+
+    observed = {str(value) for value in y_labels.dropna().unique()}
+    invalid = sorted(observed - set(ordered_labels))
+    if invalid:
+        raise ValueError(
+            f"Label values {invalid} do not match the '{resolved_label_mode}' artifact contract."
+        )
+    return y_labels, ordered_labels
+
+
 def fit_baseline(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     *,
     family: BaselineFamily = "xgb",
+    label_mode: str = "direction",
     seed: int = 42,
     persist: bool = True,
 ) -> tuple[TreeBaselineModel, dict[str, float]]:
@@ -53,27 +101,14 @@ def fit_baseline(
     X = X_train.astype(float)
 
     if family == "xgb":
-        if pd.api.types.is_numeric_dtype(y_train):
-            # Convert float returns to categorical directions for classification
-            tau = 0.01
-            try:
-                from bitbat.config.loader import load_config
-
-                tau = float(load_config().get("tau", 0.01))
-            except Exception:
-                LOGGER.debug("Falling back to default tau during baseline training.", exc_info=True)
-
-            y_dir = pd.Series("flat", index=y_train.index, dtype=str)
-            y_dir.loc[y_train >= tau] = "up"
-            y_dir.loc[y_train <= -tau] = "down"
-            y_encoded = y_dir.map(DIRECTION_CLASSES).astype(int)
-        else:
-            y_encoded = y_train.map(DIRECTION_CLASSES).astype(int)
+        y_labels, class_labels = _classification_contract(y_train, label_mode=label_mode)
+        encoding = {label: index for index, label in enumerate(class_labels)}
+        y_encoded = y_labels.map(encoding).astype(int)
 
         dtrain = xgb.DMatrix(X, label=y_encoded.to_numpy(), feature_names=list(X.columns))
         params = {
             "objective": "multi:softprob",
-            "num_class": 3,
+            "num_class": len(class_labels),
             "eval_metric": "mlogloss",
             "seed": seed,
             "eta": 0.05,
@@ -87,6 +122,10 @@ def fit_baseline(
             feature: float(value[0] if isinstance(value, list) else value)
             for feature, value in {col: raw_importance.get(col, 0.0) for col in X.columns}.items()
         }
+        booster.set_attr(
+            label_mode=normalize_label_mode(label_mode),
+            class_labels_json=json.dumps(class_labels),
+        )
         model: TreeBaselineModel = booster
     elif family == "random_forest":
         random_forest = RandomForestRegressor(
@@ -128,6 +167,7 @@ def fit_xgb(
     X_train: pd.DataFrame,
     y_train: pd.Series,
     *,
+    label_mode: str = "direction",
     seed: int = 42,
     persist: bool = True,
 ) -> tuple[xgb.Booster, dict[str, float]]:
@@ -136,6 +176,7 @@ def fit_xgb(
         X_train,
         y_train,
         family="xgb",
+        label_mode=label_mode,
         seed=seed,
         persist=persist,
     )

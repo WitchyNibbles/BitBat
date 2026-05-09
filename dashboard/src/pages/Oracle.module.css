@@ -119,8 +119,16 @@
   grid-column: span 4;
 }
 
+.span3 {
+  grid-column: span 3;
+}
+
 .span5 {
   grid-column: span 5;
+}
+
+.span6 {
+  grid-column: span 6;
 }
 
 .span7 {
@@ -156,6 +164,41 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 18px;
+}
+
+.authRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.authLabel {
+  color: rgba(241, 237, 221, 0.72);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.authInput {
+  min-width: min(100%, 320px);
+  padding: 10px 14px;
+  border: 1px solid rgba(228, 196, 87, 0.18);
+  border-radius: 999px;
+  background: rgba(12, 18, 16, 0.74);
+  color: #f1eddd;
+  outline: none;
+}
+
+.authInput:focus {
+  border-color: rgba(228, 196, 87, 0.44);
+  box-shadow: 0 0 0 3px rgba(228, 196, 87, 0.12);
+}
+
+.authHint {
+  color: rgba(241, 237, 221, 0.58);
+  font-size: 0.8rem;
 }
 
 .button {
@@ -288,8 +331,10 @@
 }
 
 @media (max-width: 1080px) {
+  .span3,
   .span4,
   .span5,
+  .span6,
   .span7 {
     grid-column: span 12;
   }

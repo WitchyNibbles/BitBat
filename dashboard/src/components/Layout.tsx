@@ -15,6 +15,7 @@ const PAGE_TITLES: Record<Page, string> = {
 interface LayoutProps {
   activePage: Page;
   onNavigate: (page: Page) => void;
+  showLegacyPages: boolean;
   statusColor?: 'success' | 'amber' | 'danger';
   children: ReactNode;
 }
@@ -22,12 +23,17 @@ interface LayoutProps {
 export function Layout({
   activePage,
   onNavigate,
+  showLegacyPages,
   statusColor = 'amber',
   children,
 }: LayoutProps) {
   return (
     <div className={styles.layout}>
-      <Sidebar activePage={activePage} onNavigate={onNavigate} />
+      <Sidebar
+        activePage={activePage}
+        showLegacyPages={showLegacyPages}
+        onNavigate={onNavigate}
+      />
       <main className={styles.main}>
         <header className={styles.header}>
           <h1>{PAGE_TITLES[activePage]}</h1>

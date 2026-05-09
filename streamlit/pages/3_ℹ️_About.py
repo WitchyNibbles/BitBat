@@ -37,7 +37,8 @@ BitBat is an autonomous Bitcoin price prediction system that:
 
 4. **Validates Results** — After each prediction period passes, the system checks whether it was right and calculates accuracy.
 
-5. **Self-Improves** — If accuracy drops below a threshold, the system automatically retrains the model using the latest data.
+5. **Separates Runtime Roles** — The legacy monitor can still retrain ML models, while the active v2
+paper-trading runtime focuses on execution, ledgering, and operator control.
 """
 )
 
@@ -120,8 +121,10 @@ with st.expander("Why does the system retrain itself?"):
     st.markdown(
         """
 Markets change over time — patterns that worked 6 months ago may not work today.
-BitBat automatically detects when its accuracy drops and retrains the model using the
-most recent data. This usually takes a few minutes and happens in the background.
+BitBat's legacy monitoring pipeline can detect drift and retrain models using the
+most recent data. The active v2 paper-trading runtime does **not** retrain itself yet;
+it consumes an explicit signal source and keeps trading/paper-ledger behavior separate
+from model lifecycle work during migration.
 
 You can see retraining history on the **Performance** page.
 """

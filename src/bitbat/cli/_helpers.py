@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn
@@ -18,7 +19,7 @@ from bitbat.config.loader import (
     get_runtime_config_source,
 )
 from bitbat.contracts import ensure_feature_contract
-from bitbat.model.persist import default_model_artifact_path
+from bitbat.model.persist import default_model_artifact_path, normalize_label_mode
 from bitbat.timealign.calendar import ensure_utc
 
 if TYPE_CHECKING:
@@ -85,6 +86,10 @@ def _feature_dataset_path(freq: str, horizon: str) -> Path:
     return _data_path("features", f"{freq}_{horizon}", "dataset.parquet")
 
 
+def _feature_dataset_meta_path(freq: str, horizon: str) -> Path:
+    return _data_path("features", f"{freq}_{horizon}", "meta.json")
+
+
 def _load_feature_dataset(
     freq: str,
     horizon: str,
@@ -95,12 +100,18 @@ def _load_feature_dataset(
     dataset_path = _feature_dataset_path(freq, horizon)
     _ensure_path_exists(dataset_path, "Feature dataset")
     dataset = pd.read_parquet(dataset_path)
+    dataset_meta_path = _feature_dataset_meta_path(freq, horizon)
+    dataset_meta: dict[str, Any] = {}
+    if dataset_meta_path.exists():
+        dataset_meta = json.loads(dataset_meta_path.read_text(encoding="utf-8"))
+    label_mode = normalize_label_mode(str(dataset_meta.get("label_mode", "direction")))
     _require_fwd = require_forward_return if require_forward_return is not None else require_label
     dataset = ensure_feature_contract(
         dataset,
         require_label=require_label,
         require_forward_return=_require_fwd,
         require_features_full=_sentiment_enabled(),
+        label_mode=label_mode,
     )
     return dataset.sort_values("timestamp_utc").set_index("timestamp_utc")
 

@@ -13,18 +13,23 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { page: 'oracle', label: 'Oracle', icon: MoonStar },
   { page: 'home', label: 'Dashboard', icon: Home },
-  { page: 'quickstart', label: 'Quick Start', icon: Zap },
-  { page: 'performance', label: 'Performance', icon: BarChart3 },
+  { page: 'quickstart', label: 'Legacy Quick Start', icon: Zap },
+  { page: 'performance', label: 'Legacy Performance', icon: BarChart3 },
   { page: 'settings', label: 'Settings', icon: Settings },
-  { page: 'system', label: 'System', icon: Activity },
+  { page: 'system', label: 'Legacy System', icon: Activity },
 ];
 
 interface SidebarProps {
   activePage: Page;
+  showLegacyPages: boolean;
   onNavigate: (page: Page) => void;
 }
 
-export function Sidebar({ activePage, onNavigate }: SidebarProps) {
+export function Sidebar({ activePage, onNavigate, showLegacyPages }: SidebarProps) {
+  const visibleNavItems = showLegacyPages
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter(({ page }) => page === 'oracle');
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
@@ -35,7 +40,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
       <div className="divider">&#x2726;</div>
 
       <nav className={styles.nav}>
-        {NAV_ITEMS.map(({ page, label, icon: Icon }) => (
+        {visibleNavItems.map(({ page, label, icon: Icon }) => (
           <button
             key={page}
             className={`${styles.navItem} ${activePage === page ? styles.active : ''}`}
